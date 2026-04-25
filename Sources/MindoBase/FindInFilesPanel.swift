@@ -14,7 +14,7 @@ public struct FindInFilesPanel: View {
     @State private var results: [FoundFile] = []
     @State private var isSearching: Bool = false
     @State private var searchTask: Task<Void, Never>?
-    @State private var debounce: DispatchWorkItem?
+    @State private var debouncer = Debouncer()
 
     public init(workspaceRoots: [URL], onOpen: @escaping (URL, SearchHit) -> Void) {
         self.workspaceRoots = workspaceRoots
@@ -83,14 +83,11 @@ public struct FindInFilesPanel: View {
                 .listStyle(.sidebar)
             }
         }
-        .onDisappear { searchTask?.cancel(); debounce?.cancel() }
+        .onDisappear { searchTask?.cancel(); debouncer.cancel() }
     }
 
     private func scheduleSearch() {
-        debounce?.cancel()
-        let work = DispatchWorkItem { runSearch() }
-        debounce = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: work)
+        debouncer.schedule(after: 0.25) { Task { @MainActor in runSearch() } }
     }
 
     private func runSearch() {

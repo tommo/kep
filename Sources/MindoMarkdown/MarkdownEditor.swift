@@ -140,7 +140,7 @@ public struct MarkdownEditor: NSViewRepresentable {
         var webView: WKWebView?
         var lastNavigated: String?
         let highlighter = MarkdownHighlighter()
-        private var debounceWorkItem: DispatchWorkItem?
+        private let previewDebouncer = Debouncer()
         /// Suppress reciprocal scroll mirroring while we're programmatically
         /// driving one side. Counted both ways to avoid feedback loops.
         private var ignoreTextScroll = false
@@ -262,10 +262,7 @@ public struct MarkdownEditor: NSViewRepresentable {
             parent.text = tv.string
             applyHighlighting()
             // Debounce preview re-rendering — typing should feel snappy.
-            debounceWorkItem?.cancel()
-            let work = DispatchWorkItem { [weak self] in self?.refreshPreview() }
-            debounceWorkItem = work
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
+            previewDebouncer.schedule(after: 0.15) { [weak self] in self?.refreshPreview() }
         }
 
         func applyHighlighting() {

@@ -53,7 +53,7 @@ public struct PlantUMLEditor: NSViewRepresentable {
         var textView: NSTextView?
         var webView: WKWebView?
         let highlighter = PlantUMLHighlighter()
-        private var debounce: DispatchWorkItem?
+        private let renderDebouncer = Debouncer()
 
         init(parent: PlantUMLEditor) { self.parent = parent }
 
@@ -71,13 +71,9 @@ public struct PlantUMLEditor: NSViewRepresentable {
         }
 
         func scheduleRender(immediate: Bool) {
-            debounce?.cancel()
-            let work = DispatchWorkItem { [weak self] in self?.render() }
-            debounce = work
-            DispatchQueue.main.asyncAfter(
-                deadline: .now() + (immediate ? 0.05 : 0.40),
-                execute: work
-            )
+            renderDebouncer.schedule(after: immediate ? 0.05 : 0.40) { [weak self] in
+                self?.render()
+            }
         }
 
         private func render() {

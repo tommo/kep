@@ -212,6 +212,10 @@ public final class MindMapView: NSView {
             drawElement(el, into: ctx)
         }
 
+        // Jump arrows for ExtraTopic links — drawn over the topics so they're
+        // visible above shadow + fill.
+        drawJumpArrows(rootElement: root, into: ctx)
+
         // Selection overlay on top — secondary members of the multi-selection
         // first (lighter), primary on top.
         if !selectedTopics.isEmpty, let root = rootElement {
@@ -375,6 +379,69 @@ public final class MindMapView: NSView {
             width: tinted.size.width, height: tinted.size.height
         )
         tinted.draw(in: drawRect)
+    }
+
+    /// Draw a dashed cubic-bezier arrow for every topic that has an
+    /// ExtraTopic pointing to another topic in the same map. Mirrors
+    /// `mindmap-panel`'s "jump" overlay.
+    private func drawJumpArrows(rootElement: MindMapElement, into ctx: CGContext) {
+        guard let map = mindMap else { return }
+        ctx.saveGState()
+        ctx.setLineDash(phase: 0, lengths: [6, 4])
+        ctx.setStrokeColor(NSColor.systemPurple.withAlphaComponent(0.85).cgColor)
+        ctx.setFillColor(NSColor.systemPurple.cgColor)
+        ctx.setLineWidth(1.2)
+        rootElement.traverse { el in
+            guard let extra = el.topic.extra(.topic) as? ExtraTopic,
+                  let target = map.findTopic(uid: extra.value),
+                  let targetEl = element(forTopic: target) else { return }
+            drawJumpArrow(from: el, to: targetEl, into: ctx)
+        }
+        ctx.restoreGState()
+    }
+
+    private func drawJumpArrow(from a: MindMapElement, to b: MindMapElement, into ctx: CGContext) {
+        let start = CGPoint(x: a.frame.midX, y: a.frame.midY)
+        let end = CGPoint(x: b.frame.midX, y: b.frame.midY)
+        // Anchor the line on the box edges so it doesn't disappear under the
+        // topic rects.
+        let p1 = clip(point: start, against: a.frame, towards: end)
+        let p2 = clip(point: end, against: b.frame, towards: start)
+        let dx = p2.x - p1.x, dy = p2.y - p1.y
+        // Bow the arc out by 30% of the chord length so curves don't overlap
+        // straight connectors.
+        let bowOffset = max(28, hypot(dx, dy) * 0.30)
+        let cx = (p1.x + p2.x) / 2 + (-dy / hypot(dx, dy)) * bowOffset
+        let cy = (p1.y + p2.y) / 2 + (dx / hypot(dx, dy)) * bowOffset
+
+        ctx.beginPath()
+        ctx.move(to: p1)
+        ctx.addQuadCurve(to: p2, control: CGPoint(x: cx, y: cy))
+        ctx.strokePath()
+
+        // Arrow head at p2.
+        let head: CGFloat = 9
+        let angle = atan2(p2.y - cy, p2.x - cx)
+        let h1 = CGPoint(x: p2.x - head * cos(angle - .pi / 6), y: p2.y - head * sin(angle - .pi / 6))
+        let h2 = CGPoint(x: p2.x - head * cos(angle + .pi / 6), y: p2.y - head * sin(angle + .pi / 6))
+        ctx.beginPath()
+        ctx.move(to: p2); ctx.addLine(to: h1); ctx.addLine(to: h2); ctx.closePath()
+        ctx.fillPath()
+    }
+
+    /// Clip a line endpoint to the rectangle's edge along the line towards `away`.
+    private func clip(point: CGPoint, against rect: CGRect, towards away: CGPoint) -> CGPoint {
+        let dx = away.x - point.x, dy = away.y - point.y
+        guard dx != 0 || dy != 0 else { return point }
+        let length = hypot(dx, dy)
+        let nx = dx / length, ny = dy / length
+        // Step out along the direction until we leave the rect.
+        var t: CGFloat = 0
+        let step: CGFloat = 1
+        while t < length, rect.contains(CGPoint(x: point.x + nx * t, y: point.y + ny * t)) {
+            t += step
+        }
+        return CGPoint(x: point.x + nx * t, y: point.y + ny * t)
     }
 
     private func drawConnector(from parent: MindMapElement, to child: MindMapElement, into ctx: CGContext) {

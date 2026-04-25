@@ -72,6 +72,17 @@ public final class MindMap {
         if let v = value { attributes[key] = v } else { attributes.removeValue(forKey: key) }
     }
 
+    /// Find the topic with the given `topicLinkUID` attribute. Used by
+    /// ExtraTopic jump rendering to resolve a UID back to a node.
+    public func findTopic(uid: String) -> Topic? {
+        guard let root = root else { return nil }
+        var found: Topic?
+        root.traverse { topic in
+            if found == nil, topic.attribute(ExtraTopic.topicUidAttr) == uid { found = topic }
+        }
+        return found
+    }
+
     // MARK: - Attribute serialization helpers
 
     /// Produce the comma-separated `key=`value`` attribute string used in `> ` lines.

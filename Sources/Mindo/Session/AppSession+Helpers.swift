@@ -47,15 +47,24 @@ extension AppSession {
     func insertSnippet(_ snippet: Snippet) {
         guard let id = activeDocumentID,
               let idx = openDocuments.firstIndex(where: { $0.id == id }) else { return }
+        let expanded = SnippetExpander.expand(snippet.body, context: snippetContext(for: openDocuments[idx]))
         switch openDocuments[idx].kind {
         case .text(let body, let t):
             let glue = body.hasSuffix("\n") || body.isEmpty ? "" : "\n"
-            openDocuments[idx].kind = .text(body + glue + snippet.body, fileType: t)
+            openDocuments[idx].kind = .text(body + glue + expanded, fileType: t)
         case .mindMap(let map):
-            appendLinesAsChildren(of: map, text: snippet.body)
+            appendLinesAsChildren(of: map, text: expanded)
         case .unsupported:
             break
         }
+    }
+
+    /// Build the per-doc context that `${filename}` and `${title}` need.
+    private func snippetContext(for doc: OpenDocument) -> SnippetExpander.Context {
+        let filename = doc.fileURL?.deletingPathExtension().lastPathComponent ?? ""
+        var title = ""
+        if case .mindMap(let map) = doc.kind { title = map.root?.text ?? "" }
+        return SnippetExpander.Context(filename: filename, title: title)
     }
 
     /// Split `text` by line and add each non-empty line as a child of the

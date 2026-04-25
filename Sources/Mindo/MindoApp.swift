@@ -10,6 +10,18 @@ import MindoMarkdown
 import MindoPlantUML
 import MindoModel
 
+extension NSView {
+    /// Recursive depth-first search for the first descendant of `type`
+    /// matching `predicate`. Used by the zoom-command bridge above.
+    func firstSubview<T: NSView>(ofType _: T.Type, where predicate: (T) -> Bool) -> T? {
+        if let typed = self as? T, predicate(typed) { return typed }
+        for sub in subviews {
+            if let hit = sub.firstSubview(ofType: T.self, where: predicate) { return hit }
+        }
+        return nil
+    }
+}
+
 /// Convenience: localized string lookup from the app's bundle (forwards to
 /// `String(localized:bundle:)` so we can write `L("key")` everywhere).
 @inline(__always) func L(_ key: String.LocalizationValue) -> String {
@@ -107,6 +119,13 @@ struct MindoApp: App {
                     Text(L("menu.view.theme.dark")).tag(ThemeChoice.dark)
                     Text(L("menu.view.theme.classic")).tag(ThemeChoice.classic)
                 }
+                Divider()
+                Button(L("menu.view.zoom_in")) { session.zoomCommand = .in; session.zoomCommandTick &+= 1 }
+                    .keyboardShortcut("=", modifiers: .command)
+                Button(L("menu.view.zoom_out")) { session.zoomCommand = .out; session.zoomCommandTick &+= 1 }
+                    .keyboardShortcut("-", modifiers: .command)
+                Button(L("menu.view.reset_zoom")) { session.zoomCommand = .reset; session.zoomCommandTick &+= 1 }
+                    .keyboardShortcut("0", modifiers: .command)
             }
             CommandMenu(L("menu.ai")) {
                 Button(L("menu.ai.generate")) { session.openAIGenerate() }
@@ -169,6 +188,12 @@ final class AppSession {
     /// scroll/center on change. Reset to nil after a brief debounce so the
     /// same target can fire again.
     var outlineNavigationTarget: String?
+
+    /// View > Zoom command + monotonically-increasing tick so the canvas
+    /// observes any new request even when the same enum case repeats.
+    enum ZoomCommand { case `in`, out, reset }
+    var zoomCommand: ZoomCommand = .reset
+    var zoomCommandTick: UInt64 = 0
 
     /// Snippet picker sheet flag.
     var snippetPickerOpen: Bool = false
@@ -826,6 +851,20 @@ struct EditorPane: View {
                 onExtraFileTap: { url in session.open(url: url) },
                 navigationTarget: session.sanitizedNavigationTarget
             )
+            .onChange(of: session.zoomCommandTick) { _, _ in
+                // The canvas is created lazily inside MindMapCanvas; we route
+                // zoom commands by walking the App's window's content tree
+                // for an NSScrollView whose document is a MindMapView.
+                guard let win = NSApp.keyWindow else { return }
+                if let scroll = win.contentView?.firstSubview(ofType: NSScrollView.self,
+                                                              where: { $0.documentView is MindMapView }) {
+                    switch session.zoomCommand {
+                    case .in:    MindMapCanvas.zoom(scroll, by: 1.25)
+                    case .out:   MindMapCanvas.zoom(scroll, by: 1.0 / 1.25)
+                    case .reset: MindMapCanvas.resetZoom(scroll)
+                    }
+                }
+            }
         case .text(_, .markdown):
             MarkdownEditor(
                 text: textBinding(for: documentID),

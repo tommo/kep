@@ -54,6 +54,13 @@ public final class MindMapView: NSView {
     private var dragTargetElement: MindMapElement?
     private let dragThreshold: CGFloat = 4
 
+    /// Pan state — entered when the user holds space and drags. Distinct from
+    /// the topic-drag-to-reparent state above so a paused space-drag doesn't
+    /// accidentally pick up a topic.
+    private var isSpaceDown: Bool = false
+    private var panOriginInWindow: CGPoint?
+    private var panStartScroll: CGPoint?
+
     // MARK: - Init
 
     public override init(frame frameRect: NSRect) {
@@ -486,6 +493,12 @@ public final class MindMapView: NSView {
     public override func mouseDown(with event: NSEvent) {
         commitInlineEdit()
         let p = convert(event.locationInWindow, from: nil)
+        // Space-drag wins over everything — it's a temporary "pan" mode.
+        if isSpaceDown, let scroll = enclosingScrollView {
+            panOriginInWindow = event.locationInWindow
+            panStartScroll = scroll.contentView.bounds.origin
+            return
+        }
         // Extra-icon hit-test runs first so clicks on the icon strip don't
         // start a drag or change selection.
         if let (el, type) = elementExtra(at: p) {
@@ -568,6 +581,17 @@ public final class MindMapView: NSView {
     }
 
     public override func mouseDragged(with event: NSEvent) {
+        // Space-drag pan: translate the scroll view's clip origin by the
+        // window-space delta since mouseDown.
+        if let panOrigin = panOriginInWindow, let panStart = panStartScroll, let scroll = enclosingScrollView {
+            let dx = event.locationInWindow.x - panOrigin.x
+            let dy = event.locationInWindow.y - panOrigin.y
+            // isFlipped → AppKit's bounds y grows downward inside the clip view.
+            let target = NSPoint(x: panStart.x - dx, y: panStart.y + dy)
+            scroll.contentView.scroll(to: target)
+            scroll.reflectScrolledClipView(scroll.contentView)
+            return
+        }
         guard let origin = dragOrigin, let source = dragSourceElement else { return }
         let p = convert(event.locationInWindow, from: nil)
         if dragGhostCenter == nil {
@@ -580,6 +604,11 @@ public final class MindMapView: NSView {
     }
 
     public override func mouseUp(with event: NSEvent) {
+        if panOriginInWindow != nil {
+            panOriginInWindow = nil
+            panStartScroll = nil
+            return
+        }
         defer { resetDragState() }
         guard let source = dragSourceElement,
               dragGhostCenter != nil,
@@ -620,6 +649,14 @@ public final class MindMapView: NSView {
         guard let chars = event.charactersIgnoringModifiers else { super.keyDown(with: event); return }
         let isShift = event.modifierFlags.contains(.shift)
 
+        if chars == " " {
+            if !isSpaceDown {
+                isSpaceDown = true
+                NSCursor.openHand.push()
+            }
+            return
+        }
+
         switch chars {
         case "\t": addChild()
         case "\r":
@@ -640,6 +677,40 @@ public final class MindMapView: NSView {
         default:
             super.keyDown(with: event)
         }
+    }
+
+    public override func keyUp(with event: NSEvent) {
+        if event.charactersIgnoringModifiers == " " {
+            if isSpaceDown {
+                isSpaceDown = false
+                NSCursor.pop()
+            }
+            return
+        }
+        super.keyUp(with: event)
+    }
+
+    // MARK: - Zoom
+
+    /// Snap-step the magnification — used by the App's View menu.
+    public func zoom(by factor: CGFloat) {
+        guard let scroll = enclosingScrollView else { return }
+        scroll.magnification = Self.clampedZoom(
+            current: scroll.magnification,
+            factor: factor,
+            min: scroll.minMagnification,
+            max: scroll.maxMagnification
+        )
+    }
+
+    public func resetZoom() {
+        enclosingScrollView?.magnification = 1.0
+    }
+
+    /// Zoom math exposed for unit tests — clamps to a bounded range and snaps
+    /// to the supplied factor.
+    public static func clampedZoom(current: CGFloat, factor: CGFloat, min lower: CGFloat, max upper: CGFloat) -> CGFloat {
+        return Swift.max(lower, Swift.min(upper, current * factor))
     }
 
     enum Direction { case left, right, up, down }

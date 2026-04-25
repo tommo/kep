@@ -45,6 +45,18 @@ public struct MindMapCanvas: NSViewRepresentable {
         return scroll
     }
 
+    /// Bounce the active zoom action up to the underlying view. Used by App
+    /// menu items (Reset / Zoom In / Zoom Out).
+    public static func zoom(_ scroll: NSScrollView, by factor: CGFloat) {
+        guard let view = scroll.documentView as? MindMapView else { return }
+        view.zoom(by: factor)
+    }
+
+    public static func resetZoom(_ scroll: NSScrollView) {
+        guard let view = scroll.documentView as? MindMapView else { return }
+        view.resetZoom()
+    }
+
     public func updateNSView(_ scroll: NSScrollView, context: Context) {
         guard let view = scroll.documentView as? MindMapView else { return }
         view.theme = theme

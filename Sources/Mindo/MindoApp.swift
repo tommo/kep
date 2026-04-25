@@ -84,8 +84,19 @@ struct MindoApp: App {
                         }
                     }
                 }
+                .sheet(isPresented: $session.aboutOpen) { AboutView() }
         }
         .commands {
+            CommandGroup(replacing: .appInfo) {
+                Button(L("menu.help.about")) { session.aboutOpen = true }
+            }
+            CommandGroup(replacing: .help) {
+                Button(L("menu.help.releases")) {
+                    if let url = URL(string: ReleaseChecker.releasesPageURL) {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+            }
             CommandGroup(replacing: .newItem) {
                 Button(L("menu.file.new_mindmap")) { session.newMindMap() }
                     .keyboardShortcut("n", modifiers: .command)
@@ -248,6 +259,8 @@ final class AppSession {
 
     /// Snippet picker sheet flag.
     var snippetPickerOpen: Bool = false
+    /// About-Mindo sheet flag.
+    var aboutOpen: Bool = false
 
     /// Find-in-files sheet flag.
     var findInFilesOpen: Bool = false

@@ -129,6 +129,14 @@
 "prefs.ai.section.behavior" = "行为";
 "prefs.ai.streaming" = "流式输出（推荐）";
 
+/* MARK: - 帮助 / 关于 */
+"menu.help.about" = "关于 Mindo";
+"menu.help.releases" = "检查更新…";
+"about.version_format" = "版本 %@（构建 %@）";
+"about.tagline" = "Mindolph 的 macOS 原生移植版 —— 思维导图、Markdown、PlantUML、CSV 一体化。";
+"about.button.releases" = "GitHub 发布页";
+"about.button.close" = "关闭";
+
 /* MARK: - 错误 */
 "error.open_failed" = "打开失败：%@";
 "error.save_failed" = "保存失败：%@";

@@ -132,6 +132,14 @@
 "prefs.ai.section.behavior" = "Behavior";
 "prefs.ai.streaming" = "Stream responses (recommended)";
 
+/* MARK: - Help / About */
+"menu.help.about" = "About Mindo";
+"menu.help.releases" = "Check for Updates…";
+"about.version_format" = "Version %@ (build %@)";
+"about.tagline" = "Native macOS port of Mindolph — knowledge management for mind maps, markdown, PlantUML, and CSV.";
+"about.button.releases" = "Releases on GitHub";
+"about.button.close" = "Close";
+
 /* MARK: - Errors */
 "error.open_failed" = "Open failed: %@";
 "error.save_failed" = "Save failed: %@";

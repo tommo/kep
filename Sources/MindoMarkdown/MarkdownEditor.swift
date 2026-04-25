@@ -169,13 +169,74 @@ public struct MarkdownEditor: NSViewRepresentable {
         @objc func toolbarStrikethrough() { applyTransform(MarkdownFormatting.strikethrough) }
         @objc func toolbarComment()       { applyTransform(MarkdownFormatting.comment) }
         @objc func toolbarTable() {
-            // Quick row × col prompt — full TableDialog is parity #64.
-            guard let dim = promptString(title: "Insert Table", message: "rows × cols (e.g. 3x4):", initial: "3x3") else { return }
-            let parts = dim.lowercased().split(whereSeparator: { $0 == "x" || $0 == "*" || $0 == "×" })
-            guard parts.count == 2,
-                  let rows = Int(parts[0].trimmingCharacters(in: .whitespaces)),
-                  let cols = Int(parts[1].trimmingCharacters(in: .whitespaces)) else { return }
-            applyTransform { MarkdownFormatting.table($0, range: $1, rows: rows, cols: cols) }
+            // Picker dialog with rows + cols steppers + alignment segmented
+            // control. Mirrors mindolph's TableDialog at the input level.
+            let alert = NSAlert()
+            alert.messageText = "Insert Table"
+            alert.informativeText = "Pick the table size and column alignment."
+
+            let stack = NSStackView()
+            stack.orientation = .vertical
+            stack.alignment = .leading
+            stack.spacing = 8
+            stack.frame = NSRect(x: 0, y: 0, width: 320, height: 100)
+
+            let rowsRow = NSStackView()
+            rowsRow.orientation = .horizontal
+            rowsRow.spacing = 8
+            let rowsLabel = NSTextField(labelWithString: "Rows:")
+            rowsLabel.frame.size.width = 60
+            let rowsField = NSTextField(string: "3"); rowsField.frame.size.width = 48; rowsField.alignment = .right
+            let rowsStepper = NSStepper(); rowsStepper.minValue = 1; rowsStepper.maxValue = 30; rowsStepper.integerValue = 3
+            rowsStepper.target = self; rowsStepper.action = #selector(syncStepperToField(_:))
+            stepperFieldMap[ObjectIdentifier(rowsStepper)] = rowsField
+            rowsRow.addArrangedSubview(rowsLabel); rowsRow.addArrangedSubview(rowsField); rowsRow.addArrangedSubview(rowsStepper)
+
+            let colsRow = NSStackView()
+            colsRow.orientation = .horizontal
+            colsRow.spacing = 8
+            let colsLabel = NSTextField(labelWithString: "Columns:")
+            colsLabel.frame.size.width = 60
+            let colsField = NSTextField(string: "3"); colsField.frame.size.width = 48; colsField.alignment = .right
+            let colsStepper = NSStepper(); colsStepper.minValue = 1; colsStepper.maxValue = 12; colsStepper.integerValue = 3
+            colsStepper.target = self; colsStepper.action = #selector(syncStepperToField(_:))
+            stepperFieldMap[ObjectIdentifier(colsStepper)] = colsField
+            colsRow.addArrangedSubview(colsLabel); colsRow.addArrangedSubview(colsField); colsRow.addArrangedSubview(colsStepper)
+
+            let alignRow = NSStackView()
+            alignRow.orientation = .horizontal
+            alignRow.spacing = 8
+            let alignLabel = NSTextField(labelWithString: "Align:")
+            alignLabel.frame.size.width = 60
+            let alignSeg = NSSegmentedControl(labels: ["Default", "Left", "Center", "Right"], trackingMode: .selectOne, target: nil, action: nil)
+            alignSeg.selectedSegment = 0
+            alignRow.addArrangedSubview(alignLabel); alignRow.addArrangedSubview(alignSeg)
+
+            stack.addArrangedSubview(rowsRow)
+            stack.addArrangedSubview(colsRow)
+            stack.addArrangedSubview(alignRow)
+            alert.accessoryView = stack
+            alert.addButton(withTitle: "Insert")
+            alert.addButton(withTitle: "Cancel")
+            guard alert.runModal() == .alertFirstButtonReturn else { return }
+
+            let rows = max(1, Int(rowsField.stringValue) ?? rowsStepper.integerValue)
+            let cols = max(1, Int(colsField.stringValue) ?? colsStepper.integerValue)
+            let alignment: MarkdownFormatting.TableAlignment
+            switch alignSeg.selectedSegment {
+            case 1: alignment = .left
+            case 2: alignment = .center
+            case 3: alignment = .right
+            default: alignment = .none
+            }
+            applyTransform { MarkdownFormatting.table($0, range: $1, rows: rows, cols: cols, alignment: alignment) }
+        }
+
+        /// Backing map so the stepper action can find its sibling field.
+        private var stepperFieldMap: [ObjectIdentifier: NSTextField] = [:]
+
+        @objc private func syncStepperToField(_ sender: NSStepper) {
+            stepperFieldMap[ObjectIdentifier(sender)]?.stringValue = String(sender.integerValue)
         }
 
         @objc func toolbarImage() {

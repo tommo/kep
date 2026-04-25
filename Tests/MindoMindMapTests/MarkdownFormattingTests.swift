@@ -103,4 +103,25 @@ final class MarkdownFormattingTests: XCTestCase {
         let (text, _) = MarkdownFormatting.table("", range: nsRange(0, 0), rows: 0, cols: 0)
         XCTAssertTrue(text.contains("| Header 1 |"))
     }
+
+    func testTableAlignmentLeftEmitsLeadingColon() {
+        let (text, _) = MarkdownFormatting.table("", range: nsRange(0, 0), rows: 1, cols: 2, alignment: .left)
+        XCTAssertTrue(text.contains("| :--- | :--- |"), "got:\n\(text)")
+    }
+
+    func testTableAlignmentCenterEmitsBothColons() {
+        let (text, _) = MarkdownFormatting.table("", range: nsRange(0, 0), rows: 1, cols: 2, alignment: .center)
+        XCTAssertTrue(text.contains("| :---: | :---: |"), "got:\n\(text)")
+    }
+
+    func testTableAlignmentRightEmitsTrailingColon() {
+        let (text, _) = MarkdownFormatting.table("", range: nsRange(0, 0), rows: 1, cols: 2, alignment: .right)
+        XCTAssertTrue(text.contains("| ---: | ---: |"), "got:\n\(text)")
+    }
+
+    func testTableAlignmentNoneIsTheDefault() {
+        let (a, _) = MarkdownFormatting.table("", range: nsRange(0, 0), rows: 1, cols: 2)
+        let (b, _) = MarkdownFormatting.table("", range: nsRange(0, 0), rows: 1, cols: 2, alignment: .none)
+        XCTAssertEqual(a, b)
+    }
 }

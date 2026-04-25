@@ -193,14 +193,28 @@ public enum MarkdownFormatting {
         return (joined, newRange)
     }
 
+    /// Column alignment markers for the GFM table separator row. `.none`
+    /// emits the classic `---` sentinel; the others wrap with colons.
+    public enum TableAlignment: Sendable {
+        case none, left, center, right
+
+        var separatorCell: String {
+            switch self {
+            case .none:   return " --- "
+            case .left:   return " :--- "
+            case .center: return " :---: "
+            case .right:  return " ---: "
+            }
+        }
+    }
+
     /// Insert a markdown table skeleton with `rows` body rows and `cols`
     /// columns, replacing the selection. Mirrors what mindolph's TableDialog
-    /// emits but without a separate dialog — the editor's toolbar prompts
-    /// for the dimensions inline.
-    public static func table(_ text: String, range: NSRange, rows: Int, cols: Int) -> (String, NSRange) {
+    /// emits — pass `alignment` to pin every column's alignment marker.
+    public static func table(_ text: String, range: NSRange, rows: Int, cols: Int, alignment: TableAlignment = .none) -> (String, NSRange) {
         let r = max(1, rows), c = max(1, cols)
         let header = "| " + (1...c).map { "Header \($0)" }.joined(separator: " | ") + " |"
-        let separator = "|" + String(repeating: " --- |", count: c)
+        let separator = "|" + String(repeating: alignment.separatorCell + "|", count: c)
         var bodyLines: [String] = []
         for _ in 0..<r {
             bodyLines.append("|" + String(repeating: "     |", count: c))

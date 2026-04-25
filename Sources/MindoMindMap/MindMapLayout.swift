@@ -37,7 +37,7 @@ public final class MindMapLayout {
             attributes: attrs
         )
         let insets = theme.textInsets
-        let w = ceil(bounding.width) + insets.left + insets.right
+        let w = ceil(bounding.width) + insets.left + insets.right + element.extraIconStripWidth
         let h = ceil(bounding.height) + insets.top + insets.bottom
         element.elementSize = CGSize(width: max(40, w), height: max(28, h))
         for child in element.children {

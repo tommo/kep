@@ -769,7 +769,12 @@ struct EditorPane: View {
     private func content(for document: OpenDocument) -> some View {
         switch document.kind {
         case .mindMap(let map):
-            MindMapCanvas(map: map, theme: theme) { _ in /* dirty hook */ }
+            MindMapCanvas(
+                map: map,
+                theme: theme,
+                onChange: { _ in /* dirty hook */ },
+                onExtraFileTap: { url in session.open(url: url) }
+            )
         case .text(_, .markdown):
             MarkdownEditor(
                 text: textBinding(for: documentID),

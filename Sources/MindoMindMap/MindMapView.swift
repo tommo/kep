@@ -24,6 +24,17 @@ public final class MindMapView: NSView {
     /// Called whenever the mind map mutates. UI layer can persist or mark dirty.
     public var onChange: ((MindMap) -> Void)?
 
+    /// Called when the user clicks an `ExtraFile` icon. The app delegate
+    /// resolves the path and opens the corresponding workspace file.
+    public var onExtraFileTap: ((URL) -> Void)?
+
+    /// Called when the user clicks an `ExtraTopic` jump-link icon — receives
+    /// the target topic UID. The app may center the canvas on the destination.
+    public var onExtraTopicTap: ((String) -> Void)?
+
+    /// Optional override for note display (NSAlert by default).
+    public var onExtraNoteTap: ((Topic, String) -> Void)?
+
     private var layoutEngine: MindMapLayout
     private var contentBounds: CGRect = .zero
     private var inlineEditor: NSTextField?
@@ -204,7 +215,7 @@ public final class MindMapView: NSView {
         ctx.setLineWidth(1.0)
         ctx.strokePath()
 
-        // Text.
+        // Text — leaves room on the right for the extra-icons strip.
         let font = theme.font(forLevel: level)
         let style = NSMutableParagraphStyle()
         style.alignment = .center
@@ -214,9 +225,17 @@ public final class MindMapView: NSView {
             .foregroundColor: theme.textColor(forLevel: level),
             .paragraphStyle: style,
         ]
-        let textRect = el.frame.insetBy(dx: theme.textInsets.left, dy: theme.textInsets.top)
+        var textRect = el.frame.insetBy(dx: theme.textInsets.left, dy: theme.textInsets.top)
+        if el.extraIconStripWidth > 0 {
+            textRect.size.width = max(0, textRect.width - el.extraIconStripWidth)
+        }
         let displayText = el.topic.text.isEmpty ? "·" : el.topic.text
         (displayText as NSString).draw(in: textRect, withAttributes: attrs)
+
+        // Extras strip.
+        for (type, rect) in el.extraIconRects {
+            drawExtraIcon(type: type, in: rect, level: level, into: ctx)
+        }
 
         // Collapse marker (small caret on the side facing children).
         if el.isCollapsed && !el.children.isEmpty {
@@ -242,6 +261,33 @@ public final class MindMapView: NSView {
             drawConnector(from: element, to: child, into: ctx)
             drawConnectors(from: child, into: ctx)
         }
+    }
+
+    /// Render an SF Symbol-based icon for one extra type inside `rect`.
+    private func drawExtraIcon(type: ExtraType, in rect: CGRect, level: Int, into ctx: CGContext) {
+        let symbolName: String
+        switch type {
+        case .note:  symbolName = "note.text"
+        case .link:  symbolName = "link"
+        case .file:  symbolName = "paperclip"
+        case .topic: symbolName = "arrow.uturn.right.circle"
+        case .unknown: symbolName = "questionmark.circle"
+        }
+        let config = NSImage.SymbolConfiguration(pointSize: rect.width - 2, weight: .medium)
+        guard let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?.withSymbolConfiguration(config) else { return }
+        let tint = theme.textColor(forLevel: level).withAlphaComponent(0.85)
+        let tinted = image.copy() as! NSImage
+        tinted.lockFocus()
+        tint.set()
+        let imageRect = NSRect(origin: .zero, size: tinted.size)
+        imageRect.fill(using: .sourceAtop)
+        tinted.unlockFocus()
+        let drawRect = CGRect(
+            x: rect.midX - tinted.size.width / 2,
+            y: rect.midY - tinted.size.height / 2,
+            width: tinted.size.width, height: tinted.size.height
+        )
+        tinted.draw(in: drawRect)
     }
 
     private func drawConnector(from parent: MindMapElement, to child: MindMapElement, into ctx: CGContext) {
@@ -271,6 +317,12 @@ public final class MindMapView: NSView {
     public override func mouseDown(with event: NSEvent) {
         commitInlineEdit()
         let p = convert(event.locationInWindow, from: nil)
+        // Extra-icon hit-test runs first so clicks on the icon strip don't
+        // start a drag or change selection.
+        if let (el, type) = elementExtra(at: p) {
+            handleExtraTap(on: el, type: type)
+            return
+        }
         let el = element(at: p)
         select(el)
         if event.clickCount == 2, let el = el {
@@ -281,6 +333,58 @@ public final class MindMapView: NSView {
             dragSourceElement = el
         }
         window?.makeFirstResponder(self)
+    }
+
+    /// Find the (element, extra-type) under `point`. Returns nil when no
+    /// extra icon is hit.
+    private func elementExtra(at point: CGPoint) -> (MindMapElement, ExtraType)? {
+        guard let root = rootElement else { return nil }
+        var hit: (MindMapElement, ExtraType)?
+        root.traverse { el in
+            if hit != nil { return }
+            for (type, rect) in el.extraIconRects where rect.contains(point) {
+                hit = (el, type)
+            }
+        }
+        return hit
+    }
+
+    private func handleExtraTap(on element: MindMapElement, type: ExtraType) {
+        guard let extra = element.topic.extra(type) else { return }
+        switch type {
+        case .link:
+            if let url = URL(string: extra.value) {
+                NSWorkspace.shared.open(url)
+            }
+        case .file:
+            let pathOrURL = extra.value
+            let url: URL
+            if let parsed = URL(string: pathOrURL), parsed.scheme != nil {
+                url = parsed
+            } else {
+                url = URL(fileURLWithPath: pathOrURL)
+            }
+            onExtraFileTap?(url)
+        case .topic:
+            onExtraTopicTap?(extra.value)
+        case .note:
+            if let custom = onExtraNoteTap {
+                custom(element.topic, extra.value)
+            } else {
+                showNoteAlert(text: extra.value)
+            }
+        case .unknown:
+            break
+        }
+    }
+
+    private func showNoteAlert(text: String) {
+        let alert = NSAlert()
+        alert.messageText = "Note"
+        alert.informativeText = text
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 
     public override func mouseDragged(with event: NSEvent) {

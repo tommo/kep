@@ -8,11 +8,18 @@ public struct MindMapCanvas: NSViewRepresentable {
     public var map: MindMap
     public var theme: MindMapTheme
     public var onChange: (MindMap) -> Void
+    public var onExtraFileTap: ((URL) -> Void)?
 
-    public init(map: MindMap, theme: MindMapTheme = .light, onChange: @escaping (MindMap) -> Void = { _ in }) {
+    public init(
+        map: MindMap,
+        theme: MindMapTheme = .light,
+        onChange: @escaping (MindMap) -> Void = { _ in },
+        onExtraFileTap: ((URL) -> Void)? = nil
+    ) {
         self.map = map
         self.theme = theme
         self.onChange = onChange
+        self.onExtraFileTap = onExtraFileTap
     }
 
     public func makeNSView(context: Context) -> NSScrollView {
@@ -27,6 +34,7 @@ public struct MindMapCanvas: NSViewRepresentable {
         let view = MindMapView(frame: .zero)
         view.theme = theme
         view.onChange = onChange
+        view.onExtraFileTap = onExtraFileTap
         view.display(map: map)
         scroll.documentView = view
         return scroll
@@ -35,6 +43,7 @@ public struct MindMapCanvas: NSViewRepresentable {
     public func updateNSView(_ scroll: NSScrollView, context: Context) {
         guard let view = scroll.documentView as? MindMapView else { return }
         view.theme = theme
+        view.onExtraFileTap = onExtraFileTap
         if view.mindMap !== map {
             view.display(map: map)
         }

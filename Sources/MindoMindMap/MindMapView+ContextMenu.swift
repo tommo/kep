@@ -13,27 +13,29 @@ extension MindMapView {
         addExtraSection(menu, type: .file, target: element, label: "File", placeholder: "/path/to/file")
         menu.addItem(NSMenuItem.separator())
         let hasImage = element.topic.attribute(TopicAttribute.image) != nil
-        let imageItem = NSMenuItem(
+        menu.addItem(makeContextItem(
             title: hasImage ? "Replace Image…" : "Add Image…",
             action: #selector(contextSetImage(_:)),
-            keyEquivalent: ""
-        )
-        imageItem.target = self
-        imageItem.representedObject = element
-        menu.addItem(imageItem)
+            payload: element
+        ))
         if hasImage {
-            let removeImage = NSMenuItem(title: "Remove Image", action: #selector(contextRemoveImage(_:)), keyEquivalent: "")
-            removeImage.target = self
-            removeImage.representedObject = element
-            menu.addItem(removeImage)
+            menu.addItem(makeContextItem(title: "Remove Image", action: #selector(contextRemoveImage(_:)), payload: element))
         }
         menu.addItem(NSMenuItem.separator())
-        let deleteItem = NSMenuItem(title: "Delete Topic", action: #selector(contextDeleteTopic(_:)), keyEquivalent: "")
-        deleteItem.target = self
-        deleteItem.representedObject = element
+        let deleteItem = makeContextItem(title: "Delete Topic", action: #selector(contextDeleteTopic(_:)), payload: element)
         deleteItem.isEnabled = element.topic.parent != nil
         menu.addItem(deleteItem)
         return menu
+    }
+
+    /// NSMenuItem with target=self + a stashed payload. Hand-rolled because
+    /// NSMenuItem's init doesn't take either, and we need both on every
+    /// context entry.
+    private func makeContextItem(title: String, action: Selector, payload: Any) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+        item.target = self
+        item.representedObject = payload
+        return item
     }
 
     @objc func contextSetImage(_ sender: NSMenuItem) {
@@ -53,22 +55,12 @@ extension MindMapView {
     }
 
     private func addExtraSection(_ menu: NSMenu, type: ExtraType, target element: MindMapElement, label: String, placeholder: String) {
-        let exists = element.topic.extra(type) != nil
-        if exists {
-            let editItem = NSMenuItem(title: "Edit \(label)…", action: #selector(contextEditExtra(_:)), keyEquivalent: "")
-            editItem.target = self
-            editItem.representedObject = ExtraMenuPayload(element: element, type: type, placeholder: placeholder)
-            menu.addItem(editItem)
-
-            let removeItem = NSMenuItem(title: "Remove \(label)", action: #selector(contextRemoveExtra(_:)), keyEquivalent: "")
-            removeItem.target = self
-            removeItem.representedObject = ExtraMenuPayload(element: element, type: type, placeholder: placeholder)
-            menu.addItem(removeItem)
+        let payload = ExtraMenuPayload(element: element, type: type, placeholder: placeholder)
+        if element.topic.extra(type) != nil {
+            menu.addItem(makeContextItem(title: "Edit \(label)…", action: #selector(contextEditExtra(_:)), payload: payload))
+            menu.addItem(makeContextItem(title: "Remove \(label)", action: #selector(contextRemoveExtra(_:)), payload: payload))
         } else {
-            let addItem = NSMenuItem(title: "Add \(label)…", action: #selector(contextEditExtra(_:)), keyEquivalent: "")
-            addItem.target = self
-            addItem.representedObject = ExtraMenuPayload(element: element, type: type, placeholder: placeholder)
-            menu.addItem(addItem)
+            menu.addItem(makeContextItem(title: "Add \(label)…", action: #selector(contextEditExtra(_:)), payload: payload))
         }
     }
 

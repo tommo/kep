@@ -10,12 +10,12 @@ public final class MindMapView: NSView {
 
     public private(set) var mindMap: MindMap?
     public private(set) var rootElement: MindMapElement?
-    public private(set) var selectedElement: MindMapElement?
+    public internal(set) var selectedElement: MindMapElement?
 
     /// Topics participating in a multi-selection. The "primary" topic
     /// (`selectedElement`) is also a member; the set is what actions like
     /// Delete operate on.
-    public private(set) var selectedTopics: Set<ObjectIdentifier> = []
+    public internal(set) var selectedTopics: Set<ObjectIdentifier> = []
 
     /// Optional injected undo manager. When set, takes precedence over the
     /// responder-chain default (`super.undoManager`). Useful for tests and for
@@ -42,24 +42,27 @@ public final class MindMapView: NSView {
 
     private var layoutEngine: MindMapLayout
     private var contentBounds: CGRect = .zero
-    private var inlineEditor: NSTextField?
+    /// File-internal so MindMapView+Mouse / +Keyboard extensions in this
+    /// module can read + reset the inline edit field.
+    var inlineEditor: NSTextField?
 
     // Drag-to-reparent state. `dragOrigin` arms the gesture on mouseDown; we
     // only commit to a drag once the cursor moves more than `dragThreshold`
     // away. `dragGhostCenter` and `dragTargetElement` drive the ghost +
-    // highlighted drop-target rendering inside `draw(_:)`.
-    private var dragOrigin: CGPoint?
-    private var dragSourceElement: MindMapElement?
-    private var dragGhostCenter: CGPoint?
-    private var dragTargetElement: MindMapElement?
-    private let dragThreshold: CGFloat = 4
+    // highlighted drop-target rendering inside `draw(_:)`. All file-internal
+    // because the +Mouse extension lives in a separate file.
+    var dragOrigin: CGPoint?
+    var dragSourceElement: MindMapElement?
+    var dragGhostCenter: CGPoint?
+    var dragTargetElement: MindMapElement?
+    let dragThreshold: CGFloat = 4
 
     /// Pan state — entered when the user holds space and drags. Distinct from
     /// the topic-drag-to-reparent state above so a paused space-drag doesn't
     /// accidentally pick up a topic.
-    private var isSpaceDown: Bool = false
-    private var panOriginInWindow: CGPoint?
-    private var panStartScroll: CGPoint?
+    var isSpaceDown: Bool = false
+    var panOriginInWindow: CGPoint?
+    var panStartScroll: CGPoint?
 
     // MARK: - Init
 
@@ -356,169 +359,6 @@ public final class MindMapView: NSView {
     // MindMapView+Drawing.swift to keep this file focused on state +
     // event handling.
 
-    // MARK: - Mouse
-
-    public override func rightMouseDown(with event: NSEvent) {
-        commitInlineEdit()
-        let p = convert(event.locationInWindow, from: nil)
-        guard let element = element(at: p) else { return }
-        select(element)
-        let menu = makeContextMenu(for: element)
-        NSMenu.popUpContextMenu(menu, with: event, for: self)
-    }
-
-    public override func mouseDown(with event: NSEvent) {
-        commitInlineEdit()
-        let p = convert(event.locationInWindow, from: nil)
-        // Space-drag wins over everything — it's a temporary "pan" mode.
-        if isSpaceDown, let scroll = enclosingScrollView {
-            panOriginInWindow = event.locationInWindow
-            panStartScroll = scroll.contentView.bounds.origin
-            return
-        }
-        // Extra-icon hit-test runs first so clicks on the icon strip don't
-        // start a drag or change selection.
-        if let (el, type) = elementExtra(at: p) {
-            handleExtraTap(on: el, type: type)
-            return
-        }
-        let el = element(at: p)
-        // Cmd-click toggles multi-selection, Shift-click adds; otherwise replace.
-        if event.modifierFlags.contains(.command) {
-            toggleSelection(el)
-        } else if event.modifierFlags.contains(.shift) {
-            if let el = el {
-                selectedTopics.insert(ObjectIdentifier(el.topic))
-                selectedElement = el
-                needsDisplay = true
-            }
-        } else {
-            select(el)
-        }
-        if event.clickCount == 2, let el = el {
-            beginInlineEdit(on: el)
-        } else if let el = el, el.topic.parent != nil,
-                  !event.modifierFlags.contains(.command) && !event.modifierFlags.contains(.shift) {
-            dragOrigin = p
-            dragSourceElement = el
-        }
-        window?.makeFirstResponder(self)
-    }
-
-    /// Find the (element, extra-type) under `point`. Returns nil when no
-    /// extra icon is hit.
-    private func elementExtra(at point: CGPoint) -> (MindMapElement, ExtraType)? {
-        guard let root = rootElement else { return nil }
-        var hit: (MindMapElement, ExtraType)?
-        root.traverse { el in
-            if hit != nil { return }
-            for (type, rect) in el.extraIconRects where rect.contains(point) {
-                hit = (el, type)
-            }
-        }
-        return hit
-    }
-
-    private func handleExtraTap(on element: MindMapElement, type: ExtraType) {
-        guard let extra = element.topic.extra(type) else { return }
-        switch type {
-        case .link:
-            if let url = URL(string: extra.value) {
-                NSWorkspace.shared.open(url)
-            }
-        case .file:
-            let pathOrURL = extra.value
-            let url: URL
-            if let parsed = URL(string: pathOrURL), parsed.scheme != nil {
-                url = parsed
-            } else {
-                url = URL(fileURLWithPath: pathOrURL)
-            }
-            onExtraFileTap?(url)
-        case .topic:
-            onExtraTopicTap?(extra.value)
-        case .note:
-            if let custom = onExtraNoteTap {
-                custom(element.topic, extra.value)
-            } else {
-                showNoteAlert(text: extra.value)
-            }
-        case .unknown:
-            break
-        }
-    }
-
-    private func showNoteAlert(text: String) {
-        let alert = NSAlert()
-        alert.messageText = "Note"
-        alert.informativeText = text
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "OK")
-        alert.runModal()
-    }
-
-    public override func mouseDragged(with event: NSEvent) {
-        // Space-drag pan: translate the scroll view's clip origin by the
-        // window-space delta since mouseDown.
-        if let panOrigin = panOriginInWindow, let panStart = panStartScroll, let scroll = enclosingScrollView {
-            let dx = event.locationInWindow.x - panOrigin.x
-            let dy = event.locationInWindow.y - panOrigin.y
-            // isFlipped → AppKit's bounds y grows downward inside the clip view.
-            let target = NSPoint(x: panStart.x - dx, y: panStart.y + dy)
-            scroll.contentView.scroll(to: target)
-            scroll.reflectScrolledClipView(scroll.contentView)
-            return
-        }
-        guard let origin = dragOrigin, let source = dragSourceElement else { return }
-        let p = convert(event.locationInWindow, from: nil)
-        if dragGhostCenter == nil {
-            // Wait until we move past the threshold before showing the ghost.
-            if hypot(p.x - origin.x, p.y - origin.y) < dragThreshold { return }
-        }
-        dragGhostCenter = p
-        dragTargetElement = candidateDropTarget(under: p, excluding: source)
-        needsDisplay = true
-    }
-
-    public override func mouseUp(with event: NSEvent) {
-        if panOriginInWindow != nil {
-            panOriginInWindow = nil
-            panStartScroll = nil
-            return
-        }
-        defer { resetDragState() }
-        guard let source = dragSourceElement,
-              dragGhostCenter != nil,
-              let target = dragTargetElement,
-              target.topic !== source.topic.parent else { return }
-        let index = target.topic.children.count
-        undoableReparent(source.topic, to: target.topic, at: index)
-        if let moved = element(for: source.topic) { select(moved) }
-    }
-
-    private func resetDragState() {
-        if dragGhostCenter != nil || dragTargetElement != nil {
-            dragGhostCenter = nil
-            dragTargetElement = nil
-            needsDisplay = true
-        }
-        dragOrigin = nil
-        dragSourceElement = nil
-    }
-
-    /// Find a valid drop-target element under `point`. A target is valid when
-    /// it is neither the dragged topic itself nor any of its descendants.
-    private func candidateDropTarget(under point: CGPoint, excluding source: MindMapElement) -> MindMapElement? {
-        guard let hit = element(at: point) else { return nil }
-        if hit.topic === source.topic { return nil }
-        // Walk up from the hit candidate to make sure it's not inside the source subtree.
-        var t: Topic? = hit.topic
-        while let cur = t {
-            if cur === source.topic { return nil }
-            t = cur.parent
-        }
-        return hit
-    }
 
     // MARK: - Keyboard
 
@@ -760,7 +600,7 @@ public final class MindMapView: NSView {
 
     // MARK: - Inline edit
 
-    private func beginInlineEdit(on element: MindMapElement) {
+    func beginInlineEdit(on element: MindMapElement) {
         let textField = NSTextField(frame: element.frame)
         textField.stringValue = element.topic.text
         textField.font = theme.font(forLevel: element.level)
@@ -773,7 +613,7 @@ public final class MindMapView: NSView {
         inlineEditor = textField
     }
 
-    @objc private func commitInlineEdit() {
+    @objc func commitInlineEdit() {
         guard let editor = inlineEditor, let sel = selectedElement else { return }
         let newText = editor.stringValue
         editor.removeFromSuperview()

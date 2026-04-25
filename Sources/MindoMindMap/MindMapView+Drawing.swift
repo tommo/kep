@@ -18,19 +18,15 @@ extension MindMapView {
             transform: nil
         )
 
-        // Drop shadow (skip on root which is filled solid).
+        // Fill (with drop shadow on non-root levels).
+        ctx.saveGState()
         if level > 0 {
-            ctx.saveGState()
             ctx.setShadow(offset: theme.dropShadowOffset, blur: 4, color: NSColor.black.withAlphaComponent(theme.dropShadowOpacity).cgColor)
-            ctx.addPath(path)
-            ctx.setFillColor(theme.fillColor(forLevel: level).cgColor)
-            ctx.fillPath()
-            ctx.restoreGState()
-        } else {
-            ctx.addPath(path)
-            ctx.setFillColor(theme.fillColor(forLevel: level).cgColor)
-            ctx.fillPath()
         }
+        ctx.addPath(path)
+        ctx.setFillColor(theme.fillColor(forLevel: level).cgColor)
+        ctx.fillPath()
+        ctx.restoreGState()
 
         // Border.
         ctx.addPath(path)

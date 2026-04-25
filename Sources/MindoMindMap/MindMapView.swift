@@ -28,6 +28,16 @@ public final class MindMapView: NSView {
     private var contentBounds: CGRect = .zero
     private var inlineEditor: NSTextField?
 
+    // Drag-to-reparent state. `dragOrigin` arms the gesture on mouseDown; we
+    // only commit to a drag once the cursor moves more than `dragThreshold`
+    // away. `dragGhostCenter` and `dragTargetElement` drive the ghost +
+    // highlighted drop-target rendering inside `draw(_:)`.
+    private var dragOrigin: CGPoint?
+    private var dragSourceElement: MindMapElement?
+    private var dragGhostCenter: CGPoint?
+    private var dragTargetElement: MindMapElement?
+    private let dragThreshold: CGFloat = 4
+
     // MARK: - Init
 
     public override init(frame frameRect: NSRect) {
@@ -139,6 +149,30 @@ public final class MindMapView: NSView {
             ctx.addPath(path)
             ctx.strokePath()
         }
+
+        // Drag overlays — drop-target highlight + dragged-topic ghost.
+        if let target = dragTargetElement {
+            ctx.setStrokeColor(NSColor.systemGreen.cgColor)
+            ctx.setLineWidth(2.0)
+            let rect = target.frame.insetBy(dx: -5, dy: -5)
+            let path = CGPath(roundedRect: rect, cornerWidth: theme.cornerRadius + 5, cornerHeight: theme.cornerRadius + 5, transform: nil)
+            ctx.addPath(path)
+            ctx.strokePath()
+        }
+        if let center = dragGhostCenter, let source = dragSourceElement {
+            let size = source.frame.size
+            let rect = CGRect(
+                x: center.x - size.width / 2,
+                y: center.y - size.height / 2,
+                width: size.width, height: size.height
+            )
+            ctx.setFillColor(NSColor.systemBlue.withAlphaComponent(0.18).cgColor)
+            let path = CGPath(roundedRect: rect, cornerWidth: theme.cornerRadius, cornerHeight: theme.cornerRadius, transform: nil)
+            ctx.addPath(path); ctx.fillPath()
+            ctx.setStrokeColor(NSColor.systemBlue.cgColor)
+            ctx.setLineWidth(1.5)
+            ctx.addPath(path); ctx.strokePath()
+        }
     }
 
     private func drawElement(_ el: MindMapElement, into ctx: CGContext) {
@@ -241,8 +275,59 @@ public final class MindMapView: NSView {
         select(el)
         if event.clickCount == 2, let el = el {
             beginInlineEdit(on: el)
+        } else if let el = el, el.topic.parent != nil {
+            // Arm a potential drag on any non-root topic. Root cannot move.
+            dragOrigin = p
+            dragSourceElement = el
         }
         window?.makeFirstResponder(self)
+    }
+
+    public override func mouseDragged(with event: NSEvent) {
+        guard let origin = dragOrigin, let source = dragSourceElement else { return }
+        let p = convert(event.locationInWindow, from: nil)
+        if dragGhostCenter == nil {
+            // Wait until we move past the threshold before showing the ghost.
+            if hypot(p.x - origin.x, p.y - origin.y) < dragThreshold { return }
+        }
+        dragGhostCenter = p
+        dragTargetElement = candidateDropTarget(under: p, excluding: source)
+        needsDisplay = true
+    }
+
+    public override func mouseUp(with event: NSEvent) {
+        defer { resetDragState() }
+        guard let source = dragSourceElement,
+              dragGhostCenter != nil,
+              let target = dragTargetElement,
+              target.topic !== source.topic.parent else { return }
+        let index = target.topic.children.count
+        undoableReparent(source.topic, to: target.topic, at: index)
+        if let moved = element(for: source.topic) { select(moved) }
+    }
+
+    private func resetDragState() {
+        if dragGhostCenter != nil || dragTargetElement != nil {
+            dragGhostCenter = nil
+            dragTargetElement = nil
+            needsDisplay = true
+        }
+        dragOrigin = nil
+        dragSourceElement = nil
+    }
+
+    /// Find a valid drop-target element under `point`. A target is valid when
+    /// it is neither the dragged topic itself nor any of its descendants.
+    private func candidateDropTarget(under point: CGPoint, excluding source: MindMapElement) -> MindMapElement? {
+        guard let hit = element(at: point) else { return nil }
+        if hit.topic === source.topic { return nil }
+        // Walk up from the hit candidate to make sure it's not inside the source subtree.
+        var t: Topic? = hit.topic
+        while let cur = t {
+            if cur === source.topic { return nil }
+            t = cur.parent
+        }
+        return hit
     }
 
     // MARK: - Keyboard

@@ -51,10 +51,11 @@ public enum LLMProviderFactory {
         case .deepSeek:  return DeepSeekProvider(meta: meta, model: model)
         case .moonshot:  return MoonshotProvider(meta: meta, model: model)
         case .qwen:      return QwenProvider(meta: meta, model: model)
-        // Gemini, HuggingFace and ChatGLM use non-OpenAI request shapes —
-        // dedicated providers will land in a follow-up iteration. Returning
-        // nil keeps the API honest in the meantime.
-        case .gemini, .huggingFace, .chatGLM:
+        case .gemini:    return GeminiProvider(meta: meta, model: model)
+        // HuggingFace and ChatGLM still use distinct shapes that don't map to
+        // either OpenAI-compat or Gemini's contents/parts envelope. Keep
+        // honest about that until they're wired.
+        case .huggingFace, .chatGLM:
             return nil
         }
     }

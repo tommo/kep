@@ -115,7 +115,9 @@ final class LLMProviderFactoryTests: XCTestCase {
     }
 
     func testFactoryReturnsNilForUnimplementedProviders() {
-        for id in [GenAIProviderID.gemini, .huggingFace, .chatGLM] {
+        // Gemini moved out of "unimplemented" — it has its own provider now.
+        // HuggingFace and ChatGLM remain stubs until they get dedicated impls.
+        for id in [GenAIProviderID.huggingFace, .chatGLM] {
             let p = LLMProviderFactory.create(
                 providerID: id, meta: ProviderMeta(), model: ModelMeta(name: "x")
             )

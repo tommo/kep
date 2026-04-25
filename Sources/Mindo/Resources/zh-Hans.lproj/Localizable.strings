@@ -1,0 +1,75 @@
+/* Mindo — 简体中文本地化 */
+
+/* MARK: - 文件菜单 */
+"menu.file.new_mindmap" = "新建思维导图";
+"menu.file.open_workspace" = "打开工作区…";
+"menu.file.open_file" = "打开文件…";
+"menu.file.save" = "保存";
+"menu.file.save_as" = "另存为…";
+"menu.file.close_tab" = "关闭标签页";
+
+/* MARK: - 视图菜单 */
+"menu.view.theme" = "主题";
+"menu.view.theme.light" = "浅色";
+"menu.view.theme.dark" = "深色";
+"menu.view.theme.classic" = "经典";
+
+/* MARK: - 窗口菜单 */
+"menu.window.next_tab" = "下一个标签页";
+"menu.window.previous_tab" = "上一个标签页";
+"menu.window.show_outline" = "显示大纲";
+"menu.window.hide_outline" = "隐藏大纲";
+
+/* MARK: - AI 菜单 / 面板 */
+"menu.ai" = "AI";
+"menu.ai.generate" = "生成…";
+"menu.ai.settings" = "设置…";
+"ai.settings.title" = "AI 设置";
+"ai.settings.section.provider" = "服务提供方";
+"ai.settings.section.connection" = "连接";
+"ai.settings.section.model" = "当前模型";
+"ai.settings.field.api_key" = "API 密钥";
+"ai.settings.field.endpoint" = "接口地址（留空使用默认）";
+"ai.settings.button.save_connection" = "保存连接";
+"ai.settings.button.done" = "完成";
+"ai.generate.title" = "AI 生成";
+"ai.generate.section.prompt" = "提示词";
+"ai.generate.section.result" = "结果";
+"ai.generate.placeholder.no_provider" = "未配置服务提供方";
+"ai.generate.button.generate" = "生成";
+"ai.generate.button.stop" = "停止";
+"ai.generate.button.discard" = "丢弃";
+"ai.generate.button.insert" = "插入";
+"ai.generate.button.close" = "关闭";
+"ai.generate.error.no_provider_configured" = "请先在设置中配置服务提供方。";
+"ai.generate.context_label" = "上下文（已选）：%@…";
+"ai.generate.mode.append" = "追加";
+"ai.generate.mode.replace" = "替换所选";
+"ai.generate.mode.child_topic" = "作为子主题";
+
+/* MARK: - 侧边栏 */
+"sidebar.workspaces" = "工作区";
+"sidebar.empty.title" = "暂无工作区";
+"sidebar.empty.description" = "点击 + 添加文件夹。";
+"sidebar.tooltip.remove_workspace" = "从列表中移除工作区";
+
+/* MARK: - 详情 / 大纲 */
+"detail.empty.title" = "未打开文档";
+"detail.empty.description" = "请先打开一个工作区，然后在侧边栏中点击文件。";
+"detail.outline.title" = "大纲";
+"outline.empty.title" = "暂无大纲";
+"outline.empty.description" = "添加标题或主题后会显示在此处。";
+
+/* MARK: - 标签栏 */
+"tab.tooltip.modified_externally" = "文件已被外部修改 —— 内容已重新加载";
+
+/* MARK: - 错误 */
+"error.open_failed" = "打开失败：%@";
+"error.save_failed" = "保存失败：%@";
+"error.alert_title" = "Mindo";
+
+/* MARK: - 文件选择器 */
+"picker.untitled_mindmap" = "未命名.mmd";
+
+/* MARK: - PlantUML */
+"plantuml.unsupported.unsupported_file_type" = "不支持的文件类型";

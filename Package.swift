@@ -3,6 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "Mindo",
+    defaultLocalization: "en",
     platforms: [.macOS(.v14)],
     products: [
         .library(name: "MindoModel", targets: ["MindoModel"]),
@@ -61,7 +62,8 @@ let package = Package(
                 "MindoModel", "MindoCore", "MindoBase",
                 "MindoMindMap", "MindoMarkdown", "MindoPlantUML",
                 "MindoCSV", "MindoGenAI",
-            ]
+            ],
+            resources: [.process("Resources")]
         ),
 
         .testTarget(

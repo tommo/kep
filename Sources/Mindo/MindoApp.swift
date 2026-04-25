@@ -10,6 +10,12 @@ import MindoMarkdown
 import MindoPlantUML
 import MindoModel
 
+/// Convenience: localized string lookup from the app's bundle (forwards to
+/// `String(localized:bundle:)` so we can write `L("key")` everywhere).
+@inline(__always) func L(_ key: String.LocalizationValue) -> String {
+    return String(localized: key, bundle: .module)
+}
+
 @main
 struct MindoApp: App {
     @State private var session = AppSession()
@@ -208,7 +214,7 @@ final class AppSession {
             activeDocumentID = doc.id
             startFileWatcher(for: doc)
         } catch {
-            lastError = "Open failed: \(error.localizedDescription)"
+            lastError = String(format: L("error.open_failed"), error.localizedDescription)
         }
     }
 
@@ -341,14 +347,14 @@ final class AppSession {
         if let ext = doc.kind.preferredExtension {
             panel.allowedContentTypes = [UTType.init(filenameExtension: ext) ?? .data]
         }
-        panel.nameFieldStringValue = doc.title
+        panel.nameFieldStringValue = doc.title.isEmpty ? L("picker.untitled_mindmap") : doc.title
         if panel.runModal() == .OK, let url = panel.url {
             do {
                 try doc.save(to: url)
                 openDocuments[idx].fileURL = url
                 openDocuments[idx].title = url.lastPathComponent
             } catch {
-                lastError = "Save failed: \(error.localizedDescription)"
+                lastError = String(format: L("error.save_failed"), error.localizedDescription)
             }
         }
     }
@@ -438,7 +444,7 @@ struct ContentView: View {
                         // Click hook: future iterations will scroll the editor
                         // to `item.target`. For now the click is a no-op.
                     }
-                    .navigationTitle("Outline")
+                    .navigationTitle(L("detail.outline.title"))
                     .inspectorColumnWidth(min: 220, ideal: 260, max: 380)
                 }
         }
@@ -447,7 +453,7 @@ struct ContentView: View {
                 session.open(url: node.url)
             }
         }
-        .alert("Mindo", isPresented: Binding(
+        .alert(L("error.alert_title"), isPresented: Binding(
             get: { session.lastError != nil },
             set: { if !$0 { session.lastError = nil } }
         )) {
@@ -467,7 +473,7 @@ struct SidebarView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("Workspaces").font(.headline)
+                Text(L("sidebar.workspaces")).font(.headline)
                 Spacer()
                 Button { session.openWorkspace() } label: {
                     Image(systemName: "plus")
@@ -479,9 +485,9 @@ struct SidebarView: View {
 
             if session.workspaceRoots.isEmpty {
                 ContentUnavailableView(
-                    "No Workspaces",
+                    L("sidebar.empty.title"),
                     systemImage: "folder",
-                    description: Text("Click + to add a folder.")
+                    description: Text(L("sidebar.empty.description"))
                 )
                 .frame(maxHeight: .infinity)
             } else {
@@ -500,7 +506,7 @@ struct SidebarView: View {
                                     Image(systemName: "minus.circle")
                                 }
                                 .buttonStyle(.plain)
-                                .help("Remove workspace from list")
+                                .help(L("sidebar.tooltip.remove_workspace"))
                             }
                         }
                     }
@@ -566,9 +572,9 @@ struct DetailArea: View {
                     .id(doc.id)
             } else {
                 ContentUnavailableView(
-                    "No Document Open",
+                    L("detail.empty.title"),
                     systemImage: "doc",
-                    description: Text("Open a workspace, then click a file in the sidebar.")
+                    description: Text(L("detail.empty.description"))
                 )
                 .frame(maxHeight: .infinity)
             }
@@ -591,7 +597,7 @@ struct DocumentTabBar: View {
                             Circle()
                                 .fill(Color.orange)
                                 .frame(width: 6, height: 6)
-                                .help("Modified outside Mindo — content reloaded")
+                                .help(L("tab.tooltip.modified_externally"))
                         }
                         Button {
                             if let idx = session.openDocuments.firstIndex(where: { $0.id == doc.id }) {
@@ -678,7 +684,7 @@ struct EditorPane: View {
         case .unsupported(let path):
             VStack {
                 Image(systemName: "doc.questionmark").font(.largeTitle).foregroundStyle(.secondary)
-                Text("Unsupported file type")
+                Text(L("plantuml.unsupported.unsupported_file_type"))
                 Text(path).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -1,0 +1,78 @@
+/* Mindo — English localization
+ * Key naming follows the Mindolph Java app's resource bundle conventions
+ * where a clean mapping exists; Swift-only keys use lowerCamelCase.
+ */
+
+/* MARK: - File menu */
+"menu.file.new_mindmap" = "New Mind Map";
+"menu.file.open_workspace" = "Open Workspace…";
+"menu.file.open_file" = "Open File…";
+"menu.file.save" = "Save";
+"menu.file.save_as" = "Save As…";
+"menu.file.close_tab" = "Close Tab";
+
+/* MARK: - View menu */
+"menu.view.theme" = "Theme";
+"menu.view.theme.light" = "Light";
+"menu.view.theme.dark" = "Dark";
+"menu.view.theme.classic" = "Classic";
+
+/* MARK: - Window menu */
+"menu.window.next_tab" = "Next Tab";
+"menu.window.previous_tab" = "Previous Tab";
+"menu.window.show_outline" = "Show Outline";
+"menu.window.hide_outline" = "Hide Outline";
+
+/* MARK: - AI menu / panes */
+"menu.ai" = "AI";
+"menu.ai.generate" = "Generate…";
+"menu.ai.settings" = "Settings…";
+"ai.settings.title" = "AI Settings";
+"ai.settings.section.provider" = "Provider";
+"ai.settings.section.connection" = "Connection";
+"ai.settings.section.model" = "Active Model";
+"ai.settings.field.api_key" = "API Key";
+"ai.settings.field.endpoint" = "Endpoint (leave blank for default)";
+"ai.settings.button.save_connection" = "Save Connection";
+"ai.settings.button.done" = "Done";
+"ai.generate.title" = "AI Generate";
+"ai.generate.section.prompt" = "Prompt";
+"ai.generate.section.result" = "Result";
+"ai.generate.placeholder.no_provider" = "No provider configured";
+"ai.generate.button.generate" = "Generate";
+"ai.generate.button.stop" = "Stop";
+"ai.generate.button.discard" = "Discard";
+"ai.generate.button.insert" = "Insert";
+"ai.generate.button.close" = "Close";
+"ai.generate.error.no_provider_configured" = "Configure a provider in Settings first.";
+"ai.generate.context_label" = "Context (selected): %@…";
+"ai.generate.mode.append" = "Append";
+"ai.generate.mode.replace" = "Replace selection";
+"ai.generate.mode.child_topic" = "As child topic";
+
+/* MARK: - Sidebar */
+"sidebar.workspaces" = "Workspaces";
+"sidebar.empty.title" = "No Workspaces";
+"sidebar.empty.description" = "Click + to add a folder.";
+"sidebar.tooltip.remove_workspace" = "Remove workspace from list";
+
+/* MARK: - Detail / outline */
+"detail.empty.title" = "No Document Open";
+"detail.empty.description" = "Open a workspace, then click a file in the sidebar.";
+"detail.outline.title" = "Outline";
+"outline.empty.title" = "No Outline";
+"outline.empty.description" = "Add headings or topics to see them here.";
+
+/* MARK: - Tab bar */
+"tab.tooltip.modified_externally" = "Modified outside Mindo — content reloaded";
+
+/* MARK: - Errors */
+"error.open_failed" = "Open failed: %@";
+"error.save_failed" = "Save failed: %@";
+"error.alert_title" = "Mindo";
+
+/* MARK: - File pickers */
+"picker.untitled_mindmap" = "Untitled.mmd";
+
+/* MARK: - PlantUML */
+"plantuml.unsupported.unsupported_file_type" = "Unsupported file type";

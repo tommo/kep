@@ -35,6 +35,11 @@ struct MindoApp: App {
                         session.applyAIResult(text: text, mode: mode)
                     }
                 }
+                .sheet(isPresented: $session.snippetPickerOpen) {
+                    SnippetPicker(fileType: session.activeFileType) { snippet in
+                        session.insertSnippet(snippet)
+                    }
+                }
         }
         .commands {
             CommandGroup(replacing: .newItem) {
@@ -116,6 +121,9 @@ final class AppSession {
 
     /// Whether the right-hand outline inspector is showing.
     var outlineOpen: Bool = true
+
+    /// Snippet picker sheet flag.
+    var snippetPickerOpen: Bool = false
 
     /// Outline rows for the currently active document. Recomputed lazily on read.
     var outlineItems: [OutlineItem] {
@@ -283,6 +291,37 @@ final class AppSession {
     }
 
     // MARK: - Save
+
+    // MARK: - Active doc helpers
+
+    var activeFileType: SupportedFileType? {
+        guard let doc = activeDocument else { return nil }
+        switch doc.kind {
+        case .mindMap: return .mindMap
+        case .text(_, let t): return t
+        case .unsupported: return nil
+        }
+    }
+
+    func insertSnippet(_ snippet: Snippet) {
+        guard let id = activeDocumentID,
+              let idx = openDocuments.firstIndex(where: { $0.id == id }) else { return }
+        switch openDocuments[idx].kind {
+        case .text(let body, let t):
+            let glue = body.hasSuffix("\n") || body.isEmpty ? "" : "\n"
+            openDocuments[idx].kind = .text(body + glue + snippet.body, fileType: t)
+        case .mindMap(let map):
+            let parent = map.root ?? Topic(text: "Root")
+            if map.root == nil { map.root = parent }
+            for line in snippet.body.split(whereSeparator: { $0 == "\n" }) {
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                if trimmed.isEmpty { continue }
+                _ = parent.addChild(text: trimmed)
+            }
+        case .unsupported:
+            break
+        }
+    }
 
     // MARK: - AI
 

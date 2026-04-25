@@ -23,6 +23,9 @@
 "menu.window.show_outline" = "Show Outline";
 "menu.window.hide_outline" = "Hide Outline";
 
+/* MARK: - Edit menu */
+"menu.edit.insert_snippet" = "Insert Snippet…";
+
 /* MARK: - AI menu / panes */
 "menu.ai" = "AI";
 "menu.ai.generate" = "Generate…";

@@ -1,7 +1,7 @@
 import Foundation
 
 /// File-type classification for routing files to editors. Mirrors `SupportFileTypes`.
-public enum SupportedFileType: String, CaseIterable, Sendable {
+public enum SupportedFileType: String, CaseIterable, Codable, Sendable {
     case mindMap = "mmd"
     case markdown = "md"
     case plantUML = "puml"

@@ -20,6 +20,9 @@
 "menu.window.show_outline" = "显示大纲";
 "menu.window.hide_outline" = "隐藏大纲";
 
+/* MARK: - 编辑菜单 */
+"menu.edit.insert_snippet" = "插入片段…";
+
 /* MARK: - AI 菜单 / 面板 */
 "menu.ai" = "AI";
 "menu.ai.generate" = "生成…";

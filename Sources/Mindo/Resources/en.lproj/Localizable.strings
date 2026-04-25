@@ -14,6 +14,7 @@
 "menu.file.export" = "Export";
 "menu.file.export_markdown_html" = "Markdown to HTML…";
 "menu.file.export_markdown_pdf" = "Markdown to PDF…";
+"menu.file.export_freemind" = "Mind Map to FreeMind…";
 "menu.file.open_recent" = "Open Recent";
 "menu.file.open_recent.empty" = "(no recent files)";
 "menu.file.clear_recents" = "Clear Menu";

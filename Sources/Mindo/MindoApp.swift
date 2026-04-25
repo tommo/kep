@@ -131,6 +131,8 @@ struct MindoApp: App {
                         .disabled(!session.activeIsMarkdown)
                     Button(L("menu.file.export_markdown_pdf")) { Task { await session.exportActiveAsPDF() } }
                         .disabled(!session.activeIsMarkdown)
+                    Button(L("menu.file.export_freemind")) { session.exportActiveAsFreeMind() }
+                        .disabled(session.activeFileType != .mindMap)
                 }
             }
             CommandGroup(after: .pasteboard) {

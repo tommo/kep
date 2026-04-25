@@ -1,6 +1,7 @@
 import AppKit
 import UniformTypeIdentifiers
 import MindoMarkdown
+import MindoModel
 
 extension AppSession {
 
@@ -47,6 +48,22 @@ extension AppSession {
     func exportActiveAsPDF() async {
         await exportActiveMarkdown(extension: "pdf") { body, url in
             try await MarkdownExporter.exportPDF(markdown: body, to: url)
+        }
+    }
+
+    /// Export the active mindmap as a FreeMind .mm file. NSSavePanel defaults
+    /// to the doc's stem + .mm; serialization is synchronous.
+    @MainActor
+    func exportActiveAsFreeMind() {
+        guard let doc = activeDocument, case .mindMap(let map) = doc.kind else { return }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [UTType.init(filenameExtension: "mm") ?? .data]
+        panel.nameFieldStringValue = (doc.fileURL?.deletingPathExtension().lastPathComponent ?? "Untitled") + ".mm"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try FreemindExporter.export(map).write(to: url, atomically: true, encoding: .utf8)
+        } catch {
+            lastError = String(format: L("error.save_failed"), error.localizedDescription)
         }
     }
 

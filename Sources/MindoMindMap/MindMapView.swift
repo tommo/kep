@@ -85,12 +85,61 @@ public final class MindMapView: NSView {
 
     public override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
+    /// Eat key equivalents for keys we want `keyDown(with:)` to handle —
+    /// otherwise NSWindow can grab Tab (focus traversal) or arrow keys
+    /// (default key-loop) before they reach us. Returning `false` here
+    /// signals the system to fall back to keyDown for non-equivalent keys.
+    public override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        // Anything we explicitly handle in keyDown should NOT be intercepted
+        // by the window's key-equivalent loop.
+        let chars = event.charactersIgnoringModifiers ?? ""
+        let arrows: Set<String> = [
+            String(Character(UnicodeScalar(NSLeftArrowFunctionKey)!)),
+            String(Character(UnicodeScalar(NSRightArrowFunctionKey)!)),
+            String(Character(UnicodeScalar(NSUpArrowFunctionKey)!)),
+            String(Character(UnicodeScalar(NSDownArrowFunctionKey)!)),
+        ]
+        if window?.firstResponder === self,
+           ["\t", "\r", "-", "=", "+", " "].contains(chars) || arrows.contains(chars) {
+            self.keyDown(with: event)
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+
     // MARK: - Public API
 
     public func display(map: MindMap) {
         self.mindMap = map
         rebuildElements()
+        // Auto-select root so the very first arrow / Tab / Enter has a
+        // target without requiring a click first. Without this the user has
+        // to click a topic before the keyboard does anything (bug #36).
+        if let root = rootElement {
+            selectElement(root)
+        }
         needsDisplay = true
+        // Try to grab focus on the next runloop pass so any sidebar List
+        // that's currently first responder gives way once the canvas appears.
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.window?.makeFirstResponder(self)
+        }
+    }
+
+    /// Called by the SwiftUI bridge whenever the canvas is shown / re-shown.
+    /// Idempotent.
+    public func grabFocus() {
+        window?.makeFirstResponder(self)
+    }
+
+    public override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        // Re-arm focus + selection when the canvas is hosted by a new window.
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.window?.makeFirstResponder(self)
+        }
     }
 
     /// Public hook for the undo extension. Same as `rebuildElements()`.

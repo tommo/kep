@@ -69,6 +69,10 @@ public struct MindMapCanvas: NSViewRepresentable {
             context.coordinator.lastNavigated = target
             DispatchQueue.main.async { view.navigate(to: target) }
         }
+        // Re-grab focus when the canvas is the active document — fixes the
+        // "keyboard nav doesn't work until I click a topic" issue when the
+        // sidebar List initially holds first responder.
+        DispatchQueue.main.async { view.grabFocus() }
     }
 
     public func makeCoordinator() -> Coordinator { Coordinator() }

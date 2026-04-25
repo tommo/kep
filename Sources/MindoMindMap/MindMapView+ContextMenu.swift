@@ -137,12 +137,78 @@ extension MindMapView {
 
     private func addExtraSection(_ menu: NSMenu, type: ExtraType, target element: MindMapElement, label: String, placeholder: String) {
         let payload = ExtraMenuPayload(element: element, type: type, placeholder: placeholder)
-        if element.topic.extra(type) != nil {
+        if let existing = element.topic.extra(type) {
             menu.addItem(makeContextItem(title: "Edit \(label)…", action: #selector(contextEditExtra(_:)), payload: payload))
             menu.addItem(makeContextItem(title: "Remove \(label)", action: #selector(contextRemoveExtra(_:)), payload: payload))
+            // Note-specific encrypt / decrypt entries.
+            if type == .note {
+                if NoteEncryption.looksEncrypted(existing.value) {
+                    menu.addItem(makeContextItem(title: "Decrypt Note…", action: #selector(contextDecryptNote(_:)), payload: payload))
+                } else {
+                    menu.addItem(makeContextItem(title: "Encrypt Note…", action: #selector(contextEncryptNote(_:)), payload: payload))
+                }
+            }
         } else {
             menu.addItem(makeContextItem(title: "Add \(label)…", action: #selector(contextEditExtra(_:)), payload: payload))
         }
+    }
+
+    @objc func contextEncryptNote(_ sender: NSMenuItem) {
+        guard let payload = sender.representedObject as? ExtraMenuPayload,
+              let plain = (payload.element.topic.extra(.note) as? ExtraNote)?.text,
+              !NoteEncryption.looksEncrypted(plain) else { return }
+        let alert = NSAlert()
+        alert.messageText = "Encrypt Note"
+        alert.informativeText = "Choose a password and an optional hint. The note body becomes opaque ciphertext until decrypted."
+        let stack = NSStackView(frame: NSRect(x: 0, y: 0, width: 320, height: 60))
+        stack.orientation = .vertical
+        stack.spacing = 6
+        let pwd = NSSecureTextField(string: "")
+        pwd.placeholderString = "Password"
+        let hint = NSTextField(string: "")
+        hint.placeholderString = "Hint (shown when prompting later)"
+        stack.addArrangedSubview(pwd)
+        stack.addArrangedSubview(hint)
+        pwd.frame.size.width = 320
+        hint.frame.size.width = 320
+        alert.accessoryView = stack
+        alert.addButton(withTitle: "Encrypt")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn,
+              !pwd.stringValue.isEmpty else { return }
+        let cipher = NoteEncryption.encrypt(plaintext: plain, password: pwd.stringValue)
+        let trimmedHint = hint.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let extra = ExtraNote(text: cipher, encrypted: true, hint: trimmedHint.isEmpty ? nil : trimmedHint)
+        undoableSetExtra(payload.element.topic, .note, value: extra)
+    }
+
+    @objc func contextDecryptNote(_ sender: NSMenuItem) {
+        guard let payload = sender.representedObject as? ExtraMenuPayload,
+              let note = payload.element.topic.extra(.note) as? ExtraNote,
+              NoteEncryption.looksEncrypted(note.text) else { return }
+        let alert = NSAlert()
+        alert.messageText = "Decrypt Note"
+        if let hint = note.hint, !hint.isEmpty {
+            alert.informativeText = "Hint: \(hint)"
+        } else {
+            alert.informativeText = "Enter the password used to encrypt this note."
+        }
+        let pwd = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
+        alert.accessoryView = pwd
+        alert.addButton(withTitle: "Decrypt")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn,
+              !pwd.stringValue.isEmpty else { return }
+        guard let plain = NoteEncryption.decrypt(note.text, password: pwd.stringValue) else {
+            let fail = NSAlert()
+            fail.messageText = "Wrong password"
+            fail.informativeText = "Couldn't decrypt the note with that password."
+            fail.alertStyle = .warning
+            fail.runModal()
+            return
+        }
+        let extra = ExtraNote(text: plain, encrypted: false, hint: nil)
+        undoableSetExtra(payload.element.topic, .note, value: extra)
     }
 
     @objc func contextEditExtra(_ sender: NSMenuItem) {

@@ -25,6 +25,7 @@ struct DocumentTabBar: View {
                                 if session.activeDocumentID == doc.id {
                                     session.activeDocumentID = session.openDocuments.last?.id
                                 }
+                                session.persistOpenTabs()
                             }
                         } label: {
                             Image(systemName: "xmark")
@@ -37,7 +38,10 @@ struct DocumentTabBar: View {
                         RoundedRectangle(cornerRadius: 6)
                             .fill(doc.id == session.activeDocumentID ? Color.accentColor.opacity(0.18) : Color.clear)
                     )
-                    .onTapGesture { session.activeDocumentID = doc.id }
+                    .onTapGesture {
+                        session.activeDocumentID = doc.id
+                        session.persistOpenTabs()
+                    }
                 }
             }
             .padding(.horizontal, 8)

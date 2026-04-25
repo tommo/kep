@@ -21,6 +21,7 @@ extension AppSession {
     func open(url: URL) {
         if let existing = openDocuments.first(where: { $0.fileURL == url }) {
             activeDocumentID = existing.id
+            persistOpenTabs()
             return
         }
         do {
@@ -29,6 +30,7 @@ extension AppSession {
             activeDocumentID = doc.id
             startFileWatcher(for: doc)
             CollectionStore.shared.touch(url: url)
+            persistOpenTabs()
         } catch {
             lastError = String(format: L("error.open_failed"), error.localizedDescription)
         }
@@ -49,12 +51,14 @@ extension AppSession {
         openDocuments.remove(at: idx)
         tabManager.remove(id)
         activeDocumentID = tabManager.activeID ?? openDocuments.last?.id
+        persistOpenTabs()
     }
 
     func cycleNextTab() {
         guard let current = activeDocumentID else { return }
         if let next = tabManager.nextMRU(after: current) {
             activeDocumentID = next
+            persistOpenTabs()
         }
     }
 
@@ -62,6 +66,7 @@ extension AppSession {
         guard let current = activeDocumentID else { return }
         if let prev = tabManager.previousMRU(before: current) {
             activeDocumentID = prev
+            persistOpenTabs()
         }
     }
 

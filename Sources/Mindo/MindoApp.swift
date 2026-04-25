@@ -49,6 +49,11 @@ struct MindoApp: App {
         WindowGroup("Mindo") {
             ContentView(session: $session)
                 .frame(minWidth: 1000, minHeight: 700)
+                // Persist tab state on app quit as a safety net for
+                // anything the inline persistOpenTabs() calls miss.
+                .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
+                    session.persistOpenTabs()
+                }
                 .sheet(isPresented: $session.aiSettingsOpen) { AISettingsView() }
                 .sheet(isPresented: $session.aiGenerateOpen) {
                     AIGeneratePane(
@@ -254,6 +259,8 @@ final class AppSession {
         self.workspaces = mgr.list.projects
         self.workspaceRoots = workspaces.map { mgr.loadTree(for: $0) }
         self.workspaceRoots.forEach { startWorkspaceWatcher(for: $0) }
+        // Re-open the tabs that were open when the app last quit.
+        restoreOpenTabs()
     }
 
     // All AppSession behavior beyond stored properties + init lives in

@@ -18,10 +18,28 @@ public struct MarkdownEditor: NSViewRepresentable {
         self.navigationTarget = navigationTarget
     }
 
-    public func makeNSView(context: Context) -> NSSplitView {
+    public func makeNSView(context: Context) -> NSView {
+        let container = NSView()
+        let toolbar = makeToolbar(coordinator: context.coordinator)
+
         let split = NSSplitView()
         split.isVertical = true
         split.dividerStyle = .thin
+
+        toolbar.translatesAutoresizingMaskIntoConstraints = false
+        split.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(toolbar)
+        container.addSubview(split)
+        NSLayoutConstraint.activate([
+            toolbar.topAnchor.constraint(equalTo: container.topAnchor),
+            toolbar.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            toolbar.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            toolbar.heightAnchor.constraint(equalToConstant: 32),
+            split.topAnchor.constraint(equalTo: toolbar.bottomAnchor),
+            split.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            split.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            split.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
 
         // Left: code editor
         let scroll = NSScrollView()
@@ -70,10 +88,51 @@ public struct MarkdownEditor: NSViewRepresentable {
         context.coordinator.webView = web
         context.coordinator.applyHighlighting()
         context.coordinator.refreshPreview()
-        return split
+        return container
     }
 
-    public func updateNSView(_ nsView: NSSplitView, context: Context) {
+    private func makeVerticalDivider() -> NSView {
+        let box = NSBox()
+        box.boxType = .separator
+        box.translatesAutoresizingMaskIntoConstraints = false
+        box.widthAnchor.constraint(equalToConstant: 1).isActive = true
+        box.heightAnchor.constraint(equalToConstant: 18).isActive = true
+        return box
+    }
+
+    private func makeToolbar(coordinator: Coordinator) -> NSStackView {
+        let stack = NSStackView()
+        stack.orientation = .horizontal
+        stack.spacing = 4
+        stack.edgeInsets = NSEdgeInsets(top: 4, left: 8, bottom: 4, right: 8)
+        stack.alignment = .centerY
+
+        func iconButton(symbol: String, tooltip: String, action: Selector) -> NSButton {
+            let img = NSImage(systemSymbolName: symbol, accessibilityDescription: tooltip)
+            let b = NSButton(image: img ?? NSImage(), target: coordinator, action: action)
+            b.bezelStyle = .accessoryBarAction
+            b.toolTip = tooltip
+            return b
+        }
+        stack.addArrangedSubview(iconButton(symbol: "bold", tooltip: "Bold", action: #selector(Coordinator.toolbarBold)))
+        stack.addArrangedSubview(iconButton(symbol: "italic", tooltip: "Italic", action: #selector(Coordinator.toolbarItalic)))
+        stack.addArrangedSubview(iconButton(symbol: "chevron.left.forwardslash.chevron.right", tooltip: "Inline code", action: #selector(Coordinator.toolbarInlineCode)))
+        stack.addArrangedSubview(makeVerticalDivider())
+        stack.addArrangedSubview(iconButton(symbol: "1.square", tooltip: "Heading 1", action: #selector(Coordinator.toolbarH1)))
+        stack.addArrangedSubview(iconButton(symbol: "2.square", tooltip: "Heading 2", action: #selector(Coordinator.toolbarH2)))
+        stack.addArrangedSubview(iconButton(symbol: "3.square", tooltip: "Heading 3", action: #selector(Coordinator.toolbarH3)))
+        stack.addArrangedSubview(makeVerticalDivider())
+        stack.addArrangedSubview(iconButton(symbol: "list.bullet", tooltip: "Bullet list", action: #selector(Coordinator.toolbarBullet)))
+        stack.addArrangedSubview(iconButton(symbol: "list.number", tooltip: "Numbered list", action: #selector(Coordinator.toolbarNumbered)))
+        stack.addArrangedSubview(iconButton(symbol: "text.quote", tooltip: "Quote", action: #selector(Coordinator.toolbarQuote)))
+        stack.addArrangedSubview(makeVerticalDivider())
+        stack.addArrangedSubview(iconButton(symbol: "link", tooltip: "Link", action: #selector(Coordinator.toolbarLink)))
+        stack.addArrangedSubview(iconButton(symbol: "photo", tooltip: "Image", action: #selector(Coordinator.toolbarImage)))
+        stack.addArrangedSubview(NSView())  // spacer
+        return stack
+    }
+
+    public func updateNSView(_ nsView: NSView, context: Context) {
         context.coordinator.parent = self
         context.coordinator.applyHighlighting()
         if let tv = context.coordinator.textView, tv.string != text {
@@ -100,6 +159,30 @@ public struct MarkdownEditor: NSViewRepresentable {
         /// driving one side. Counted both ways to avoid feedback loops.
         private var ignoreTextScroll = false
         private var ignorePreviewScroll = false
+
+        // MARK: - Toolbar actions
+
+        @objc func toolbarBold()       { applyTransform(MarkdownFormatting.bold) }
+        @objc func toolbarItalic()     { applyTransform(MarkdownFormatting.italic) }
+        @objc func toolbarInlineCode() { applyTransform(MarkdownFormatting.inlineCode) }
+        @objc func toolbarH1()         { applyTransform { MarkdownFormatting.heading($0, range: $1, level: 1) } }
+        @objc func toolbarH2()         { applyTransform { MarkdownFormatting.heading($0, range: $1, level: 2) } }
+        @objc func toolbarH3()         { applyTransform { MarkdownFormatting.heading($0, range: $1, level: 3) } }
+        @objc func toolbarBullet()     { applyTransform(MarkdownFormatting.bulletList) }
+        @objc func toolbarNumbered()   { applyTransform(MarkdownFormatting.numberedList) }
+        @objc func toolbarQuote()      { applyTransform(MarkdownFormatting.blockquote) }
+        @objc func toolbarLink()       { applyTransform { MarkdownFormatting.link($0, range: $1, url: "https://") } }
+        @objc func toolbarImage()      { applyTransform { MarkdownFormatting.image($0, range: $1, url: "https://") } }
+
+        private func applyTransform(_ transform: (String, NSRange) -> (String, NSRange)) {
+            guard let tv = textView else { return }
+            let (newText, newRange) = transform(tv.string, tv.selectedRange())
+            tv.string = newText
+            tv.setSelectedRange(newRange)
+            parent.text = newText
+            applyHighlighting()
+            refreshPreview()
+        }
 
         /// Convert a byte offset (string from Outline.fromMarkdown) to a UTF-16
         /// character offset, then scroll the text view to that range and

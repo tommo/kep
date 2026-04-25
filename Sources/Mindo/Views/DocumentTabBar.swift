@@ -1,9 +1,13 @@
 import SwiftUI
+import UniformTypeIdentifiers
 import MindoCore
 
 /// Horizontal scrollable strip of tabs above the editor pane.
 struct DocumentTabBar: View {
     @Binding var session: AppSession
+    /// UUID of the tab currently being dragged, so the source can render
+    /// faded while in-flight. Cleared on drop / drop-cancel.
+    @State private var draggingID: OpenDocument.ID?
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -38,10 +42,23 @@ struct DocumentTabBar: View {
                         RoundedRectangle(cornerRadius: 6)
                             .fill(doc.id == session.activeDocumentID ? Color.accentColor.opacity(0.18) : Color.clear)
                     )
+                    .opacity(draggingID == doc.id ? 0.4 : 1.0)
                     .onTapGesture {
                         session.activeDocumentID = doc.id
                         session.persistOpenTabs()
                     }
+                    .onDrag {
+                        draggingID = doc.id
+                        return NSItemProvider(object: doc.id.uuidString as NSString)
+                    }
+                    .onDrop(
+                        of: [.text],
+                        delegate: TabDropDelegate(
+                            target: doc.id,
+                            session: $session,
+                            draggingID: $draggingID
+                        )
+                    )
                 }
             }
             .padding(.horizontal, 8)
@@ -58,4 +75,32 @@ struct DocumentTabBar: View {
             return SupportedFileType.unknownSymbolName
         }
     }
+}
+
+/// Per-tab drop target. Reads the source's UUID from the item provider,
+/// then reorders `openDocuments` via the pure `TabReorder.move` helper so
+/// the math matches what the unit tests cover. Persists on commit.
+private struct TabDropDelegate: DropDelegate {
+    let target: OpenDocument.ID
+    @Binding var session: AppSession
+    @Binding var draggingID: OpenDocument.ID?
+
+    func dropEntered(info: DropInfo) {
+        // Live-reorder while hovering — UUIDs of the open docs reorder so
+        // the drop indicator visibly tracks the cursor between tabs.
+        guard let source = draggingID, source != target else { return }
+        let ids = session.openDocuments.map(\.id)
+        let reordered = TabReorder.move(ids, from: source, to: target)
+        guard reordered != ids else { return }
+        let mapped = reordered.compactMap { id in session.openDocuments.first(where: { $0.id == id }) }
+        session.openDocuments = mapped
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        draggingID = nil
+        session.persistOpenTabs()
+        return true
+    }
+
+    func dropExited(info: DropInfo) {}
 }

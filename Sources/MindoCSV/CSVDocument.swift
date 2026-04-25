@@ -86,6 +86,17 @@ public final class CSVDocument {
         var field = ""
         var inQuotes = false
 
+        // Nested helpers that mutate the loop's working buffers.
+        func flushField() {
+            current.append(field)
+            field.removeAll(keepingCapacity: true)
+        }
+        func flushRow() {
+            flushField()
+            rows.append(current)
+            current.removeAll(keepingCapacity: true)
+        }
+
         let scalars = Array(text.unicodeScalars)
         var i = 0
         while i < scalars.count {
@@ -108,16 +119,14 @@ public final class CSVDocument {
 
             switch c {
             case ",":
-                current.append(field); field.removeAll(keepingCapacity: true)
+                flushField()
             case "\r":
-                current.append(field); field.removeAll(keepingCapacity: true)
-                rows.append(current); current.removeAll(keepingCapacity: true)
+                flushRow()
                 if i + 1 < scalars.count, scalars[i + 1] == "\n" {
                     i += 1                      // swallow LF following CR
                 }
             case "\n":
-                current.append(field); field.removeAll(keepingCapacity: true)
-                rows.append(current); current.removeAll(keepingCapacity: true)
+                flushRow()
             case "\"":
                 if field.isEmpty {
                     inQuotes = true

@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 import MindoCore
 import MindoMindMap
 import MindoMarkdown
+import MindoPlantUML
 import MindoModel
 
 @main
@@ -452,6 +453,11 @@ struct EditorPane: View {
             MindMapCanvas(map: map, theme: theme) { _ in /* dirty hook */ }
         case .text(_, .markdown):
             MarkdownEditor(
+                text: textBinding(for: documentID),
+                isDarkMode: colorScheme == .dark
+            )
+        case .text(_, .plantUML):
+            PlantUMLEditor(
                 text: textBinding(for: documentID),
                 isDarkMode: colorScheme == .dark
             )

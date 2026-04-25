@@ -19,18 +19,19 @@ extension MindMapView {
         )
 
         // Fill (with drop shadow on non-root levels).
+        let fill = el.customFillColor ?? theme.fillColor(forLevel: level)
         ctx.saveGState()
         if level > 0 {
             ctx.setShadow(offset: theme.dropShadowOffset, blur: 4, color: NSColor.black.withAlphaComponent(theme.dropShadowOpacity).cgColor)
         }
         ctx.addPath(path)
-        ctx.setFillColor(theme.fillColor(forLevel: level).cgColor)
+        ctx.setFillColor(fill.cgColor)
         ctx.fillPath()
         ctx.restoreGState()
 
         // Border.
         ctx.addPath(path)
-        ctx.setStrokeColor(theme.borderColor(forLevel: level).cgColor)
+        ctx.setStrokeColor((el.customBorderColor ?? theme.borderColor(forLevel: level)).cgColor)
         ctx.setLineWidth(1.0)
         ctx.strokePath()
 
@@ -50,7 +51,7 @@ extension MindMapView {
         style.lineBreakMode = .byWordWrapping
         let attrs: [NSAttributedString.Key: Any] = [
             .font: font,
-            .foregroundColor: theme.textColor(forLevel: level),
+            .foregroundColor: el.customTextColor ?? theme.textColor(forLevel: level),
             .paragraphStyle: style,
         ]
         var textRect = el.frame.insetBy(dx: theme.textInsets.left, dy: theme.textInsets.top)

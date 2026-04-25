@@ -12,6 +12,14 @@ extension MindMapView {
         addExtraSection(menu, type: .link, target: element, label: "Link", placeholder: "https://example.com")
         addExtraSection(menu, type: .file, target: element, label: "File", placeholder: "/path/to/file")
         menu.addItem(NSMenuItem.separator())
+        menu.addItem(makeContextItem(title: "Set Fill Color…", action: #selector(contextSetFillColor(_:)), payload: element))
+        menu.addItem(makeContextItem(title: "Set Text Color…", action: #selector(contextSetTextColor(_:)), payload: element))
+        menu.addItem(makeContextItem(title: "Set Border Color…", action: #selector(contextSetBorderColor(_:)), payload: element))
+        let hasAnyColor = element.customFillColor != nil || element.customTextColor != nil || element.customBorderColor != nil
+        if hasAnyColor {
+            menu.addItem(makeContextItem(title: "Reset Colors", action: #selector(contextResetColors(_:)), payload: element))
+        }
+        menu.addItem(NSMenuItem.separator())
         let hasImage = element.topic.attribute(TopicAttribute.image) != nil
         menu.addItem(makeContextItem(
             title: hasImage ? "Replace Image…" : "Add Image…",
@@ -52,6 +60,48 @@ extension MindMapView {
     @objc func contextRemoveImage(_ sender: NSMenuItem) {
         guard let element = sender.representedObject as? MindMapElement else { return }
         undoableSetAttribute(element.topic, key: TopicAttribute.image, value: nil)
+    }
+
+    @objc func contextSetFillColor(_ sender: NSMenuItem) {
+        promptForColor(on: sender, attributeKey: TopicAttribute.fillColor, label: "Fill")
+    }
+
+    @objc func contextSetTextColor(_ sender: NSMenuItem) {
+        promptForColor(on: sender, attributeKey: TopicAttribute.textColor, label: "Text")
+    }
+
+    @objc func contextSetBorderColor(_ sender: NSMenuItem) {
+        promptForColor(on: sender, attributeKey: TopicAttribute.borderColor, label: "Border")
+    }
+
+    @objc func contextResetColors(_ sender: NSMenuItem) {
+        guard let element = sender.representedObject as? MindMapElement else { return }
+        undoableSetAttribute(element.topic, key: TopicAttribute.fillColor, value: nil)
+        undoableSetAttribute(element.topic, key: TopicAttribute.textColor, value: nil)
+        undoableSetAttribute(element.topic, key: TopicAttribute.borderColor, value: nil)
+    }
+
+    /// Prompt for a hex color via a small alert with a single text field.
+    /// Mirrors Mindolph's color dialog at the input-format level — we accept
+    /// the same `#RRGGBB` strings that javamind writes.
+    private func promptForColor(on sender: NSMenuItem, attributeKey: String, label: String) {
+        guard let element = sender.representedObject as? MindMapElement else { return }
+        let alert = NSAlert()
+        alert.messageText = "\(label) Color"
+        alert.informativeText = "Enter a hex color (e.g. #4A90E2). Leave blank to clear."
+        let field = NSTextField(string: element.topic.attribute(attributeKey) ?? "")
+        field.frame = NSRect(x: 0, y: 0, width: 200, height: 24)
+        field.placeholderString = "#RRGGBB"
+        alert.accessoryView = field
+        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let raw = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        if raw.isEmpty {
+            undoableSetAttribute(element.topic, key: attributeKey, value: nil)
+        } else if let parsed = MindMapColor.parse(raw) {
+            undoableSetAttribute(element.topic, key: attributeKey, value: MindMapColor.write(parsed))
+        }
     }
 
     private func addExtraSection(_ menu: NSMenu, type: ExtraType, target element: MindMapElement, label: String, placeholder: String) {

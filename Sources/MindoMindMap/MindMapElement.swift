@@ -96,6 +96,22 @@ public final class MindMapElement {
     var extraIconGap: CGFloat { Self.extraIconGap }
     var extraIconLeading: CGFloat { Self.extraIconLeading }
 
+    // MARK: - Per-topic color overrides
+
+    /// Override for the topic's fill, parsed from the `fillColor` attribute.
+    /// `nil` when no override is set — caller falls back to the theme.
+    public var customFillColor: NSColor? {
+        MindMapColor.parse(topic.attribute(TopicAttribute.fillColor))
+    }
+
+    public var customBorderColor: NSColor? {
+        MindMapColor.parse(topic.attribute(TopicAttribute.borderColor))
+    }
+
+    public var customTextColor: NSColor? {
+        MindMapColor.parse(topic.attribute(TopicAttribute.textColor))
+    }
+
     // MARK: - Embedded image (mmd.image base64)
 
     /// Cached decoded image. Lazily reset on `topic.text` mutations is not

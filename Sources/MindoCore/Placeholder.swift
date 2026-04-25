@@ -1,7 +1,9 @@
 import Foundation
 import MindoModel
 
-/// Placeholder. Real workspace/project services land in P2.
+/// Namespace for shared MindoCore facilities. Used as a parking spot for
+/// global helpers like `applicationSupportURL`. Concrete services live in
+/// their own files (`WorkspaceManager`, `Workspace`, `NodeData`).
 public enum MindoCore {
     public static let storageDirectoryName = "Mindo"
 

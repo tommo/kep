@@ -97,6 +97,11 @@ final class AppSession {
     /// MRU tab tracker — drives ⌃⇥ / ⌃⇧⇥ "next/previous tab" navigation.
     @ObservationIgnored let tabManager = TabManager<OpenDocument.ID>()
 
+    /// One per open file with a URL — reloads or marks externally-modified on writes.
+    @ObservationIgnored private var fileWatchers: [OpenDocument.ID: FileWatcher] = [:]
+    /// One per added workspace — refreshes the sidebar tree on directory changes.
+    @ObservationIgnored private var workspaceWatchers: [URL: WorkspaceWatcher] = [:]
+
     // AI sheets
     var aiSettingsOpen: Bool = false
     var aiGenerateOpen: Bool = false
@@ -122,6 +127,28 @@ final class AppSession {
         mgr.removeNonExistentWorkspaces()
         self.workspaces = mgr.list.projects
         self.workspaceRoots = workspaces.map { mgr.loadTree(for: $0) }
+        self.workspaceRoots.forEach { startWorkspaceWatcher(for: $0) }
+    }
+
+    private func startWorkspaceWatcher(for node: NodeData) {
+        guard workspaceWatchers[node.url] == nil else { return }
+        let watcher = WorkspaceWatcher(url: node.url) { [weak self, weak node] _ in
+            guard let self, let node else { return }
+            // FSEvents fires bursts; coalesced 500ms inside the watcher.
+            // We refresh from root because per-path delta would require
+            // mapping changed paths to NodeData instances; the tree's
+            // lazy children + identity-by-URL keeps this cheap.
+            node.reloadChildren()
+            // Trigger the @Observable to re-publish.
+            self.workspaceRoots = self.workspaceRoots
+        }
+        watcher.start()
+        workspaceWatchers[node.url] = watcher
+    }
+
+    private func stopWorkspaceWatcher(for url: URL) {
+        workspaceWatchers[url]?.stop()
+        workspaceWatchers.removeValue(forKey: url)
     }
 
     var activeDocument: OpenDocument? {
@@ -145,7 +172,9 @@ final class AppSession {
         let meta = mgr.add(workspaceAt: url)
         workspaces = mgr.list.projects
         if !workspaceRoots.contains(where: { $0.url == url }) {
-            workspaceRoots.append(mgr.loadTree(for: meta))
+            let node = mgr.loadTree(for: meta)
+            workspaceRoots.append(node)
+            startWorkspaceWatcher(for: node)
         }
     }
 
@@ -155,6 +184,7 @@ final class AppSession {
         mgr.remove(meta)
         workspaces = mgr.list.projects
         workspaceRoots.removeAll { $0.url == root.url }
+        stopWorkspaceWatcher(for: root.url)
     }
 
     // MARK: - Document open / close
@@ -176,9 +206,43 @@ final class AppSession {
             let doc = try OpenDocument.load(from: url)
             openDocuments.append(doc)
             activeDocumentID = doc.id
+            startFileWatcher(for: doc)
         } catch {
             lastError = "Open failed: \(error.localizedDescription)"
         }
+    }
+
+    private func startFileWatcher(for doc: OpenDocument) {
+        guard let url = doc.fileURL else { return }
+        let id = doc.id
+        let watcher = FileWatcher(url: url) { [weak self] event in
+            guard let self else { return }
+            self.handleFileWatcherEvent(event, for: id)
+        }
+        if watcher.start() { fileWatchers[id] = watcher }
+    }
+
+    private func handleFileWatcherEvent(_ event: DispatchSource.FileSystemEvent, for id: OpenDocument.ID) {
+        guard let idx = openDocuments.firstIndex(where: { $0.id == id }) else { return }
+        if event.contains(.delete) || event.contains(.rename) {
+            openDocuments[idx].hasExternalChanges = true
+            return
+        }
+        // Plain write — pull the new content into the existing document slot.
+        // Keep the same OpenDocument.id so tab routing + watcher mapping
+        // stay valid. We don't yet thread editor dirty-state up to the
+        // App layer, so the reload always wins; the orange dot still
+        // surfaces the fact that an external write happened.
+        openDocuments[idx].hasExternalChanges = true
+        guard let url = openDocuments[idx].fileURL,
+              let reloaded = try? OpenDocument.load(from: url) else { return }
+        openDocuments[idx].kind = reloaded.kind
+        openDocuments[idx].title = reloaded.title
+    }
+
+    private func stopFileWatcher(for id: OpenDocument.ID) {
+        fileWatchers[id]?.stop()
+        fileWatchers.removeValue(forKey: id)
     }
 
     func newMindMap() {
@@ -192,6 +256,7 @@ final class AppSession {
     func closeActive() {
         guard let id = activeDocumentID,
               let idx = openDocuments.firstIndex(where: { $0.id == id }) else { return }
+        stopFileWatcher(for: id)
         openDocuments.remove(at: idx)
         tabManager.remove(id)
         activeDocumentID = tabManager.activeID ?? openDocuments.last?.id
@@ -310,6 +375,9 @@ struct OpenDocument: Identifiable, Hashable {
     var kind: Kind
     var fileURL: URL?
     var title: String
+    /// Set when the file watcher detected an external write since we last
+    /// reloaded. UI shows an orange dot on the tab.
+    var hasExternalChanges: Bool = false
 
     static func load(from url: URL) throws -> OpenDocument {
         let title = url.lastPathComponent
@@ -519,6 +587,12 @@ struct DocumentTabBar: View {
                         Image(systemName: tabIcon(for: doc))
                         Text(doc.title)
                             .lineLimit(1)
+                        if doc.hasExternalChanges {
+                            Circle()
+                                .fill(Color.orange)
+                                .frame(width: 6, height: 6)
+                                .help("Modified outside Mindo — content reloaded")
+                        }
                         Button {
                             if let idx = session.openDocuments.firstIndex(where: { $0.id == doc.id }) {
                                 session.openDocuments.remove(at: idx)

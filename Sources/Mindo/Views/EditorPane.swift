@@ -37,7 +37,7 @@ struct EditorPane: View {
             MindMapCanvas(
                 map: map,
                 theme: theme,
-                onChange: { _ in /* dirty hook */ },
+                onChange: { _ in markDirty(documentID) },
                 onExtraFileTap: { url in session.open(url: url) },
                 navigationTarget: session.sanitizedNavigationTarget
             )
@@ -95,10 +95,16 @@ struct EditorPane: View {
             },
             set: { newValue in
                 guard let idx = session.openDocuments.firstIndex(where: { $0.id == id }) else { return }
-                if case .text(_, let t) = session.openDocuments[idx].kind {
+                if case .text(let prev, let t) = session.openDocuments[idx].kind {
                     session.openDocuments[idx].kind = .text(newValue, fileType: t)
+                    if newValue != prev { session.openDocuments[idx].isDirty = true }
                 }
             }
         )
+    }
+
+    private func markDirty(_ id: OpenDocument.ID) {
+        guard let idx = session.openDocuments.firstIndex(where: { $0.id == id }) else { return }
+        session.openDocuments[idx].isDirty = true
     }
 }

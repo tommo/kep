@@ -28,6 +28,10 @@ struct OpenDocument: Identifiable, Hashable {
     /// Set when the file watcher detected an external write since we last
     /// reloaded. UI shows an orange dot on the tab.
     var hasExternalChanges: Bool = false
+    /// Set when the editor has accepted user edits since the last save /
+    /// load. Used by the external-change conflict dialog so we only prompt
+    /// when there's actually unsaved local work to protect.
+    var isDirty: Bool = false
 
     static func load(from url: URL) throws -> OpenDocument {
         let title = url.lastPathComponent

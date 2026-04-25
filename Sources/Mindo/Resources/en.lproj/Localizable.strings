@@ -102,6 +102,13 @@
 /* MARK: - Tab bar */
 "tab.tooltip.modified_externally" = "Modified outside Mindo — content reloaded";
 
+/* MARK: - External-change conflict */
+"conflict.title" = "“%@” changed on disk";
+"conflict.message" = "This document was modified outside Mindo and you have unsaved changes here. What do you want to do?";
+"conflict.button.reload" = "Reload from Disk";
+"conflict.button.keep_mine" = "Keep My Changes";
+"conflict.button.save_mine" = "Save My Changes";
+
 /* MARK: - Errors */
 "error.open_failed" = "Open failed: %@";
 "error.save_failed" = "Save failed: %@";

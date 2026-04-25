@@ -99,6 +99,13 @@
 /* MARK: - 标签栏 */
 "tab.tooltip.modified_externally" = "文件已被外部修改 —— 内容已重新加载";
 
+/* MARK: - 外部修改冲突 */
+"conflict.title" = "“%@” 已在磁盘上发生改变";
+"conflict.message" = "该文档在 Mindo 之外被修改了，而你这里也有未保存的改动。你想怎么处理？";
+"conflict.button.reload" = "从磁盘重新加载";
+"conflict.button.keep_mine" = "保留我的更改";
+"conflict.button.save_mine" = "保存我的更改";
+
 /* MARK: - 错误 */
 "error.open_failed" = "打开失败：%@";
 "error.save_failed" = "保存失败：%@";

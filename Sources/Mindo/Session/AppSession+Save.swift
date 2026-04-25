@@ -6,9 +6,15 @@ import MindoModel
 extension AppSession {
 
     func saveActive() {
-        guard let doc = activeDocument else { return }
+        guard let id = activeDocumentID,
+              let idx = openDocuments.firstIndex(where: { $0.id == id }) else { return }
+        let doc = openDocuments[idx]
         if let url = doc.fileURL {
-            do { try doc.save(to: url) }
+            do {
+                try doc.save(to: url)
+                openDocuments[idx].isDirty = false
+                openDocuments[idx].hasExternalChanges = false
+            }
             catch { lastError = "Save failed: \(error.localizedDescription)" }
         } else {
             saveActiveAs()
@@ -29,6 +35,8 @@ extension AppSession {
                 try doc.save(to: url)
                 openDocuments[idx].fileURL = url
                 openDocuments[idx].title = url.lastPathComponent
+                openDocuments[idx].isDirty = false
+                openDocuments[idx].hasExternalChanges = false
             } catch {
                 lastError = String(format: L("error.save_failed"), error.localizedDescription)
             }

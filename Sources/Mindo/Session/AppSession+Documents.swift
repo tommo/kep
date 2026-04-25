@@ -103,16 +103,59 @@ extension AppSession {
             openDocuments[idx].hasExternalChanges = true
             return
         }
-        // Plain write — pull the new content into the existing document slot.
-        // Keep the same OpenDocument.id so tab routing + watcher mapping
-        // stay valid. We don't yet thread editor dirty-state up to the
-        // App layer, so the reload always wins; the orange dot still
-        // surfaces the fact that an external write happened.
+        // Plain write. When the doc has unsaved local edits, prompt instead
+        // of clobbering them; otherwise the silent reload is fine and the
+        // orange dot just records that an external write happened.
         openDocuments[idx].hasExternalChanges = true
+        if openDocuments[idx].isDirty {
+            promptExternalChangeConflict(for: id)
+        } else {
+            reloadFromDisk(at: idx)
+        }
+    }
+
+    /// Replace the open doc's payload with the on-disk content. Clears the
+    /// dirty + external-change flags on success.
+    private func reloadFromDisk(at idx: Int) {
         guard let url = openDocuments[idx].fileURL,
               let reloaded = try? OpenDocument.load(from: url) else { return }
         openDocuments[idx].kind = reloaded.kind
         openDocuments[idx].title = reloaded.title
+        openDocuments[idx].isDirty = false
+        openDocuments[idx].hasExternalChanges = false
+    }
+
+    /// Three-way prompt when the on-disk file changed under us *and* there
+    /// are unsaved local edits. Mirrors what mindolph-fx's MainController
+    /// does for the same situation. Caller must be on the main thread —
+    /// FileWatcher delivers on .main by default so this is satisfied.
+    private func promptExternalChangeConflict(for id: OpenDocument.ID) {
+        guard let idx = openDocuments.firstIndex(where: { $0.id == id }) else { return }
+        let doc = openDocuments[idx]
+        let alert = NSAlert()
+        alert.messageText = String(format: L("conflict.title"), doc.title)
+        alert.informativeText = L("conflict.message")
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: L("conflict.button.reload"))
+        alert.addButton(withTitle: L("conflict.button.keep_mine"))
+        alert.addButton(withTitle: L("conflict.button.save_mine"))
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:    // Reload from disk — discard local edits
+            reloadFromDisk(at: idx)
+        case .alertSecondButtonReturn:   // Keep mine — leave buffer alone, isDirty stays
+            openDocuments[idx].hasExternalChanges = true
+        case .alertThirdButtonReturn:    // Save mine over the external write
+            if let url = doc.fileURL {
+                do {
+                    try doc.save(to: url)
+                    openDocuments[idx].isDirty = false
+                    openDocuments[idx].hasExternalChanges = false
+                } catch {
+                    lastError = String(format: L("error.save_failed"), error.localizedDescription)
+                }
+            }
+        default: break
+        }
     }
 
     func stopFileWatcher(for id: OpenDocument.ID) {

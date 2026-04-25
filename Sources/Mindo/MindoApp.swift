@@ -16,8 +16,21 @@ import MindoModel
     return String(localized: key, bundle: .module)
 }
 
+/// AppKit delegate used to force regular-app activation when launched via
+/// `swift run`. Without this, the SPM-built binary ships without the
+/// LSApplicationCategoryType + .app bundle treatment, so windows open behind
+/// other apps and the Dock icon is missing.
+final class MindoAppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+}
+
 @main
 struct MindoApp: App {
+    @NSApplicationDelegateAdaptor(MindoAppDelegate.self) var appDelegate
     @State private var session = AppSession()
 
     var body: some Scene {

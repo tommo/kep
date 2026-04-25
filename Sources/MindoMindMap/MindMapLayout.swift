@@ -52,13 +52,16 @@ public final class MindMapLayout {
 
     private func balanceRoot(_ root: MindMapElement) {
         guard root.level == 0 else { return }
-        // Honor an explicit `leftSide` topic attribute, otherwise alternate.
+        // Honor an explicit `leftSide` topic attribute (true → left,
+        // false → right). If absent we alternate by index — but that can
+        // flip a sibling's side when the user inserts mid-list, so the
+        // editor stamps the attribute when adding root-level siblings.
         var left: [MindMapElement] = []
         var right: [MindMapElement] = []
         for (idx, child) in root.children.enumerated() {
-            if let v = child.topic.attribute(TopicAttribute.leftSide), Bool(v) == true {
-                child.isLeftSide = true
-                left.append(child)
+            if let v = child.topic.attribute(TopicAttribute.leftSide), let explicit = Bool(v) {
+                child.isLeftSide = explicit
+                if explicit { left.append(child) } else { right.append(child) }
             } else {
                 let isLeft = (idx % 2 == 1)
                 child.isLeftSide = isLeft

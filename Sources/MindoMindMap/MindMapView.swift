@@ -445,7 +445,16 @@ public final class MindMapView: NSView {
 
     func addNextSibling() {
         guard let sel = selectedElement, let parent = sel.topic.parent else { addChild(); return }
-        selectAndEdit(undoableAddChild(to: parent, text: "Topic"))
+        let target = sel.topic
+        let new = undoableAddChild(to: parent, text: "Topic")
+        if let idx = parent.children.firstIndex(where: { $0 === target }) {
+            // Insert *right after* the current sibling, not at the end of
+            // the children list. Bug #40: addNextSibling used to append.
+            parent.move(child: new, to: idx + 1)
+            rebuildElementsPublic()
+        }
+        inheritRootSide(from: target, to: new)
+        selectAndEdit(new)
     }
 
     func addPreviousSibling() {
@@ -456,7 +465,18 @@ public final class MindMapView: NSView {
             parent.move(child: new, to: idx)
             rebuildElementsPublic()
         }
+        inheritRootSide(from: target, to: new)
         selectAndEdit(new)
+    }
+
+    /// When the parent is the root, write an explicit `leftSide` attribute
+    /// on `dst` matching `src`'s currently-displayed side. Without this the
+    /// new sibling's index parity flips it to the opposite side at the next
+    /// `balanceRoot` pass (bug #39 / #40).
+    private func inheritRootSide(from src: Topic, to dst: Topic) {
+        guard let parent = src.parent, parent === mindMap?.root else { return }
+        let srcIsLeft = element(forTopic: src)?.isLeftSide ?? false
+        dst.setAttribute(TopicAttribute.leftSide, srcIsLeft ? "true" : "false")
     }
 
     /// Resolve `topic` to an element, select it, and open the inline editor.

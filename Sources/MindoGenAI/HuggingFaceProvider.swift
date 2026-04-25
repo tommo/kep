@@ -92,20 +92,7 @@ public final class HuggingFaceProvider: LLMProvider, @unchecked Sendable {
         let req = try request(input, streaming: true)
         let (bytes, response) = try await session.bytes(for: req)
         try await LLMHTTP.checkStreamResponse(response, bytes: bytes)
-
-        var parser = SSEParser()
-        var totalText = ""
-        for try await line in bytes.lines {
-            let events = parser.append(line + "\n")
-            for ev in events {
-                if let partial = Self.parseStreamEvent(ev.data) {
-                    if !partial.text.isEmpty { totalText.append(partial.text) }
-                    onPartial(partial)
-                    if partial.isStop { return }
-                }
-            }
-        }
-        onPartial(StreamPartial(text: totalText, isStop: true))
+        try await LLMHTTP.runSSEStream(bytes: bytes, onPartial: onPartial, parseEvent: Self.parseStreamEvent)
     }
 
     // MARK: - Response parsing (testable)

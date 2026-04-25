@@ -424,19 +424,16 @@ public final class MindMapView: NSView {
     func addChild() {
         guard let sel = selectedElement else {
             if let root = mindMap?.root {
-                let child = undoableAddChild(to: root, text: "Topic")
-                if let el = element(forTopic: child) { selectElement(el); beginInlineEdit(on: el) }
+                selectAndEdit(undoableAddChild(to: root, text: "Topic"))
             }
             return
         }
-        let child = undoableAddChild(to: sel.topic, text: "Topic")
-        if let el = element(forTopic: child) { selectElement(el); beginInlineEdit(on: el) }
+        selectAndEdit(undoableAddChild(to: sel.topic, text: "Topic"))
     }
 
     func addNextSibling() {
         guard let sel = selectedElement, let parent = sel.topic.parent else { addChild(); return }
-        let new = undoableAddChild(to: parent, text: "Topic")
-        if let el = element(forTopic: new) { selectElement(el); beginInlineEdit(on: el) }
+        selectAndEdit(undoableAddChild(to: parent, text: "Topic"))
     }
 
     func addPreviousSibling() {
@@ -447,7 +444,16 @@ public final class MindMapView: NSView {
             parent.move(child: new, to: idx)
             rebuildElementsPublic()
         }
-        if let el = element(forTopic: new) { selectElement(el); beginInlineEdit(on: el) }
+        selectAndEdit(new)
+    }
+
+    /// Resolve `topic` to an element, select it, and open the inline editor.
+    /// No-op when the element hasn't been laid out yet (shouldn't happen for
+    /// freshly-added topics since callers re-layout first).
+    private func selectAndEdit(_ topic: Topic) {
+        guard let el = element(forTopic: topic) else { return }
+        selectElement(el)
+        beginInlineEdit(on: el)
     }
 
     func deleteSelection() {

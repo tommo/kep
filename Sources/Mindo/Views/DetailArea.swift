@@ -1,0 +1,25 @@
+import SwiftUI
+
+/// Right-hand area: tab strip on top, active editor below.
+struct DetailArea: View {
+    @Binding var session: AppSession
+
+    var body: some View {
+        VStack(spacing: 0) {
+            DocumentTabBar(session: $session)
+                .frame(height: 32)
+            Divider()
+            if let doc = session.activeDocument {
+                EditorPane(session: $session, documentID: doc.id, theme: session.theme.theme)
+                    .id(doc.id)
+            } else {
+                ContentUnavailableView(
+                    L("detail.empty.title"),
+                    systemImage: "doc",
+                    description: Text(L("detail.empty.description"))
+                )
+                .frame(maxHeight: .infinity)
+            }
+        }
+    }
+}

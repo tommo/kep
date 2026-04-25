@@ -11,6 +11,9 @@
 "menu.file.save_as" = "Save As…";
 "menu.file.close_tab" = "Close Tab";
 "menu.file.import_freemind" = "Import FreeMind…";
+"menu.file.export" = "Export";
+"menu.file.export_markdown_html" = "Markdown to HTML…";
+"menu.file.export_markdown_pdf" = "Markdown to PDF…";
 
 /* MARK: - View menu */
 "menu.view.theme" = "Theme";

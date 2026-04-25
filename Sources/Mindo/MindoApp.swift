@@ -59,6 +59,12 @@ struct MindoApp: App {
                     .disabled(session.activeDocument == nil)
                 Divider()
                 Button(L("menu.file.import_freemind")) { session.importFreemind() }
+                Menu(L("menu.file.export")) {
+                    Button(L("menu.file.export_markdown_html")) { Task { await session.exportActiveAsHTML() } }
+                        .disabled(!session.activeIsMarkdown)
+                    Button(L("menu.file.export_markdown_pdf")) { Task { await session.exportActiveAsPDF() } }
+                        .disabled(!session.activeIsMarkdown)
+                }
             }
             CommandGroup(after: .pasteboard) {
                 Button(L("menu.edit.insert_snippet")) { session.snippetPickerOpen = true }
@@ -264,6 +270,43 @@ final class AppSession {
     private func stopFileWatcher(for id: OpenDocument.ID) {
         fileWatchers[id]?.stop()
         fileWatchers.removeValue(forKey: id)
+    }
+
+    /// True when the active document is a markdown text doc (powers Export menu enabling).
+    var activeIsMarkdown: Bool {
+        guard let doc = activeDocument else { return false }
+        if case .text(_, .markdown) = doc.kind { return true }
+        return false
+    }
+
+    /// Pull the active doc's markdown text and write it as standalone HTML.
+    @MainActor
+    func exportActiveAsHTML() async {
+        guard let doc = activeDocument, case .text(let body, .markdown) = doc.kind else { return }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [UTType.init(filenameExtension: "html") ?? .data]
+        panel.nameFieldStringValue = (doc.fileURL?.deletingPathExtension().lastPathComponent ?? "Untitled") + ".html"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try MarkdownExporter.exportHTML(markdown: body, to: url)
+        } catch {
+            lastError = String(format: L("error.save_failed"), error.localizedDescription)
+        }
+    }
+
+    /// Render the active doc's markdown to PDF via the offscreen WKWebView.
+    @MainActor
+    func exportActiveAsPDF() async {
+        guard let doc = activeDocument, case .text(let body, .markdown) = doc.kind else { return }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [UTType.init(filenameExtension: "pdf") ?? .data]
+        panel.nameFieldStringValue = (doc.fileURL?.deletingPathExtension().lastPathComponent ?? "Untitled") + ".pdf"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try await MarkdownExporter.exportPDF(markdown: body, to: url)
+        } catch {
+            lastError = String(format: L("error.save_failed"), error.localizedDescription)
+        }
     }
 
     /// Open a FreeMind/Freeplane .mm file via NSOpenPanel, parse it, and present

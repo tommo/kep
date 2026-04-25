@@ -38,13 +38,7 @@ extension AppSession {
         case (.text(_, let t), .replace):
             doc.kind = .text(text, fileType: t)
         case (.mindMap(let map), .childTopic):
-            let parent = map.root ?? Topic(text: "Root")
-            if map.root == nil { map.root = parent }
-            for line in text.split(whereSeparator: { $0 == "\n" }) {
-                let trimmed = line.trimmingCharacters(in: .whitespaces)
-                if trimmed.isEmpty { continue }
-                _ = parent.addChild(text: trimmed)
-            }
+            appendLinesAsChildren(of: map, text: text)
         default:
             break
         }

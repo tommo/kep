@@ -31,11 +31,7 @@ extension AppSession {
     // MARK: - Active doc accessors
 
     /// True when the active document is a markdown text doc (powers Export menu enabling).
-    var activeIsMarkdown: Bool {
-        guard let doc = activeDocument else { return false }
-        if case .text(_, .markdown) = doc.kind { return true }
-        return false
-    }
+    var activeIsMarkdown: Bool { activeFileType == .markdown }
 
     var activeFileType: SupportedFileType? {
         guard let doc = activeDocument else { return nil }
@@ -56,15 +52,22 @@ extension AppSession {
             let glue = body.hasSuffix("\n") || body.isEmpty ? "" : "\n"
             openDocuments[idx].kind = .text(body + glue + snippet.body, fileType: t)
         case .mindMap(let map):
-            let parent = map.root ?? Topic(text: "Root")
-            if map.root == nil { map.root = parent }
-            for line in snippet.body.split(whereSeparator: { $0 == "\n" }) {
-                let trimmed = line.trimmingCharacters(in: .whitespaces)
-                if trimmed.isEmpty { continue }
-                _ = parent.addChild(text: trimmed)
-            }
+            appendLinesAsChildren(of: map, text: snippet.body)
         case .unsupported:
             break
+        }
+    }
+
+    /// Split `text` by line and add each non-empty line as a child of the
+    /// map's root, creating the root if missing. Shared by snippet insertion
+    /// and AI childTopic generation.
+    func appendLinesAsChildren(of map: MindMap, text: String) {
+        let parent = map.root ?? Topic(text: "Root")
+        if map.root == nil { map.root = parent }
+        for line in text.split(whereSeparator: { $0 == "\n" }) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty { continue }
+            _ = parent.addChild(text: trimmed)
         }
     }
 }

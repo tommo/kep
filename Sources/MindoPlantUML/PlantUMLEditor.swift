@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import WebKit
+import MindoBase
 
 /// Split editor for `.puml` files: NSTextView source on the left, WKWebView
 /// preview of the rendered SVG on the right. Renders by shelling out to the
@@ -19,21 +20,7 @@ public struct PlantUMLEditor: NSViewRepresentable {
         split.isVertical = true
         split.dividerStyle = .thin
 
-        let scroll = NSScrollView()
-        scroll.hasVerticalScroller = true
-        scroll.borderType = .noBorder
-        let textView = NSTextView()
-        textView.isRichText = false
-        textView.allowsUndo = true
-        textView.usesFindBar = true
-        textView.font = .monospacedSystemFont(ofSize: 13, weight: .regular)
-        textView.delegate = context.coordinator
-        textView.string = text
-        textView.minSize = NSSize(width: 0, height: 0)
-        textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
-        textView.isVerticallyResizable = true
-        textView.textContainer?.widthTracksTextView = true
-        scroll.documentView = textView
+        let (scroll, textView) = CodeArea.makeMonospaced(text: text, delegate: context.coordinator)
 
         let web = WKWebView()
         web.setValue(false, forKey: "drawsBackground")

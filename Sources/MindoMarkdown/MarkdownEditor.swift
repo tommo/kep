@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 import WebKit
 import Combine
+import MindoBase
 
 /// Split editor view: NSTextView (left) + WKWebView preview (right). Mirrors the
 /// `MarkdownEditor` layout in `mindolph-markdown`.
@@ -42,27 +43,12 @@ public struct MarkdownEditor: NSViewRepresentable {
         ])
 
         // Left: code editor
-        let scroll = NSScrollView()
-        scroll.hasVerticalScroller = true
-        scroll.borderType = .noBorder
-        let textView = NSTextView()
-        textView.isRichText = false
-        textView.isEditable = true
-        textView.allowsUndo = true
+        let (scroll, textView) = CodeArea.makeMonospaced(text: text, delegate: context.coordinator)
         textView.usesFontPanel = false
-        textView.usesFindBar = true
         textView.autoresizingMask = [.width]
         textView.translatesAutoresizingMaskIntoConstraints = true
-        textView.minSize = NSSize(width: 0, height: 0)
-        textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
-        textView.isVerticallyResizable = true
         textView.isHorizontallyResizable = false
-        textView.textContainer?.widthTracksTextView = true
         textView.textContainer?.containerSize = NSSize(width: 0, height: CGFloat.greatestFiniteMagnitude)
-        textView.font = .monospacedSystemFont(ofSize: 13, weight: .regular)
-        textView.delegate = context.coordinator
-        textView.string = text
-        scroll.documentView = textView
         // Track text-view scrolling so we can mirror to the preview.
         scroll.contentView.postsBoundsChangedNotifications = true
         NotificationCenter.default.addObserver(

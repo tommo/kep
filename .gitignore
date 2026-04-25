@@ -9,3 +9,4 @@ xcuserdata/
 Package.resolved
 .claude/scheduled_tasks.lock
 .claude/scheduled_tasks/
+build/

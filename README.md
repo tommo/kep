@@ -42,13 +42,24 @@ previews, and the memory graph all work.
 ### 3. Real `.app` bundle
 
 ```bash
+./Scripts/make-icon.sh           # one-time — generates Resources/AppIcon.icns
 ./Scripts/make-app.sh
 open build/Mindo.app
 ```
 
 Produces `build/Mindo.app` with `Info.plist`, file-type associations
-(`.mmd` / `.md` / `.puml` / `.mm`), and Dock support. `CONFIG=debug
-./Scripts/make-app.sh` for a debug build.
+(`.mmd` / `.md` / `.puml` / `.mm`), Dock icon, and the Mindolph artwork.
+`CONFIG=debug ./Scripts/make-app.sh` for a debug build.
+
+### 4. Distributable DMG
+
+```bash
+./Scripts/make-dmg.sh            # → build/Mindo-0.1.dmg
+```
+
+Drops the `.app` and a symlink to `/Applications` into a UDIF zlib-9
+disk image. For App Store / notarized distribution add `codesign` +
+`xcrun notarytool submit` (the script prints the commands).
 
 ### Sample data
 

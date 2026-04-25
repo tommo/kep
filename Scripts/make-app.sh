@@ -28,12 +28,22 @@ if [ -d "$RES_BUNDLE_DIR/Mindo_Mindo.bundle" ]; then
     cp -R "$RES_BUNDLE_DIR/Mindo_Mindo.bundle" "$APP_DIR/Contents/Resources/"
 fi
 
+# Drop in the .icns if it's been generated. Run Scripts/make-icon.sh first
+# if you want a Dock icon; otherwise the bundle ships without one.
+if [ -f Resources/AppIcon.icns ]; then
+    cp Resources/AppIcon.icns "$APP_DIR/Contents/Resources/AppIcon.icns"
+    ICON_KEY_INSERT="    <key>CFBundleIconFile</key>           <string>AppIcon</string>"
+else
+    ICON_KEY_INSERT=""
+fi
+
 cat > "$APP_DIR/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>CFBundleExecutable</key>          <string>$APP_NAME</string>
+$ICON_KEY_INSERT
     <key>CFBundleIdentifier</key>          <string>com.mindo.Mindo</string>
     <key>CFBundleName</key>                <string>$APP_NAME</string>
     <key>CFBundleDisplayName</key>         <string>$APP_NAME</string>

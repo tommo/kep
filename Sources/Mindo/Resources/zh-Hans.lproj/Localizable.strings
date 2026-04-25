@@ -72,6 +72,21 @@
 "sidebar.empty.title" = "暂无工作区";
 "sidebar.empty.description" = "点击 + 添加文件夹。";
 "sidebar.tooltip.remove_workspace" = "从列表中移除工作区";
+"sidebar.menu.new_file" = "新建文件…";
+"sidebar.menu.new_folder" = "新建文件夹…";
+"sidebar.menu.reveal_in_finder" = "在 Finder 中显示";
+"sidebar.menu.open_terminal" = "在终端中打开";
+"sidebar.menu.rename" = "重命名…";
+"sidebar.menu.delete" = "移到废纸篓";
+"sidebar.menu.remove_workspace" = "移除工作区";
+"sidebar.rename.title" = "重命名";
+"sidebar.rename.message" = "请输入新名称：";
+"sidebar.new_file.title" = "新建文件";
+"sidebar.new_file.message" = "文件名：";
+"sidebar.new_folder.title" = "新建文件夹";
+"sidebar.new_folder.message" = "文件夹名：";
+"button.ok" = "确定";
+"button.cancel" = "取消";
 
 /* MARK: - 详情 / 大纲 */
 "detail.empty.title" = "未打开文档";
@@ -86,6 +101,9 @@
 /* MARK: - 错误 */
 "error.open_failed" = "打开失败：%@";
 "error.save_failed" = "保存失败：%@";
+"error.rename_failed" = "重命名失败：%@";
+"error.delete_failed" = "删除失败：%@";
+"error.create_failed" = "创建失败：%@";
 "error.alert_title" = "Mindo";
 
 /* MARK: - 文件选择器 */

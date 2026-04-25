@@ -75,6 +75,21 @@
 "sidebar.empty.title" = "No Workspaces";
 "sidebar.empty.description" = "Click + to add a folder.";
 "sidebar.tooltip.remove_workspace" = "Remove workspace from list";
+"sidebar.menu.new_file" = "New File…";
+"sidebar.menu.new_folder" = "New Folder…";
+"sidebar.menu.reveal_in_finder" = "Reveal in Finder";
+"sidebar.menu.open_terminal" = "Open Terminal Here";
+"sidebar.menu.rename" = "Rename…";
+"sidebar.menu.delete" = "Move to Trash";
+"sidebar.menu.remove_workspace" = "Remove Workspace";
+"sidebar.rename.title" = "Rename";
+"sidebar.rename.message" = "Enter a new name:";
+"sidebar.new_file.title" = "New File";
+"sidebar.new_file.message" = "Filename:";
+"sidebar.new_folder.title" = "New Folder";
+"sidebar.new_folder.message" = "Folder name:";
+"button.ok" = "OK";
+"button.cancel" = "Cancel";
 
 /* MARK: - Detail / outline */
 "detail.empty.title" = "No Document Open";
@@ -89,6 +104,9 @@
 /* MARK: - Errors */
 "error.open_failed" = "Open failed: %@";
 "error.save_failed" = "Save failed: %@";
+"error.rename_failed" = "Rename failed: %@";
+"error.delete_failed" = "Delete failed: %@";
+"error.create_failed" = "Create failed: %@";
 "error.alert_title" = "Mindo";
 
 /* MARK: - File pickers */

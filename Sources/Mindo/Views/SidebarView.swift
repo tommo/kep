@@ -30,7 +30,7 @@ struct SidebarView: View {
                 List(selection: $selection) {
                     ForEach(session.workspaceRoots, id: \.self) { root in
                         Section {
-                            NodeRow(node: root, selection: $selection)
+                            NodeRow(node: root, session: $session, selection: $selection)
                         } header: {
                             HStack {
                                 Image(systemName: "folder.badge.gearshape")
@@ -56,13 +56,14 @@ struct SidebarView: View {
 /// Recursive disclosure row for a workspace / folder / file.
 struct NodeRow: View {
     let node: NodeData
+    @Binding var session: AppSession
     @Binding var selection: NodeData?
 
     var body: some View {
         if node.isExpandable {
             DisclosureGroup {
                 ForEach(node.children(), id: \.self) { child in
-                    NodeRow(node: child, selection: $selection)
+                    NodeRow(node: child, session: $session, selection: $selection)
                 }
             } label: {
                 HStack {
@@ -70,6 +71,7 @@ struct NodeRow: View {
                     Text(node.name)
                 }
                 .tag(node)
+                .contextMenu { menuItems }
             }
         } else {
             HStack(spacing: 6) {
@@ -78,6 +80,25 @@ struct NodeRow: View {
                 Text(node.name)
             }
             .tag(node)
+            .contextMenu { menuItems }
+        }
+    }
+
+    @ViewBuilder
+    private var menuItems: some View {
+        if node.isExpandable {
+            Button(L("sidebar.menu.new_file"))   { session.createFile(in: node) }
+            Button(L("sidebar.menu.new_folder")) { session.createFolder(in: node) }
+            Divider()
+        }
+        Button(L("sidebar.menu.reveal_in_finder")) { session.revealInFinder(node) }
+        Button(L("sidebar.menu.open_terminal"))    { session.openTerminal(at: node) }
+        Divider()
+        if !node.isWorkspace {
+            Button(L("sidebar.menu.rename")) { session.renameNode(node) }
+            Button(L("sidebar.menu.delete"), role: .destructive) { session.deleteNode(node) }
+        } else {
+            Button(L("sidebar.menu.remove_workspace"), role: .destructive) { session.removeWorkspace(node) }
         }
     }
 

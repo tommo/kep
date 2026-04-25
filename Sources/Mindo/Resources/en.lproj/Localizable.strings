@@ -10,6 +10,7 @@
 "menu.file.save" = "Save";
 "menu.file.save_as" = "Save As…";
 "menu.file.close_tab" = "Close Tab";
+"menu.file.print" = "Print…";
 "menu.file.import_freemind" = "Import FreeMind…";
 "menu.file.export" = "Export";
 "menu.file.export_markdown_html" = "Markdown to HTML…";

@@ -117,6 +117,32 @@ extension AppSession {
         }
     }
 
+    /// File > Print (⌘P). For mindmap docs, builds an NSPrintOperation from
+    /// the offscreen MindMapView so the printed page snaps to content.
+    /// For text-based docs, dispatches the standard `printDocument:`
+    /// selector down the responder chain — NSTextView and WKWebView both
+    /// honour it via their built-in handlers.
+    @MainActor
+    func printActiveDocument() {
+        guard let doc = activeDocument else { return }
+        switch doc.kind {
+        case .mindMap(let map):
+            do {
+                let op = try MindMapImageExport.printOperation(map, theme: theme.theme)
+                op.run()
+            } catch {
+                lastError = String(format: L("error.save_failed"), error.localizedDescription)
+            }
+        case .text, .unsupported:
+            // The first responder handles it — NSTextView's print, WKWebView's
+            // print, etc. Pass typed-nil so the action targets the responder
+            // chain instead of a specific object.
+            let target: AnyObject? = nil
+            let sender: AnyObject? = nil
+            NSApp.sendAction(Selector(("printDocument:")), to: target, from: sender)
+        }
+    }
+
     @MainActor
     private func exportActiveMindmapImage(extension ext: String, write: (MindMap, URL) throws -> Void) {
         guard let doc = activeDocument, case .mindMap(let map) = doc.kind else { return }

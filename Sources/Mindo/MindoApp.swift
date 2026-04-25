@@ -112,6 +112,9 @@ struct MindoApp: App {
                 Button(L("menu.file.close_tab")) { session.closeActive() }
                     .keyboardShortcut("w", modifiers: .command)
                     .disabled(session.activeDocument == nil)
+                Button(L("menu.file.print")) { session.printActiveDocument() }
+                    .keyboardShortcut("p", modifiers: .command)
+                    .disabled(session.activeDocument == nil)
                 Divider()
                 Button(L("menu.file.import_freemind")) { session.importFreemind() }
                 Divider()

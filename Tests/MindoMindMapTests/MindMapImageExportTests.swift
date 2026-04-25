@@ -93,4 +93,24 @@ final class MindMapImageExportTests: XCTestCase {
             }
         }
     }
+
+    // MARK: - Print
+
+    func testPrintOperationConfiguresFitAndCenterPagination() throws {
+        let op = try MindMapImageExport.printOperation(sampleMap())
+        XCTAssertEqual(op.printInfo.horizontalPagination, .fit)
+        XCTAssertEqual(op.printInfo.verticalPagination, .fit)
+        XCTAssertTrue(op.printInfo.isHorizontallyCentered)
+        XCTAssertTrue(op.printInfo.isVerticallyCentered)
+        XCTAssertNotNil(op.view, "operation must own a view to print")
+    }
+
+    func testPrintOperationThrowsNoContentForEmptyMap() {
+        XCTAssertThrowsError(try MindMapImageExport.printOperation(MindMap())) { error in
+            guard case MindMapImageExport.ExportError.noContent = error else {
+                XCTFail("expected .noContent, got \(error)")
+                return
+            }
+        }
+    }
 }

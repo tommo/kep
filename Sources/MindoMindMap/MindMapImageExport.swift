@@ -104,6 +104,40 @@ public enum MindMapImageExport {
         return view.dataWithPDF(inside: view.bounds)
     }
 
+    // MARK: - Print
+
+    /// Configure an NSPrintOperation that paints the mindmap into a single
+    /// page sized to the content bounds (with the same 16pt pad the PNG/PDF
+    /// paths use). Caller is responsible for calling `runOperationModal(for:
+    /// delegate:didRun:contextInfo:)` or `run()` on the result.
+    public static func printOperation(_ map: MindMap, theme: MindMapTheme = .light) throws -> NSPrintOperation {
+        let view = MindMapView(frame: NSRect(x: 0, y: 0, width: 1200, height: 800))
+        view.theme = theme
+        view.display(map: map)
+        let bounds = view.contentBounds
+        guard bounds.width > 0, bounds.height > 0 else { throw ExportError.noContent }
+        let pad: CGFloat = 16
+        let frame = bounds.insetBy(dx: -pad, dy: -pad)
+        view.frame = NSRect(x: 0, y: 0, width: frame.width, height: frame.height)
+        let dx = pad - bounds.minX
+        let dy = pad - bounds.minY
+        view.rootElement?.traverse { el in
+            el.frame.origin.x += dx
+            el.frame.origin.y += dy
+            el.subtreeBounds.origin.x += dx
+            el.subtreeBounds.origin.y += dy
+        }
+        view.contentBounds = view.contentBounds.offsetBy(dx: dx, dy: dy)
+        view.needsDisplay = true
+
+        let info = NSPrintInfo.shared
+        info.horizontalPagination = .fit
+        info.verticalPagination = .fit
+        info.isHorizontallyCentered = true
+        info.isVerticallyCentered = true
+        return NSPrintOperation(view: view, printInfo: info)
+    }
+
     // MARK: - SVG
 
     /// Emit a vector SVG by walking the layout. Resolution-independent and

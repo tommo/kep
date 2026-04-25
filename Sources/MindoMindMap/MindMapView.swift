@@ -12,6 +12,15 @@ public final class MindMapView: NSView {
     public private(set) var rootElement: MindMapElement?
     public private(set) var selectedElement: MindMapElement?
 
+    /// Optional injected undo manager. When set, takes precedence over the
+    /// responder-chain default (`super.undoManager`). Useful for tests and for
+    /// callers that want a per-document undo stack.
+    public var injectedUndoManager: UndoManager?
+
+    public override var undoManager: UndoManager? {
+        injectedUndoManager ?? super.undoManager
+    }
+
     /// Called whenever the mind map mutates. UI layer can persist or mark dirty.
     public var onChange: ((MindMap) -> Void)?
 
@@ -49,6 +58,11 @@ public final class MindMapView: NSView {
         self.mindMap = map
         rebuildElements()
         needsDisplay = true
+    }
+
+    /// Public hook for the undo extension. Same as `rebuildElements()`.
+    public func rebuildElementsPublic() {
+        rebuildElements()
     }
 
     private func rebuildElements() {
@@ -297,58 +311,43 @@ public final class MindMapView: NSView {
 
     private func toggleCollapse(toCollapsed: Bool) {
         guard let sel = selectedElement, !sel.children.isEmpty else { return }
-        sel.topic.setAttribute(TopicAttribute.collapsed, toCollapsed ? "true" : nil)
-        rebuildElements()
-        notifyChange()
+        undoableSetAttribute(sel.topic, key: TopicAttribute.collapsed, value: toCollapsed ? "true" : nil)
     }
 
     private func addChild() {
         guard let sel = selectedElement else {
             if let root = mindMap?.root {
-                let child = root.addChild(text: "Topic")
-                rebuildElements()
+                let child = undoableAddChild(to: root, text: "Topic")
                 if let el = element(for: child) { select(el); beginInlineEdit(on: el) }
-                notifyChange()
             }
             return
         }
-        let child = sel.topic.addChild(text: "Topic")
-        rebuildElements()
+        let child = undoableAddChild(to: sel.topic, text: "Topic")
         if let el = element(for: child) { select(el); beginInlineEdit(on: el) }
-        notifyChange()
     }
 
     private func addNextSibling() {
         guard let sel = selectedElement, let parent = sel.topic.parent else { addChild(); return }
-        let new = parent.addChild(text: "Topic")
-        rebuildElements()
+        let new = undoableAddChild(to: parent, text: "Topic")
         if let el = element(for: new) { select(el); beginInlineEdit(on: el) }
-        notifyChange()
     }
 
     private func addPreviousSibling() {
         guard let sel = selectedElement, let parent = sel.topic.parent else { addChild(); return }
-        // No native "insert before" — recreate by removing and re-adding in order.
         let target = sel.topic
-        let new = Topic(text: "Topic", parent: parent, map: mindMap)
-        parent.append(new)
-        // Move `new` to the slot before `target`.
+        let new = undoableAddChild(to: parent, text: "Topic")
         if let idx = parent.children.firstIndex(where: { $0 === target }) {
-            // children is a private(set) array; we need to mutate via swap.
             parent.move(child: new, to: idx)
+            rebuildElementsPublic()
         }
-        rebuildElements()
         if let el = element(for: new) { select(el); beginInlineEdit(on: el) }
-        notifyChange()
     }
 
     private func deleteSelection() {
-        guard let sel = selectedElement, let parent = sel.topic.parent else { return }
-        parent.removeChild(sel.topic)
-        let parentEl = element(for: parent)
-        rebuildElements()
-        select(parentEl.flatMap { self.element(for: $0.topic) })
-        notifyChange()
+        guard let sel = selectedElement, sel.topic.parent != nil else { return }
+        let parent = sel.topic.parent
+        undoableRemove(sel.topic)
+        if let p = parent { select(element(for: p)) }
     }
 
     // MARK: - Inline edit
@@ -368,11 +367,10 @@ public final class MindMapView: NSView {
 
     @objc private func commitInlineEdit() {
         guard let editor = inlineEditor, let sel = selectedElement else { return }
-        sel.topic.text = editor.stringValue
+        let newText = editor.stringValue
         editor.removeFromSuperview()
         inlineEditor = nil
-        rebuildElements()
-        notifyChange()
+        undoableSetText(sel.topic, to: newText)
         window?.makeFirstResponder(self)
     }
 

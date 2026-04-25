@@ -62,6 +62,22 @@ extension MindMapView {
             textRect.origin.y += el.embeddedImageHeight
             textRect.size.height = max(0, textRect.height - el.embeddedImageHeight)
         }
+
+        // Inline emoticon, drawn left of the title. Layout reserved width
+        // for it via emoticonLeadingWidth; we just shift the text rect.
+        if let name = el.emoticonName,
+           let icon = MindMapEmoticon.image(
+                for: name,
+                pointSize: MindMapElement.emoticonSize,
+                color: el.customTextColor ?? theme.textColor(forLevel: level)
+           ) {
+            let iconY = textRect.midY - icon.size.height / 2
+            icon.draw(in: CGRect(x: textRect.minX, y: iconY, width: icon.size.width, height: icon.size.height))
+            let inset = el.emoticonLeadingWidth
+            textRect.origin.x += inset
+            textRect.size.width = max(0, textRect.width - inset)
+        }
+
         let displayText = el.topic.text.isEmpty ? "·" : el.topic.text
         (displayText as NSString).draw(in: textRect, withAttributes: attrs)
 

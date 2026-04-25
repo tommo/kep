@@ -91,6 +91,23 @@ public final class MindMapElement {
     public static let extraIconGap: CGFloat = 4
     public static let extraIconLeading: CGFloat = 6
 
+    /// Inline emoticon (left of text). nil when the topic has no
+    /// `mmd.emoticon` attribute set.
+    var emoticonName: String? {
+        guard let raw = topic.attribute(TopicAttribute.emoticon),
+              !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        return raw
+    }
+
+    /// Width consumed by the leading emoticon (icon + 4pt gap), or 0 when
+    /// no emoticon. Layout adds it to the element width.
+    public var emoticonLeadingWidth: CGFloat {
+        emoticonName == nil ? 0 : (Self.emoticonSize + Self.emoticonGap)
+    }
+
+    public static let emoticonSize: CGFloat = 14
+    public static let emoticonGap: CGFloat = 4
+
     // Instance accessors for ergonomics.
     var extraIconSize: CGFloat { Self.extraIconSize }
     var extraIconGap: CGFloat { Self.extraIconGap }

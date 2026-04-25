@@ -30,6 +30,16 @@ extension MindMapView {
             menu.addItem(makeContextItem(title: "Remove Image", action: #selector(contextRemoveImage(_:)), payload: element))
         }
         menu.addItem(NSMenuItem.separator())
+        let hasEmoticon = element.emoticonName != nil
+        menu.addItem(makeContextItem(
+            title: hasEmoticon ? "Change Icon…" : "Set Icon…",
+            action: #selector(contextSetEmoticon(_:)),
+            payload: element
+        ))
+        if hasEmoticon {
+            menu.addItem(makeContextItem(title: "Remove Icon", action: #selector(contextRemoveEmoticon(_:)), payload: element))
+        }
+        menu.addItem(NSMenuItem.separator())
         let deleteItem = makeContextItem(title: "Delete Topic", action: #selector(contextDeleteTopic(_:)), payload: element)
         deleteItem.isEnabled = element.topic.parent != nil
         menu.addItem(deleteItem)
@@ -72,6 +82,27 @@ extension MindMapView {
 
     @objc func contextSetBorderColor(_ sender: NSMenuItem) {
         promptForColor(on: sender, attributeKey: TopicAttribute.borderColor, label: "Border")
+    }
+
+    @objc func contextSetEmoticon(_ sender: NSMenuItem) {
+        guard let element = sender.representedObject as? MindMapElement else { return }
+        let alert = NSAlert()
+        alert.messageText = "Topic Icon"
+        alert.informativeText = "Enter an icon name (e.g. star, bell, warning, idea). Leave blank to clear."
+        let field = NSTextField(string: element.topic.attribute(TopicAttribute.emoticon) ?? "")
+        field.frame = NSRect(x: 0, y: 0, width: 200, height: 24)
+        field.placeholderString = "star, bell, warning…"
+        alert.accessoryView = field
+        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let raw = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        undoableSetAttribute(element.topic, key: TopicAttribute.emoticon, value: raw.isEmpty ? nil : raw)
+    }
+
+    @objc func contextRemoveEmoticon(_ sender: NSMenuItem) {
+        guard let element = sender.representedObject as? MindMapElement else { return }
+        undoableSetAttribute(element.topic, key: TopicAttribute.emoticon, value: nil)
     }
 
     @objc func contextResetColors(_ sender: NSMenuItem) {

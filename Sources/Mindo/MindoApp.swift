@@ -3,6 +3,7 @@ import AppKit
 import UniformTypeIdentifiers
 import MindoCore
 import MindoMindMap
+import MindoMarkdown
 import MindoModel
 
 @main
@@ -362,7 +363,7 @@ struct DetailArea: View {
                 .frame(height: 32)
             Divider()
             if let doc = session.activeDocument {
-                EditorPane(document: doc, theme: session.theme.theme)
+                EditorPane(session: $session, documentID: doc.id, theme: session.theme.theme)
                     .id(doc.id)
             } else {
                 ContentUnavailableView(
@@ -427,13 +428,33 @@ struct DocumentTabBar: View {
 // MARK: - Editor router
 
 struct EditorPane: View {
-    let document: OpenDocument
+    @Binding var session: AppSession
+    let documentID: OpenDocument.ID
     let theme: MindMapTheme
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var documentIndex: Int? {
+        session.openDocuments.firstIndex { $0.id == documentID }
+    }
 
     var body: some View {
+        if let idx = documentIndex {
+            content(for: session.openDocuments[idx])
+        } else {
+            EmptyView()
+        }
+    }
+
+    @ViewBuilder
+    private func content(for document: OpenDocument) -> some View {
         switch document.kind {
         case .mindMap(let map):
             MindMapCanvas(map: map, theme: theme) { _ in /* dirty hook */ }
+        case .text(_, .markdown):
+            MarkdownEditor(
+                text: textBinding(for: documentID),
+                isDarkMode: colorScheme == .dark
+            )
         case .text(let body, _):
             ScrollView {
                 Text(body)
@@ -450,5 +471,21 @@ struct EditorPane: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+    }
+
+    private func textBinding(for id: OpenDocument.ID) -> Binding<String> {
+        Binding(
+            get: {
+                guard let idx = session.openDocuments.firstIndex(where: { $0.id == id }) else { return "" }
+                if case .text(let s, _) = session.openDocuments[idx].kind { return s }
+                return ""
+            },
+            set: { newValue in
+                guard let idx = session.openDocuments.firstIndex(where: { $0.id == id }) else { return }
+                if case .text(_, let t) = session.openDocuments[idx].kind {
+                    session.openDocuments[idx].kind = .text(newValue, fileType: t)
+                }
+            }
+        )
     }
 }

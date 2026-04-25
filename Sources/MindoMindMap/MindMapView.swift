@@ -215,6 +215,15 @@ public final class MindMapView: NSView {
         ctx.setLineWidth(1.0)
         ctx.strokePath()
 
+        // Embedded image (above the text).
+        if let image = el.embeddedImage {
+            let imageRect = el.embeddedImageDrawRect
+            ctx.saveGState()
+            ctx.interpolationQuality = .high
+            image.draw(in: imageRect, from: .zero, operation: .sourceOver, fraction: 1)
+            ctx.restoreGState()
+        }
+
         // Text — leaves room on the right for the extra-icons strip.
         let font = theme.font(forLevel: level)
         let style = NSMutableParagraphStyle()
@@ -228,6 +237,10 @@ public final class MindMapView: NSView {
         var textRect = el.frame.insetBy(dx: theme.textInsets.left, dy: theme.textInsets.top)
         if el.extraIconStripWidth > 0 {
             textRect.size.width = max(0, textRect.width - el.extraIconStripWidth)
+        }
+        if el.embeddedImageHeight > 0 {
+            textRect.origin.y += el.embeddedImageHeight
+            textRect.size.height = max(0, textRect.height - el.embeddedImageHeight)
         }
         let displayText = el.topic.text.isEmpty ? "·" : el.topic.text
         (displayText as NSString).draw(in: textRect, withAttributes: attrs)
@@ -323,12 +336,29 @@ public final class MindMapView: NSView {
         NSMenu.popUpContextMenu(menu, with: event, for: self)
     }
 
-    /// Build an NSMenu of Add/Edit/Remove actions for Note, Link, and File extras.
+    /// Build an NSMenu of Add/Edit/Remove actions for Note, Link, File extras
+    /// plus an Image submenu for the `mmd.image` attribute.
     private func makeContextMenu(for element: MindMapElement) -> NSMenu {
         let menu = NSMenu()
         addExtraSection(menu, type: .note, target: element, label: "Note", placeholder: "Note text")
         addExtraSection(menu, type: .link, target: element, label: "Link", placeholder: "https://example.com")
         addExtraSection(menu, type: .file, target: element, label: "File", placeholder: "/path/to/file")
+        menu.addItem(NSMenuItem.separator())
+        let hasImage = element.topic.attribute(TopicAttribute.image) != nil
+        let imageItem = NSMenuItem(
+            title: hasImage ? "Replace Image…" : "Add Image…",
+            action: #selector(contextSetImage(_:)),
+            keyEquivalent: ""
+        )
+        imageItem.target = self
+        imageItem.representedObject = element
+        menu.addItem(imageItem)
+        if hasImage {
+            let removeImage = NSMenuItem(title: "Remove Image", action: #selector(contextRemoveImage(_:)), keyEquivalent: "")
+            removeImage.target = self
+            removeImage.representedObject = element
+            menu.addItem(removeImage)
+        }
         menu.addItem(NSMenuItem.separator())
         let deleteItem = NSMenuItem(title: "Delete Topic", action: #selector(contextDeleteTopic(_:)), keyEquivalent: "")
         deleteItem.target = self
@@ -336,6 +366,22 @@ public final class MindMapView: NSView {
         deleteItem.isEnabled = element.topic.parent != nil
         menu.addItem(deleteItem)
         return menu
+    }
+
+    @objc private func contextSetImage(_ sender: NSMenuItem) {
+        guard let element = sender.representedObject as? MindMapElement else { return }
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.png, .jpeg, .image]
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        guard let data = try? Data(contentsOf: url) else { return }
+        let base64 = data.base64EncodedString()
+        undoableSetAttribute(element.topic, key: TopicAttribute.image, value: base64)
+    }
+
+    @objc private func contextRemoveImage(_ sender: NSMenuItem) {
+        guard let element = sender.representedObject as? MindMapElement else { return }
+        undoableSetAttribute(element.topic, key: TopicAttribute.image, value: nil)
     }
 
     private func addExtraSection(_ menu: NSMenu, type: ExtraType, target element: MindMapElement, label: String, placeholder: String) {

@@ -133,26 +133,31 @@ public final class MindMapElement {
     /// Thumbnail rect inside the topic frame (above the text). Returns
     /// `.zero` when the topic has no image.
     public var embeddedImageDrawRect: CGRect {
-        guard let image = embeddedImage, image.size.width > 0 else { return .zero }
-        let maxWidth: CGFloat = 96
-        let maxHeight: CGFloat = 64
-        let scale = min(maxWidth / image.size.width, maxHeight / image.size.height, 1.0)
-        let drawSize = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+        let size = embeddedImageDrawSize
+        guard size != .zero else { return .zero }
         return CGRect(
-            x: frame.midX - drawSize.width / 2,
+            x: frame.midX - size.width / 2,
             y: frame.minY + 6,
-            width: drawSize.width,
-            height: drawSize.height
+            width: size.width,
+            height: size.height
         )
     }
 
     /// How much vertical space the embedded image consumes inside the
     /// element (above the text). Layout adds this to the element height.
+    /// +8 padding between image and text.
     public var embeddedImageHeight: CGFloat {
-        guard let image = embeddedImage, image.size.width > 0 else { return 0 }
+        let size = embeddedImageDrawSize
+        return size == .zero ? 0 : size.height + 8
+    }
+
+    /// Scaled size used by both the draw rect and the layout height — fits
+    /// the embedded image into the 96×64 thumb box, never upscales.
+    private var embeddedImageDrawSize: CGSize {
+        guard let image = embeddedImage, image.size.width > 0 else { return .zero }
         let maxWidth: CGFloat = 96
         let maxHeight: CGFloat = 64
         let scale = min(maxWidth / image.size.width, maxHeight / image.size.height, 1.0)
-        return image.size.height * scale + 8 // +8 padding between image and text
+        return CGSize(width: image.size.width * scale, height: image.size.height * scale)
     }
 }

@@ -14,12 +14,7 @@ final class MultiSelectTests: XCTestCase {
         let b = root.addChild(text: "B")
         let c = root.addChild(text: "C")
         let a1 = a.addChild(text: "A1")
-
-        let view = MindMapView(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
-        let mgr = UndoManager()
-        mgr.groupsByEvent = false
-        view.injectedUndoManager = mgr
-        view.display(map: map)
+        let (view, _) = makeHeadlessMindMap(map: map, frame: NSRect(x: 0, y: 0, width: 800, height: 600))
         return (view, root, a, b, c, a1)
     }
 

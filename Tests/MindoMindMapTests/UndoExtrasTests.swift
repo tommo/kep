@@ -10,15 +10,7 @@ final class UndoExtrasTests: XCTestCase {
         let map = MindMap()
         let root = Topic(text: "Root")
         map.root = root
-        let view = MindMapView(frame: NSRect(x: 0, y: 0, width: 400, height: 300))
-        let mgr = UndoManager()
-        // With the default groupsByEvent=true, NSUndoManager wraps all
-        // registrations made within one runloop pass into a single group
-        // — that would mean a single mgr.undo() rolls back every test op
-        // at once. Disable so each registration is its own group.
-        mgr.groupsByEvent = false
-        view.injectedUndoManager = mgr
-        view.display(map: map)
+        let (view, mgr) = makeHeadlessMindMap(map: map)
         return (view, root, mgr)
     }
 

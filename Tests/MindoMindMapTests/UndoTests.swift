@@ -6,20 +6,12 @@ import MindoModel
 @MainActor
 final class MindMapUndoTests: XCTestCase {
 
-    /// Build a headless MindMapView with an injected UndoManager so we can
-    /// drive registration/undo/redo without standing up a full window.
     private func makeView() -> (MindMapView, UndoManager) {
         let map = MindMap()
         let root = Topic(text: "Root")
         map.root = root
         _ = root.addChild(text: "Original")
-
-        let view = MindMapView(frame: NSRect(x: 0, y: 0, width: 400, height: 300))
-        let manager = UndoManager()
-        manager.groupsByEvent = false
-        view.injectedUndoManager = manager
-        view.display(map: map)
-        return (view, manager)
+        return makeHeadlessMindMap(map: map)
     }
 
     func testAddChildIsUndoable() {

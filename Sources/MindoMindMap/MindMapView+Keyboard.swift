@@ -33,6 +33,11 @@ extension MindMapView {
             return
         }
 
+        if let direction = Self.arrowKeyDirections[chars] {
+            isShift ? extendSelection(direction) : move(direction)
+            return
+        }
+
         switch chars {
         case "\t": addChild()
         case "\r":
@@ -42,14 +47,6 @@ extension MindMapView {
             toggleCollapse(toCollapsed: true)
         case "=", "+":
             toggleCollapse(toCollapsed: false)
-        case String(Character(UnicodeScalar(NSLeftArrowFunctionKey)!)):
-            isShift ? extendSelection(.left) : move(.left)
-        case String(Character(UnicodeScalar(NSRightArrowFunctionKey)!)):
-            isShift ? extendSelection(.right) : move(.right)
-        case String(Character(UnicodeScalar(NSUpArrowFunctionKey)!)):
-            isShift ? extendSelection(.up) : move(.up)
-        case String(Character(UnicodeScalar(NSDownArrowFunctionKey)!)):
-            isShift ? extendSelection(.down) : move(.down)
         default:
             super.keyDown(with: event)
         }

@@ -88,15 +88,17 @@ public final class MindMapView: NSView {
 
     public override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
-    /// Keystrokes the canvas claims when it's first responder — both the
-    /// `performKeyEquivalent` short-circuit and the local NSEvent monitor
-    /// gate on this set.
-    static let arrowKeyChars: Set<String> = [
-        String(Character(UnicodeScalar(NSLeftArrowFunctionKey)!)),
-        String(Character(UnicodeScalar(NSRightArrowFunctionKey)!)),
-        String(Character(UnicodeScalar(NSUpArrowFunctionKey)!)),
-        String(Character(UnicodeScalar(NSDownArrowFunctionKey)!)),
+    /// Arrow-key string → navigation direction. Source of truth for both
+    /// the gate sets in `performKeyEquivalent` / the NSEvent monitor and
+    /// the dispatch table in `keyDown(with:)` so a future direction key
+    /// only edits one place.
+    static let arrowKeyDirections: [String: Direction] = [
+        String(Character(UnicodeScalar(NSLeftArrowFunctionKey)!)): .left,
+        String(Character(UnicodeScalar(NSRightArrowFunctionKey)!)): .right,
+        String(Character(UnicodeScalar(NSUpArrowFunctionKey)!)): .up,
+        String(Character(UnicodeScalar(NSDownArrowFunctionKey)!)): .down,
     ]
+    static var arrowKeyChars: Set<String> { Set(arrowKeyDirections.keys) }
 
 
     // MARK: - Public API

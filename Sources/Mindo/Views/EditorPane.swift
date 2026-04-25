@@ -70,6 +70,7 @@ struct EditorPane: View {
                 switch session.mindmapCommand {
                 case .foldAll:   view.setAllCollapsed(true)
                 case .unfoldAll: view.setAllCollapsed(false)
+                case .redraw:    view.needsDisplay = true
                 }
             }
         case .text(_, .markdown):

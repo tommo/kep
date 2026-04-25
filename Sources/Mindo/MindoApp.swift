@@ -193,6 +193,16 @@ struct MindoApp: App {
                 Button(L("menu.view.unfold_all")) { session.mindmapCommand = .unfoldAll; session.mindmapCommandTick &+= 1 }
                     .keyboardShortcut("]", modifiers: [.command, .option])
                     .disabled(session.activeFileType != .mindMap)
+                Divider()
+                Toggle(L("menu.view.show_jump_arrows"), isOn: Binding(
+                    get: { PrefKeys.bool(PrefKeys.showJumpArrows, fallback: true) },
+                    set: { newValue in
+                        UserDefaults.standard.set(newValue, forKey: PrefKeys.showJumpArrows)
+                        session.mindmapCommand = .redraw
+                        session.mindmapCommandTick &+= 1
+                    }
+                ))
+                .disabled(session.activeFileType != .mindMap)
             }
             CommandMenu(L("menu.ai")) {
                 Button(L("menu.ai.generate")) { session.openAIGenerate(intent: .input) }
@@ -279,7 +289,7 @@ final class AppSession {
 
     /// View > Fold/Unfold All commands. Same tick pattern as ZoomCommand —
     /// the active mindmap canvas listens for changes and dispatches.
-    enum MindmapCommand { case foldAll, unfoldAll }
+    enum MindmapCommand { case foldAll, unfoldAll, redraw }
     var mindmapCommand: MindmapCommand = .foldAll
     var mindmapCommandTick: UInt64 = 0
 

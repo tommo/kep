@@ -40,6 +40,7 @@
 "menu.view.zoom_to_fit" = "Zoom to Fit";
 "menu.view.fold_all" = "Fold All Topics";
 "menu.view.unfold_all" = "Unfold All Topics";
+"menu.view.show_jump_arrows" = "Show Jump Arrows";
 
 /* MARK: - Window menu */
 "menu.window.next_tab" = "Next Tab";

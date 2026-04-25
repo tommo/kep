@@ -1,4 +1,5 @@
 import AppKit
+import MindoCore
 import MindoModel
 
 /// AppKit canvas that renders a mind map and handles mouse + keyboard editing.
@@ -310,8 +311,10 @@ public final class MindMapView: NSView {
         }
 
         // Jump arrows for ExtraTopic links — drawn over the topics so they're
-        // visible above shadow + fill.
-        drawJumpArrows(rootElement: root, into: ctx)
+        // visible above shadow + fill. PrefKey toggle lets users hide them.
+        if PrefKeys.bool(PrefKeys.showJumpArrows, fallback: true) {
+            drawJumpArrows(rootElement: root, into: ctx)
+        }
 
         // Selection overlay on top — secondary members of the multi-selection
         // first (lighter), primary on top.

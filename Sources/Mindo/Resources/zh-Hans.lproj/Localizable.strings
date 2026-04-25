@@ -37,6 +37,7 @@
 "menu.view.zoom_to_fit" = "缩放至适合";
 "menu.view.fold_all" = "折叠所有主题";
 "menu.view.unfold_all" = "展开所有主题";
+"menu.view.show_jump_arrows" = "显示跳转箭头";
 
 /* MARK: - 窗口菜单 */
 "menu.window.next_tab" = "下一个标签页";

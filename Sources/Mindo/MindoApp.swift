@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 import MindoCore
 import MindoMindMap
 import MindoCSV
+import MindoGenAI
 import MindoMarkdown
 import MindoPlantUML
 import MindoModel
@@ -16,6 +17,17 @@ struct MindoApp: App {
         WindowGroup("Mindo") {
             ContentView(session: $session)
                 .frame(minWidth: 1000, minHeight: 700)
+                .sheet(isPresented: $session.aiSettingsOpen) { AISettingsView() }
+                .sheet(isPresented: $session.aiGenerateOpen) {
+                    AIGeneratePane(
+                        context: AIGeneratePane.Context(
+                            supportedModes: session.aiSupportedModes,
+                            defaultPrompt: session.aiDefaultPrompt
+                        )
+                    ) { text, mode in
+                        session.applyAIResult(text: text, mode: mode)
+                    }
+                }
         }
         .commands {
             CommandGroup(replacing: .newItem) {
@@ -41,6 +53,14 @@ struct MindoApp: App {
                     Text("Classic").tag(ThemeChoice.classic)
                 }
             }
+            CommandMenu("AI") {
+                Button("Generate…") { session.openAIGenerate() }
+                    .keyboardShortcut("g", modifiers: [.command, .shift])
+                    .disabled(session.activeDocument == nil)
+                Divider()
+                Button("Settings…") { session.aiSettingsOpen = true }
+                    .keyboardShortcut(",", modifiers: [.command, .shift])
+            }
         }
     }
 }
@@ -55,6 +75,12 @@ final class AppSession {
     var activeDocumentID: OpenDocument.ID?
     var theme: ThemeChoice = .light
     var lastError: String?
+
+    // AI sheets
+    var aiSettingsOpen: Bool = false
+    var aiGenerateOpen: Bool = false
+    var aiSupportedModes: [AIGeneratePane.InsertionMode] = [.append]
+    var aiDefaultPrompt: String = ""
 
     init() {
         let mgr = WorkspaceManager.shared
@@ -136,6 +162,51 @@ final class AppSession {
     }
 
     // MARK: - Save
+
+    // MARK: - AI
+
+    func openAIGenerate() {
+        guard let doc = activeDocument else { return }
+        switch doc.kind {
+        case .mindMap:
+            aiSupportedModes = [.childTopic]
+            aiDefaultPrompt = "Generate three child topics for the selected node."
+        case .text(_, .markdown):
+            aiSupportedModes = [.append, .replace]
+            aiDefaultPrompt = "Continue the document below."
+        case .text(_, .plantUML):
+            aiSupportedModes = [.append, .replace]
+            aiDefaultPrompt = "Generate a PlantUML diagram source for: "
+        default:
+            aiSupportedModes = [.append, .replace]
+            aiDefaultPrompt = ""
+        }
+        aiGenerateOpen = true
+    }
+
+    func applyAIResult(text: String, mode: AIGeneratePane.InsertionMode) {
+        guard let id = activeDocumentID,
+              let idx = openDocuments.firstIndex(where: { $0.id == id }) else { return }
+        var doc = openDocuments[idx]
+        switch (doc.kind, mode) {
+        case (.text(let body, let t), .append):
+            doc.kind = .text(body + (body.hasSuffix("\n") ? "" : "\n") + text, fileType: t)
+        case (.text(_, let t), .replace):
+            doc.kind = .text(text, fileType: t)
+        case (.mindMap(let map), .childTopic):
+            // Split AI output by lines; each non-empty line becomes a child of the root.
+            let parent = map.root ?? Topic(text: "Root")
+            if map.root == nil { map.root = parent }
+            for line in text.split(whereSeparator: { $0 == "\n" }) {
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                if trimmed.isEmpty { continue }
+                _ = parent.addChild(text: trimmed)
+            }
+        default:
+            break
+        }
+        openDocuments[idx] = doc
+    }
 
     func saveActive() {
         guard let doc = activeDocument else { return }

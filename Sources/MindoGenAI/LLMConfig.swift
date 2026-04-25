@@ -128,4 +128,27 @@ public final class LLMConfigStore {
         config.customModels[providerID.rawValue] = list
         try? save()
     }
+
+    /// Update the user's currently active provider+model selection. Persists.
+    public func setActive(provider: GenAIProviderID, model: String) {
+        config.activeProviderID = provider.rawValue
+        config.activeModel = model
+        try? save()
+    }
+
+    /// `(provider, model)` — falls back to first available if nothing set.
+    public func activeSelection() -> (GenAIProviderID, String)? {
+        if let raw = config.activeProviderID,
+           let provider = GenAIProviderID(rawValue: raw),
+           let model = config.activeModel,
+           !model.isEmpty {
+            return (provider, model)
+        }
+        for id in GenAIProviderID.allCases {
+            if let first = allModels(for: id).first {
+                return (id, first.name)
+            }
+        }
+        return nil
+    }
 }

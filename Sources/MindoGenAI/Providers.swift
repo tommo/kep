@@ -41,6 +41,15 @@ public final class QwenProvider: OpenAICompatibleProvider, @unchecked Sendable {
     }
 }
 
+/// ChatGLM (Zhipu's `bigmodel` v4 API) is OpenAI-compatible at the wire level
+/// — `POST {endpoint}/chat/completions` with the same messages / streaming
+/// shape — so it just rides on the shared base.
+public final class ChatGLMProvider: OpenAICompatibleProvider, @unchecked Sendable {
+    public init(meta: ProviderMeta, model: ModelMeta) {
+        super.init(providerID: .chatGLM, meta: meta, model: model)
+    }
+}
+
 /// Factory that turns a `(GenAIProviderID, ProviderMeta, ModelMeta)` tuple into
 /// a concrete `LLMProvider`. Mirrors `LlmProviderFactory`.
 public enum LLMProviderFactory {
@@ -52,11 +61,8 @@ public enum LLMProviderFactory {
         case .moonshot:  return MoonshotProvider(meta: meta, model: model)
         case .qwen:      return QwenProvider(meta: meta, model: model)
         case .gemini:    return GeminiProvider(meta: meta, model: model)
-        // HuggingFace and ChatGLM still use distinct shapes that don't map to
-        // either OpenAI-compat or Gemini's contents/parts envelope. Keep
-        // honest about that until they're wired.
-        case .huggingFace, .chatGLM:
-            return nil
+        case .chatGLM:   return ChatGLMProvider(meta: meta, model: model)
+        case .huggingFace: return HuggingFaceProvider(meta: meta, model: model)
         }
     }
 }

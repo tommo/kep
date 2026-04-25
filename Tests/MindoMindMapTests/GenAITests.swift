@@ -124,3 +124,22 @@ final class LLMProviderFactoryTests: XCTestCase {
         }
     }
 }
+
+final class AIGenerateContinuationTests: XCTestCase {
+    func testContinuationPromptIncludesPriorReply() {
+        let p = AIGeneratePane.continuationPrompt(from: "Once upon a time,")
+        XCTAssertTrue(p.contains("Once upon a time,"), "prior reply must be quoted: \(p)")
+    }
+
+    func testContinuationPromptInstructsNoRepeat() {
+        let p = AIGeneratePane.continuationPrompt(from: "x")
+        XCTAssertTrue(p.localizedCaseInsensitiveContains("do not repeat"))
+    }
+
+    func testContinuationPromptTrimsSurroundingWhitespace() {
+        let p = AIGeneratePane.continuationPrompt(from: "\n\n  hello world  \n\n")
+        // The trimmed body sits on its own line — no leading/trailing whitespace inside it.
+        XCTAssertTrue(p.contains("\nhello world"))
+        XCTAssertFalse(p.contains("hello world  "))
+    }
+}

@@ -35,6 +35,9 @@ public struct AIGeneratePane: View {
     @State private var errorMessage: String?
     @State private var providerLabel: String = ""
     @State private var subscriptions: Set<AnyCancellable> = []
+    /// Snapshot of the prompt that produced `output`. Regenerate replays this
+    /// (not the live `prompt` text, which the user may have edited since).
+    @State private var lastPromptUsed: String?
 
     public init(
         title: String = "AI Generate",
@@ -133,6 +136,12 @@ public struct AIGeneratePane: View {
             Button("Generate", systemImage: "play.fill") { startGenerate() }
                 .keyboardShortcut(.return, modifiers: [.command])
                 .disabled(isRunning || prompt.isEmpty)
+            Button("Regenerate", systemImage: "arrow.clockwise") { regenerate() }
+                .disabled(isRunning || lastPromptUsed == nil)
+                .help("Re-run the prompt that produced the current result")
+            Button("Continue", systemImage: "arrow.right.to.line") { continueResponse() }
+                .disabled(isRunning || output.isEmpty)
+                .help("Ask the model to continue from the current result")
             if isRunning {
                 Button("Stop") { cancel() }
             }
@@ -159,14 +168,37 @@ public struct AIGeneratePane: View {
     }
 
     private func startGenerate() {
+        run(promptText: prompt, appendingToExisting: false, rememberAs: prompt)
+    }
+
+    private func regenerate() {
+        guard let last = lastPromptUsed else { return }
+        run(promptText: last, appendingToExisting: false, rememberAs: last)
+    }
+
+    private func continueResponse() {
+        guard !output.isEmpty else { return }
+        run(
+            promptText: Self.continuationPrompt(from: output),
+            appendingToExisting: true,
+            rememberAs: lastPromptUsed
+        )
+    }
+
+    /// Shared runner for Generate / Regenerate / Continue. `appendingToExisting`
+    /// preserves the current `output` (Continue mode); otherwise the buffer is
+    /// reset before streaming. `rememberAs` is what Regenerate will replay later
+    /// — pass `nil` to leave the previous value in place (used by Continue, which
+    /// shouldn't change what Regenerate replays).
+    private func run(promptText: String, appendingToExisting: Bool, rememberAs: String?) {
         guard let (provider, model) = LLMConfigStore.shared.activeSelection() else {
             errorMessage = "Configure a provider in Settings first."
             return
         }
         let modelMeta = LLMConfigStore.shared.modelMeta(for: provider, name: model)
         let combined = context.selectedText.isEmpty
-            ? prompt
-            : "\(prompt)\n\nContext:\n\(context.selectedText)"
+            ? promptText
+            : "\(promptText)\n\nContext:\n\(context.selectedText)"
         let input = LLMInput(
             providerID: provider.rawValue,
             model: modelMeta.name,
@@ -175,7 +207,8 @@ public struct AIGeneratePane: View {
             isStreaming: true
         )
 
-        output = ""
+        if !appendingToExisting { output = "" }
+        if let remember = rememberAs { lastPromptUsed = remember }
         errorMessage = nil
         isRunning = true
         subscriptions.removeAll()
@@ -195,6 +228,17 @@ public struct AIGeneratePane: View {
             }
             .store(in: &subscriptions)
         service.stream(input: input)
+    }
+
+    /// Builds the prompt sent for "Continue" — the model sees its own prior
+    /// reply and is asked to extend it without repeating. Exposed for tests.
+    public static func continuationPrompt(from existing: String) -> String {
+        let trimmed = existing.trimmingCharacters(in: .whitespacesAndNewlines)
+        return """
+        Continue the following text from exactly where it stops. Do not repeat any of it; emit only the continuation.
+
+        \(trimmed)
+        """
     }
 
     private func cancel() {

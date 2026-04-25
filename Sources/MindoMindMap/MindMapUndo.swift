@@ -28,6 +28,12 @@ extension MindMapView {
         rebuildElementsForUndo()
     }
 
+    /// Element-rebuild + onChange — every public mutator ends with this pair.
+    func refreshAndNotify() {
+        rebuildElementsForUndo()
+        notifyChangeForUndo()
+    }
+
     /// MARK: - Public undoable mutators
     ///
     /// These rebuild the element tree and notify `onChange`, mirroring the
@@ -41,8 +47,7 @@ extension MindMapView {
             forward: { parent.append(child) },
             inverse: { parent.removeChild(child) }
         )
-        rebuildElementsForUndo()
-        notifyChangeForUndo()
+        refreshAndNotify()
         return child
     }
 
@@ -60,8 +65,7 @@ extension MindMapView {
                 }
             }
         )
-        rebuildElementsForUndo()
-        notifyChangeForUndo()
+        refreshAndNotify()
     }
 
     public func undoableSetText(_ topic: Topic, to newText: String) {
@@ -73,8 +77,7 @@ extension MindMapView {
             forward: { topic.text = newText },
             inverse: { topic.text = oldText }
         )
-        rebuildElementsForUndo()
-        notifyChangeForUndo()
+        refreshAndNotify()
     }
 
     public func undoableSetAttribute(_ topic: Topic, key: String, value: String?) {
@@ -86,8 +89,7 @@ extension MindMapView {
             forward: { topic.setAttribute(key, value) },
             inverse: { topic.setAttribute(key, oldValue) }
         )
-        rebuildElementsForUndo()
-        notifyChangeForUndo()
+        refreshAndNotify()
     }
 
     /// Set or clear an extra on a topic. `nil` removes the extra. Captures
@@ -111,8 +113,7 @@ extension MindMapView {
                 else { topic.removeExtra(type) }
             }
         )
-        rebuildElementsForUndo()
-        notifyChangeForUndo()
+        refreshAndNotify()
     }
 
     /// Move `topic` to be the `index`th child of `newParent`. Pure undoable
@@ -136,8 +137,7 @@ extension MindMapView {
                 oldParent.move(child: topic, to: oldIndex)
             }
         )
-        rebuildElementsForUndo()
-        notifyChangeForUndo()
+        refreshAndNotify()
     }
 }
 

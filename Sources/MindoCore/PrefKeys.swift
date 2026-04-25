@@ -13,6 +13,7 @@ public enum PrefKeys {
     public static let mindmapVerticalGap = "mindo.prefs.mindmapVerticalGap"
     public static let mindmapHorizontalGap = "mindo.prefs.mindmapHorizontalGap"
     public static let aiStreamingEnabled = "mindo.prefs.aiStreamingEnabled"
+    public static let autosaveOnBlur = "mindo.prefs.autosaveOnBlur"
 
     /// Convenience: pulls a Double from UserDefaults, returning `fallback`
     /// when the key is unset or stored as a non-positive value.

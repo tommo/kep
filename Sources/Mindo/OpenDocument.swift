@@ -55,6 +55,13 @@ struct OpenDocument: Identifiable, Hashable {
         return false
     }
 
+    /// True for kinds whose contents can round-trip through `save(to:)`.
+    /// `.unsupported` (binary blob references) is excluded.
+    var isAutosavable: Bool {
+        if case .unsupported = kind { return false }
+        return true
+    }
+
     /// Outline rows derived from this document's content. Each Kind picks
     /// the appropriate extractor; unsupported / unknown text returns empty.
     var outlineItems: [OutlineItem] {

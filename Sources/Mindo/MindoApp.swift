@@ -232,6 +232,11 @@ final class AppSession {
     var openDocuments: [OpenDocument] = []
     var activeDocumentID: OpenDocument.ID? {
         didSet {
+            // Autosave the doc we just left — silent, only if it has a URL
+            // and is dirty. Skipped when the change is a no-op.
+            if let prev = oldValue, prev != activeDocumentID {
+                autosaveDocument(id: prev)
+            }
             if let id = activeDocumentID { tabManager.activate(id) }
         }
     }
@@ -297,6 +302,13 @@ final class AppSession {
         self.workspaceRoots.forEach { startWorkspaceWatcher(for: $0) }
         // Re-open the tabs that were open when the app last quit.
         restoreOpenTabs()
+        // Save dirty docs whenever any window loses key — covers ⌘Tab to
+        // another app, switching to another Mindo window, etc.
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.didResignKeyNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in self?.autosaveAllDirty() }
     }
 
     // All AppSession behavior beyond stored properties + init lives in

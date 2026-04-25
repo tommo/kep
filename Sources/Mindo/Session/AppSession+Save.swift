@@ -1,10 +1,42 @@
 import AppKit
 import UniformTypeIdentifiers
+import MindoCore
 import MindoMarkdown
 import MindoMindMap
 import MindoModel
 
 extension AppSession {
+
+    /// Save dirty docs that already have a file path on tab switch / window
+    /// blur. Skips untitled docs (would otherwise pop a Save panel mid-blur,
+    /// which is hostile UX) and respects the PrefKeys.autosaveOnBlur toggle.
+    /// Stays silent on errors — failure surfaces via the next manual save.
+    func autosaveDocument(id: OpenDocument.ID) {
+        guard PrefKeys.bool(PrefKeys.autosaveOnBlur, fallback: true) else { return }
+        guard let idx = openDocuments.firstIndex(where: { $0.id == id }) else { return }
+        let doc = openDocuments[idx]
+        guard Autosave.shouldAutosave(
+            isDirty: doc.isDirty,
+            hasFileURL: doc.fileURL != nil,
+            isSavable: doc.isAutosavable
+        ), let url = doc.fileURL else { return }
+        do {
+            try doc.save(to: url)
+            openDocuments[idx].isDirty = false
+            openDocuments[idx].hasExternalChanges = false
+        } catch {
+            // Swallow — the user will see the dirty flag and can ⌘S manually.
+        }
+    }
+
+    /// Run autosave across every open doc. Wired to NSWindow.didResignKey so
+    /// switching to another app commits work-in-progress.
+    func autosaveAllDirty() {
+        guard PrefKeys.bool(PrefKeys.autosaveOnBlur, fallback: true) else { return }
+        for doc in openDocuments {
+            autosaveDocument(id: doc.id)
+        }
+    }
 
     func saveActive() {
         guard let id = activeDocumentID,

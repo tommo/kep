@@ -126,6 +126,7 @@
 "prefs.editor.section.text" = "文本";
 "prefs.editor.font_size_value" = "编辑器字号：%d pt";
 "prefs.editor.sync_scroll" = "Markdown 代码区与预览同步滚动";
+"prefs.editor.autosave_on_blur" = "窗口或标签失去焦点时自动保存";
 "prefs.mindmap.section.layout" = "布局";
 "prefs.mindmap.vertical_gap" = "同级间距：%d pt";
 "prefs.mindmap.horizontal_gap" = "层级间距：%d pt";

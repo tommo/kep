@@ -43,6 +43,7 @@ private struct GeneralPrefs: View {
 private struct EditorPrefs: View {
     @AppStorage(PrefKeys.editorFontSize) private var fontSize: Double = 13
     @AppStorage(PrefKeys.markdownPreviewSyncScroll) private var syncScroll: Bool = true
+    @AppStorage(PrefKeys.autosaveOnBlur) private var autosaveOnBlur: Bool = true
 
     var body: some View {
         Form {
@@ -51,6 +52,7 @@ private struct EditorPrefs: View {
                     Text(String(format: L("prefs.editor.font_size_value"), Int(fontSize)))
                 }
                 Toggle(L("prefs.editor.sync_scroll"), isOn: $syncScroll)
+                Toggle(L("prefs.editor.autosave_on_blur"), isOn: $autosaveOnBlur)
             }
         }
         .formStyle(.grouped)

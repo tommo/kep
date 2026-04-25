@@ -47,8 +47,7 @@ extension Topic {
                         topic = r
                     }
                 } else if detectedLevel < depth {
-                    if let t = topic {
-                        let parent = t.findParent(forDepth: depth - detectedLevel)
+                    if let t = topic, let parent = t.findParent(forDepth: depth - detectedLevel) {
                         topic = parent.addChild(text: newText)
                         depth = detectedLevel
                     }

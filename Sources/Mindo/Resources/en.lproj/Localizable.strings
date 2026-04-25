@@ -10,6 +10,7 @@
 "menu.file.save" = "Save";
 "menu.file.save_as" = "Save As…";
 "menu.file.close_tab" = "Close Tab";
+"menu.file.import_freemind" = "Import FreeMind…";
 
 /* MARK: - View menu */
 "menu.view.theme" = "Theme";

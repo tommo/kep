@@ -43,48 +43,55 @@ struct MindoApp: App {
         }
         .commands {
             CommandGroup(replacing: .newItem) {
-                Button("New Mind Map") { session.newMindMap() }
+                Button(L("menu.file.new_mindmap")) { session.newMindMap() }
                     .keyboardShortcut("n", modifiers: .command)
                 Divider()
-                Button("Open Workspace…") { session.openWorkspace() }
+                Button(L("menu.file.open_workspace")) { session.openWorkspace() }
                     .keyboardShortcut("o", modifiers: [.command, .shift])
-                Button("Open File…") { session.openFile() }
+                Button(L("menu.file.open_file")) { session.openFile() }
                     .keyboardShortcut("o", modifiers: .command)
-                Button("Save") { session.saveActive() }
+                Button(L("menu.file.save")) { session.saveActive() }
                     .keyboardShortcut("s", modifiers: .command)
-                Button("Save As…") { session.saveActiveAs() }
+                Button(L("menu.file.save_as")) { session.saveActiveAs() }
                     .keyboardShortcut("s", modifiers: [.command, .shift])
-                Button("Close Tab") { session.closeActive() }
+                Button(L("menu.file.close_tab")) { session.closeActive() }
                     .keyboardShortcut("w", modifiers: .command)
                     .disabled(session.activeDocument == nil)
-            }
-            CommandMenu("Window") {
-                Button("Next Tab") { session.cycleNextTab() }
-                    .keyboardShortcut("]", modifiers: [.command, .shift])
-                    .disabled(session.openDocuments.count < 2)
-                Button("Previous Tab") { session.cyclePreviousTab() }
-                    .keyboardShortcut("[", modifiers: [.command, .shift])
-                    .disabled(session.openDocuments.count < 2)
                 Divider()
-                Button(session.outlineOpen ? "Hide Outline" : "Show Outline") {
-                    session.outlineOpen.toggle()
-                }
-                .keyboardShortcut("0", modifiers: [.command, .option])
+                Button(L("menu.file.import_freemind")) { session.importFreemind() }
             }
-            CommandMenu("View") {
-                Picker("Theme", selection: $session.theme) {
-                    Text("Light").tag(ThemeChoice.light)
-                    Text("Dark").tag(ThemeChoice.dark)
-                    Text("Classic").tag(ThemeChoice.classic)
+            CommandGroup(after: .pasteboard) {
+                Button(L("menu.edit.insert_snippet")) { session.snippetPickerOpen = true }
+                    .keyboardShortcut("j", modifiers: [.command, .shift])
+                    .disabled(session.activeDocument == nil)
+            }
+            CommandMenu(L("menu.view.theme")) {
+                Picker(L("menu.view.theme"), selection: $session.theme) {
+                    Text(L("menu.view.theme.light")).tag(ThemeChoice.light)
+                    Text(L("menu.view.theme.dark")).tag(ThemeChoice.dark)
+                    Text(L("menu.view.theme.classic")).tag(ThemeChoice.classic)
                 }
             }
-            CommandMenu("AI") {
-                Button("Generate…") { session.openAIGenerate() }
+            CommandMenu(L("menu.ai")) {
+                Button(L("menu.ai.generate")) { session.openAIGenerate() }
                     .keyboardShortcut("g", modifiers: [.command, .shift])
                     .disabled(session.activeDocument == nil)
                 Divider()
-                Button("Settings…") { session.aiSettingsOpen = true }
+                Button(L("menu.ai.settings")) { session.aiSettingsOpen = true }
                     .keyboardShortcut(",", modifiers: [.command, .shift])
+            }
+            CommandMenu("Window") {
+                Button(L("menu.window.next_tab")) { session.cycleNextTab() }
+                    .keyboardShortcut("]", modifiers: [.command, .shift])
+                    .disabled(session.openDocuments.count < 2)
+                Button(L("menu.window.previous_tab")) { session.cyclePreviousTab() }
+                    .keyboardShortcut("[", modifiers: [.command, .shift])
+                    .disabled(session.openDocuments.count < 2)
+                Divider()
+                Button(L(session.outlineOpen ? "menu.window.hide_outline" : "menu.window.show_outline")) {
+                    session.outlineOpen.toggle()
+                }
+                .keyboardShortcut("0", modifiers: [.command, .option])
             }
         }
     }
@@ -257,6 +264,26 @@ final class AppSession {
     private func stopFileWatcher(for id: OpenDocument.ID) {
         fileWatchers[id]?.stop()
         fileWatchers.removeValue(forKey: id)
+    }
+
+    /// Open a FreeMind/Freeplane .mm file via NSOpenPanel, parse it, and present
+    /// it as a fresh in-memory mindmap document (no fileURL, so Save will
+    /// prompt for a .mmd path).
+    func importFreemind() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [UTType.init(filenameExtension: "mm") ?? .data]
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            let xml = try String(contentsOf: url, encoding: .utf8)
+            let map = try FreemindImporter.parse(xml)
+            let title = url.deletingPathExtension().lastPathComponent + ".mmd"
+            let doc = OpenDocument(kind: .mindMap(map), fileURL: nil, title: title)
+            openDocuments.append(doc)
+            activeDocumentID = doc.id
+        } catch {
+            lastError = String(format: L("error.open_failed"), error.localizedDescription)
+        }
     }
 
     func newMindMap() {

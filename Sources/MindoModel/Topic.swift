@@ -56,15 +56,18 @@ public final class Topic {
         children.removeAll { $0 === child }
     }
 
-    /// Walk up `n` levels, returning the topic that should be the new parent.
-    public func findParent(forDepth n: Int) -> Topic {
-        var t = self
-        var i = n
-        while i > 0, let p = t.parent {
-            t = p
-            i -= 1
+    /// Mirror of Java `Topic.findParentForDepth(int)`: starts from `self.parent`
+    /// (one step up) then walks `n` *additional* steps, so n=0 returns the
+    /// parent and n=1 returns the grandparent. Used by the `.mmd` parser to
+    /// resolve "this heading belongs N levels above where I am now".
+    public func findParent(forDepth n: Int) -> Topic? {
+        var result = self.parent
+        var remaining = n
+        while remaining > 0, let next = result?.parent {
+            result = next
+            remaining -= 1
         }
-        return t
+        return result
     }
 
     public var isRoot: Bool { parent == nil }

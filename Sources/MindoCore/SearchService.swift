@@ -29,17 +29,28 @@ public struct FoundFile: Identifiable, Hashable, Sendable {
 /// Search options.
 public struct SearchOptions: Sendable {
     public var caseSensitive: Bool
+    /// When true the query is treated as an `NSRegularExpression` pattern.
+    /// Mutually exclusive with `wholeWord` (regex authors handle their own
+    /// boundaries); if both are set, `regex` wins.
+    public var regex: Bool
+    /// When true the query only matches at word boundaries (\b…\b in the
+    /// generated regex). Ignored when `regex` is also true.
+    public var wholeWord: Bool
     public var includeSuffixes: Set<String>?  // lowercased, e.g. {"mmd", "md"}
     public var maxHitsPerFile: Int
     public var maxFiles: Int
 
     public init(
         caseSensitive: Bool = false,
+        regex: Bool = false,
+        wholeWord: Bool = false,
         includeSuffixes: Set<String>? = nil,
         maxHitsPerFile: Int = 50,
         maxFiles: Int = 500
     ) {
         self.caseSensitive = caseSensitive
+        self.regex = regex
+        self.wholeWord = wholeWord
         self.includeSuffixes = includeSuffixes
         self.maxHitsPerFile = maxHitsPerFile
         self.maxFiles = maxFiles
@@ -98,25 +109,64 @@ public final class SearchService {
     /// In-memory scan; exposed for tests.
     public func scan(text: String, query: String, options: SearchOptions = SearchOptions()) -> [SearchHit] {
         guard !query.isEmpty else { return [] }
+        // Pick the matching strategy once, outside the line loop. Regex and
+        // whole-word both compile to NSRegularExpression so the inner loop
+        // collects matches the same way; substring stays on String.range.
+        let strategy: ScanStrategy
+        if options.regex {
+            guard let r = makeRegex(query, caseSensitive: options.caseSensitive) else { return [] }
+            strategy = .regex(r)
+        } else if options.wholeWord {
+            let pattern = "\\b\(NSRegularExpression.escapedPattern(for: query))\\b"
+            guard let r = makeRegex(pattern, caseSensitive: options.caseSensitive) else { return [] }
+            strategy = .regex(r)
+        } else {
+            strategy = .substring(options.caseSensitive ? query : query.lowercased(),
+                                  caseSensitive: options.caseSensitive)
+        }
+
         var hits: [SearchHit] = []
-        let needle = options.caseSensitive ? query : query.lowercased()
         let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
         for (index, raw) in lines.enumerated() {
             let line = String(raw)
-            let haystack = options.caseSensitive ? line : line.lowercased()
-            var searchStart = haystack.startIndex
-            while let range = haystack.range(of: needle, range: searchStart..<haystack.endIndex) {
-                let utf16Start = line.utf16.distance(from: line.utf16.startIndex, to: range.lowerBound.samePosition(in: line.utf16) ?? line.utf16.startIndex)
-                let utf16End = line.utf16.distance(from: line.utf16.startIndex, to: range.upperBound.samePosition(in: line.utf16) ?? line.utf16.endIndex)
-                hits.append(SearchHit(
-                    lineNumber: index + 1,
-                    line: line,
-                    matchRange: NSRange(location: utf16Start, length: utf16End - utf16Start)
-                ))
+            for matchRange in strategy.ranges(in: line) {
+                hits.append(SearchHit(lineNumber: index + 1, line: line, matchRange: matchRange))
                 if hits.count >= options.maxHitsPerFile { return hits }
-                searchStart = range.upperBound
             }
         }
         return hits
+    }
+
+    private func makeRegex(_ pattern: String, caseSensitive: Bool) -> NSRegularExpression? {
+        var opts: NSRegularExpression.Options = []
+        if !caseSensitive { opts.insert(.caseInsensitive) }
+        return try? NSRegularExpression(pattern: pattern, options: opts)
+    }
+
+    /// Per-line match driver. Substring goes through Swift's range-of-string
+    /// (cheap), regex / whole-word go through NSRegularExpression.matches.
+    private enum ScanStrategy {
+        case substring(String, caseSensitive: Bool)
+        case regex(NSRegularExpression)
+
+        func ranges(in line: String) -> [NSRange] {
+            switch self {
+            case .substring(let needle, let caseSensitive):
+                let haystack = caseSensitive ? line : line.lowercased()
+                var result: [NSRange] = []
+                var searchStart = haystack.startIndex
+                while let range = haystack.range(of: needle, range: searchStart..<haystack.endIndex) {
+                    let utf16Start = line.utf16.distance(from: line.utf16.startIndex, to: range.lowerBound.samePosition(in: line.utf16) ?? line.utf16.startIndex)
+                    let utf16End = line.utf16.distance(from: line.utf16.startIndex, to: range.upperBound.samePosition(in: line.utf16) ?? line.utf16.endIndex)
+                    result.append(NSRange(location: utf16Start, length: utf16End - utf16Start))
+                    searchStart = range.upperBound
+                }
+                return result
+            case .regex(let regex):
+                let nsLine = line as NSString
+                let lineRange = NSRange(location: 0, length: nsLine.length)
+                return regex.matches(in: line, range: lineRange).map(\.range)
+            }
+        }
     }
 }

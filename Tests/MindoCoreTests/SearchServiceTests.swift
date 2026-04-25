@@ -29,6 +29,42 @@ final class SearchServiceTests: XCTestCase {
         XCTAssertTrue(svc.scan(text: "anything", query: "").isEmpty)
     }
 
+    func testWholeWordOnlyMatchesAtBoundaries() {
+        let svc = SearchService()
+        let text = "map mapping mind-map remap\ntop maps"
+        // Without whole-word: every "map" substring matches.
+        XCTAssertEqual(svc.scan(text: text, query: "map").count, 5)
+        // With whole-word: only the standalone tokens.
+        let opts = SearchOptions(wholeWord: true)
+        let hits = svc.scan(text: text, query: "map", options: opts)
+        // Boundaries match: "map" (line 1), "mind-map" (the "map" after "-"
+        // is bounded by - on left and EOL on right). Misses: "mapping",
+        // "remap", "maps".
+        XCTAssertEqual(hits.count, 2)
+    }
+
+    func testRegexHonoredWhenSet() {
+        let svc = SearchService()
+        let text = "id 123 and id 4567\nno digits here"
+        let hits = svc.scan(text: text, query: #"\d+"#, options: SearchOptions(regex: true))
+        XCTAssertEqual(hits.count, 2)
+        XCTAssertEqual(hits[0].lineNumber, 1)
+        XCTAssertEqual(hits[1].lineNumber, 1)
+    }
+
+    func testRegexCaseInsensitiveByDefault() {
+        let svc = SearchService()
+        let text = "Hello WORLD"
+        let hits = svc.scan(text: text, query: "hello", options: SearchOptions(regex: true))
+        XCTAssertEqual(hits.count, 1)
+    }
+
+    func testInvalidRegexReturnsNoHits() {
+        let svc = SearchService()
+        let hits = svc.scan(text: "anything", query: "([", options: SearchOptions(regex: true))
+        XCTAssertTrue(hits.isEmpty, "malformed regex should not crash and should match nothing")
+    }
+
     func testMaxHitsPerFileEnforced() {
         let svc = SearchService()
         let text = String(repeating: "x x x x x x x x x x\n", count: 5)

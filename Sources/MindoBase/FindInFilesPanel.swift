@@ -11,6 +11,8 @@ public struct FindInFilesPanel: View {
 
     @State private var query: String = ""
     @State private var caseSensitive: Bool = false
+    @State private var wholeWord: Bool = false
+    @State private var regex: Bool = false
     @State private var results: [FoundFile] = []
     @State private var isSearching: Bool = false
     @State private var searchTask: Task<Void, Never>?
@@ -32,6 +34,15 @@ public struct FindInFilesPanel: View {
                     .toggleStyle(.button)
                     .help("Case-sensitive search")
                     .onChange(of: caseSensitive) { _, _ in scheduleSearch() }
+                Toggle("W", isOn: $wholeWord)
+                    .toggleStyle(.button)
+                    .help("Match whole words only")
+                    .disabled(regex)
+                    .onChange(of: wholeWord) { _, _ in scheduleSearch() }
+                Toggle(".*", isOn: $regex)
+                    .toggleStyle(.button)
+                    .help("Treat the query as a regular expression")
+                    .onChange(of: regex) { _, _ in scheduleSearch() }
                 if isSearching {
                     ProgressView().controlSize(.small)
                 }
@@ -93,7 +104,7 @@ public struct FindInFilesPanel: View {
     private func runSearch() {
         searchTask?.cancel()
         let q = query
-        let cs = caseSensitive
+        let opts = SearchOptions(caseSensitive: caseSensitive, regex: regex, wholeWord: wholeWord)
         guard !q.isEmpty else { results = []; return }
         isSearching = true
         let roots = workspaceRoots
@@ -102,7 +113,7 @@ public struct FindInFilesPanel: View {
             var combined: [FoundFile] = []
             for root in roots {
                 if Task.isCancelled { return }
-                combined.append(contentsOf: svc.search(in: root, query: q, options: SearchOptions(caseSensitive: cs)))
+                combined.append(contentsOf: svc.search(in: root, query: q, options: opts))
             }
             await MainActor.run {
                 self.results = combined

@@ -31,6 +31,11 @@ extension MindMapView {
             handleExtraTap(on: el, type: type)
             return
         }
+        // Embedded-image hit: open the lightbox at full resolution.
+        if event.clickCount >= 1, let image = embeddedImage(at: p) {
+            MindMapImageLightbox.present(image: image, near: window)
+            return
+        }
         let el = element(at: p)
         // Cmd-click toggles multi-selection, Shift-click adds; otherwise replace.
         if event.modifierFlags.contains(.command) {
@@ -113,6 +118,21 @@ extension MindMapView {
         while let cur = t {
             if cur === source.topic { return nil }
             t = cur.parent
+        }
+        return hit
+    }
+
+    /// Hit-test for the embedded image inside any topic. Used by mouseDown
+    /// to open the lightbox when the user clicks on the thumbnail.
+    func embeddedImage(at point: CGPoint) -> NSImage? {
+        guard let root = rootElement else { return nil }
+        var hit: NSImage? = nil
+        root.traverse { el in
+            if hit != nil { return }
+            if let image = el.embeddedImage,
+               el.embeddedImageDrawRect.contains(point) {
+                hit = image
+            }
         }
         return hit
     }

@@ -1,4 +1,5 @@
 import SwiftUI
+import MindoCore
 
 /// Tabbed preferences sheet wired into SwiftUI's Settings scene (⌘,).
 /// Persists via @AppStorage so editors that observe the same keys
@@ -91,14 +92,3 @@ private struct AIPrefs: View {
     }
 }
 
-/// Centralised UserDefaults key namespace so editors can read the same
-/// values via @AppStorage without re-declaring strings.
-public enum PrefKeys {
-    public static let theme = "mindo.prefs.theme"
-    public static let outlineOpenByDefault = "mindo.prefs.outlineOpenByDefault"
-    public static let editorFontSize = "mindo.prefs.editorFontSize"
-    public static let markdownPreviewSyncScroll = "mindo.prefs.markdownPreviewSyncScroll"
-    public static let mindmapVerticalGap = "mindo.prefs.mindmapVerticalGap"
-    public static let mindmapHorizontalGap = "mindo.prefs.mindmapHorizontalGap"
-    public static let aiStreamingEnabled = "mindo.prefs.aiStreamingEnabled"
-}

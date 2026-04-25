@@ -226,7 +226,9 @@ final class AppSession {
             if let id = activeDocumentID { tabManager.activate(id) }
         }
     }
-    var theme: ThemeChoice = .light
+    var theme: ThemeChoice = ThemeChoice(rawValue:
+        UserDefaults.standard.string(forKey: PrefKeys.theme) ?? ""
+    ) ?? .light
     var lastError: String?
 
     /// MRU tab tracker — drives ⌃⇥ / ⌃⇧⇥ "next/previous tab" navigation.
@@ -243,8 +245,9 @@ final class AppSession {
     var aiSupportedModes: [AIGeneratePane.InsertionMode] = [.append]
     var aiDefaultPrompt: String = ""
 
-    /// Whether the right-hand outline inspector is showing.
-    var outlineOpen: Bool = true
+    /// Whether the right-hand outline inspector is showing. Seeded from
+    /// PrefKeys so the user's "show outline by default" choice sticks.
+    var outlineOpen: Bool = PrefKeys.bool(PrefKeys.outlineOpenByDefault, fallback: true)
 
     /// Per-document outline navigation request. Editor views observe this and
     /// scroll/center on change. Reset to nil after a brief debounce so the

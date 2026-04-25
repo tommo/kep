@@ -1,4 +1,5 @@
 import AppKit
+import MindoCore
 import MindoModel
 
 /// Two-pass layout for a mind map. Mirrors the approach in `MindMapCanvas`:
@@ -8,9 +9,16 @@ import MindoModel
 public final class MindMapLayout {
     public let theme: MindMapTheme
     public let originPadding: CGFloat = 32
+    /// Resolved sibling-to-sibling vertical gap. Reads PrefKeys when set,
+    /// falls back to the theme's compiled-in default.
+    public let verticalGap: CGFloat
+    /// Resolved parent-to-child horizontal gap, same fallback rule.
+    public let horizontalGap: CGFloat
 
     public init(theme: MindMapTheme) {
         self.theme = theme
+        self.verticalGap = CGFloat(PrefKeys.double(PrefKeys.mindmapVerticalGap, fallback: Double(theme.verticalGap)))
+        self.horizontalGap = CGFloat(PrefKeys.double(PrefKeys.mindmapHorizontalGap, fallback: Double(theme.horizontalGap)))
     }
 
     /// Run both passes on `root`, returning the canvas-coordinates bounding box.
@@ -98,7 +106,7 @@ public final class MindMapLayout {
         }
 
         let direction: CGFloat = element.isLeftSide ? -1 : 1
-        let childX = element.frame.midX + direction * (element.elementSize.width / 2 + theme.horizontalGap)
+        let childX = element.frame.midX + direction * (element.elementSize.width / 2 + horizontalGap)
         layOutColumn(visible, columnX: childX, parentCenterY: element.frame.midY, side: direction)
 
         unionSubtreeBounds(element, with: visible)
@@ -111,8 +119,8 @@ public final class MindMapLayout {
         let rightChildren = root.isCollapsed ? [] : root.rightChildren
 
         let halfW = root.elementSize.width / 2
-        let leftX = root.frame.midX - (halfW + theme.horizontalGap)
-        let rightX = root.frame.midX + (halfW + theme.horizontalGap)
+        let leftX = root.frame.midX - (halfW + horizontalGap)
+        let rightX = root.frame.midX + (halfW + horizontalGap)
         layOutColumn(leftChildren, columnX: leftX, parentCenterY: root.frame.midY, side: -1)
         layOutColumn(rightChildren, columnX: rightX, parentCenterY: root.frame.midY, side: +1)
 
@@ -149,7 +157,7 @@ public final class MindMapLayout {
             heights.append(el.elementSize.height)
             subtreeHeights.append(el.subtreeHeight)
         }
-        let totalHeight = subtreeHeights.reduce(0, +) + theme.verticalGap * CGFloat(elements.count - 1)
+        let totalHeight = subtreeHeights.reduce(0, +) + verticalGap * CGFloat(elements.count - 1)
         var cursor = parentCenterY - totalHeight / 2
         for (i, el) in elements.enumerated() {
             let centerY = cursor + subtreeHeights[i] / 2
@@ -157,7 +165,7 @@ public final class MindMapLayout {
             // For left-side children, child element's right edge is at columnX.
             let cx = side > 0 ? columnX + el.elementSize.width / 2 : columnX - el.elementSize.width / 2
             place(el, at: CGPoint(x: cx, y: centerY))
-            cursor += subtreeHeights[i] + theme.verticalGap
+            cursor += subtreeHeights[i] + verticalGap
         }
     }
 
@@ -170,7 +178,7 @@ public final class MindMapLayout {
             return
         }
         for k in kids { measureSubtreeHeight(k) }
-        let kidsHeight = kids.map(\.subtreeHeight).reduce(0, +) + theme.verticalGap * CGFloat(kids.count - 1)
+        let kidsHeight = kids.map(\.subtreeHeight).reduce(0, +) + verticalGap * CGFloat(kids.count - 1)
         element.subtreeHeight = max(element.elementSize.height, kidsHeight)
     }
 }

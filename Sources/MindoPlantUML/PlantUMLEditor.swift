@@ -77,6 +77,14 @@ public struct PlantUMLEditor: NSViewRepresentable {
         stack.addArrangedSubview(skeletonButton("State",    tooltip: "Insert state diagram skeleton",   action: #selector(Coordinator.insertState)))
         stack.addArrangedSubview(skeletonButton("Use Case", tooltip: "Insert use case diagram skeleton", action: #selector(Coordinator.insertUseCase)))
         stack.addArrangedSubview(skeletonButton("Mind Map", tooltip: "Insert mind map skeleton",        action: #selector(Coordinator.insertMindMap)))
+        // Spacer between insert + copy clusters.
+        let divider = NSBox(); divider.boxType = .separator
+        divider.translatesAutoresizingMaskIntoConstraints = false
+        divider.widthAnchor.constraint(equalToConstant: 1).isActive = true
+        divider.heightAnchor.constraint(equalToConstant: 18).isActive = true
+        stack.addArrangedSubview(divider)
+        stack.addArrangedSubview(skeletonButton("Copy SVG", tooltip: "Copy rendered diagram as SVG", action: #selector(Coordinator.copyDiagramAsSVG)))
+        stack.addArrangedSubview(skeletonButton("Copy PNG", tooltip: "Copy rendered diagram as PNG", action: #selector(Coordinator.copyDiagramAsPNG)))
         stack.addArrangedSubview(NSView())  // spacer
         return stack
     }
@@ -99,6 +107,9 @@ public struct PlantUMLEditor: NSViewRepresentable {
         var webView: WKWebView?
         let highlighter = PlantUMLHighlighter()
         private let renderDebouncer = Debouncer()
+        /// Most recent successful SVG render. Cached so the toolbar's Copy
+        /// SVG / Copy PNG buttons don't re-shell out to PlantUML each time.
+        private var lastSVGData: Data?
 
         init(parent: PlantUMLEditor) { self.parent = parent }
 
@@ -156,18 +167,45 @@ public struct PlantUMLEditor: NSViewRepresentable {
             guard let web = webView else { return }
             let source = parent.text
             let isDark = parent.isDarkMode
-            DispatchQueue.global(qos: .userInitiated).async {
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
                 let html: String
+                var svgData: Data? = nil
                 do {
                     let svg = try PlantUMLRenderer.shared.renderSVG(source: source)
+                    svgData = svg
                     html = Self.previewHTML(svg: String(data: svg, encoding: .utf8) ?? "", isDark: isDark)
                 } catch let err as PlantUMLRenderer.RenderError {
                     html = Self.errorHTML(message: err.errorDescription ?? "Unknown error", isDark: isDark)
                 } catch {
                     html = Self.errorHTML(message: error.localizedDescription, isDark: isDark)
                 }
-                DispatchQueue.main.async { web.loadHTMLString(html, baseURL: nil) }
+                DispatchQueue.main.async {
+                    self?.lastSVGData = svgData
+                    web.loadHTMLString(html, baseURL: nil)
+                }
             }
+        }
+
+        // MARK: - Clipboard
+
+        /// Copy the most recently rendered diagram to NSPasteboard as SVG
+        /// text. Mirrors what mindolph's PlantUmlEditor exposes via the
+        /// preview's right-click menu.
+        @objc public func copyDiagramAsSVG() {
+            guard let data = lastSVGData, let svg = String(data: data, encoding: .utf8) else { return }
+            let pb = NSPasteboard.general
+            pb.clearContents()
+            pb.setString(svg, forType: .string)
+        }
+
+        /// Rasterize the cached SVG to PNG via NSImage and put it on the
+        /// pasteboard as an image. Caller can paste straight into Slack /
+        /// Notes / etc.
+        @objc public func copyDiagramAsPNG() {
+            guard let data = lastSVGData, let image = NSImage(data: data) else { return }
+            let pb = NSPasteboard.general
+            pb.clearContents()
+            pb.writeObjects([image])
         }
 
         private static func previewHTML(svg: String, isDark: Bool) -> String {

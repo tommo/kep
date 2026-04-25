@@ -38,6 +38,14 @@ public struct AIGeneratePane: View {
     /// Snapshot of the prompt that produced `output`. Regenerate replays this
     /// (not the live `prompt` text, which the user may have edited since).
     @State private var lastPromptUsed: String?
+    /// Active provider — fixed for the life of the sheet (changing providers
+    /// is a Settings concern, not a per-prompt one).
+    @State private var activeProvider: GenAIProviderID?
+    /// Per-request model override. Persists via LLMConfigStore.setActive on
+    /// change, so the choice carries over to the next sheet open and to
+    /// other call sites that read activeSelection().
+    @State private var selectedModel: String = ""
+    @State private var availableModels: [String] = []
 
     public init(
         title: String = "AI Generate",
@@ -71,9 +79,29 @@ public struct AIGeneratePane: View {
             Image(systemName: "sparkles").foregroundStyle(.purple)
             Text(title).font(.title3).bold()
             Spacer()
-            Text(providerLabel)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            if !providerLabel.isEmpty {
+                Text(providerLabel)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if availableModels.count > 1 {
+                Picker("", selection: $selectedModel) {
+                    ForEach(availableModels, id: \.self) { name in
+                        Text(name).tag(name)
+                    }
+                }
+                .labelsHidden()
+                .frame(maxWidth: 200)
+                .disabled(isRunning)
+                .onChange(of: selectedModel) { _, new in
+                    guard let provider = activeProvider, !new.isEmpty else { return }
+                    LLMConfigStore.shared.setActive(provider: provider, model: new)
+                }
+            } else if !selectedModel.isEmpty {
+                Text(selectedModel)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             Button("Close") { cancel(); dismiss() }
         }
         .padding()
@@ -161,8 +189,18 @@ public struct AIGeneratePane: View {
 
     private func refreshActiveProviderLabel() {
         if let (provider, model) = LLMConfigStore.shared.activeSelection() {
-            providerLabel = "\(provider.displayName) · \(model)"
+            activeProvider = provider
+            availableModels = LLMConfigStore.shared.allModels(for: provider).map { $0.name }
+            // Make sure the active model is in the list — if it isn't (custom
+            // model that was deleted), stash it at the front so the picker
+            // still shows it and the user notices.
+            if !availableModels.contains(model) { availableModels.insert(model, at: 0) }
+            selectedModel = model
+            providerLabel = provider.displayName
         } else {
+            activeProvider = nil
+            availableModels = []
+            selectedModel = ""
             providerLabel = "No provider configured"
         }
     }
@@ -191,11 +229,11 @@ public struct AIGeneratePane: View {
     /// — pass `nil` to leave the previous value in place (used by Continue, which
     /// shouldn't change what Regenerate replays).
     private func run(promptText: String, appendingToExisting: Bool, rememberAs: String?) {
-        guard let (provider, model) = LLMConfigStore.shared.activeSelection() else {
+        guard let provider = activeProvider, !selectedModel.isEmpty else {
             errorMessage = "Configure a provider in Settings first."
             return
         }
-        let modelMeta = LLMConfigStore.shared.modelMeta(for: provider, name: model)
+        let modelMeta = LLMConfigStore.shared.modelMeta(for: provider, name: selectedModel)
         let combined = context.selectedText.isEmpty
             ? promptText
             : "\(promptText)\n\nContext:\n\(context.selectedText)"

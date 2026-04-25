@@ -101,6 +101,23 @@ final class LLMConfigStoreTests: XCTestCase {
         XCTAssertFalse(BuiltInModels.models(for: .qwen).isEmpty)
         XCTAssertFalse(BuiltInModels.models(for: .ollama).isEmpty)
     }
+
+    /// Backs the model-picker UX in AIGeneratePane: changing the picker calls
+    /// setActive(...) and the next sheet open must read back the user's choice
+    /// from activeSelection().
+    func testActiveSelectionRoundTripsForModelPicker() throws {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("mindo-llm-active-\(UUID())")
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let store = LLMConfigStore(directory: tmp)
+        store.setActive(provider: .openAI, model: "gpt-4o-mini")
+
+        let store2 = LLMConfigStore(directory: tmp)
+        let sel = store2.activeSelection()
+        XCTAssertEqual(sel?.0, .openAI)
+        XCTAssertEqual(sel?.1, "gpt-4o-mini")
+    }
 }
 
 final class LLMProviderFactoryTests: XCTestCase {

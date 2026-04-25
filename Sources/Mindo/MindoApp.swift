@@ -230,15 +230,7 @@ final class AppSession {
     var findInFilesOpen: Bool = false
 
     /// Outline rows for the currently active document. Recomputed lazily on read.
-    var outlineItems: [OutlineItem] {
-        guard let doc = activeDocument else { return [] }
-        switch doc.kind {
-        case .mindMap(let map): return Outline.fromMindMap(map)
-        case .text(let body, .markdown): return Outline.fromMarkdown(body)
-        case .text(let body, .plantUML): return Outline.fromMarkdown(body) // best-effort: treat ' some title' lines if present
-        case .text, .unsupported: return []
-        }
-    }
+    var outlineItems: [OutlineItem] { activeDocument?.outlineItems ?? [] }
 
     init() {
         let mgr = WorkspaceManager.shared

@@ -1,4 +1,5 @@
 import Foundation
+import MindoBase
 import MindoCore
 import MindoMindMap
 import MindoModel
@@ -41,6 +42,17 @@ struct OpenDocument: Identifiable, Hashable {
             return OpenDocument(kind: .text(text, fileType: type), fileURL: url, title: title)
         case .jpeg, .png, .none:
             return OpenDocument(kind: .unsupported(url.path), fileURL: url, title: title)
+        }
+    }
+
+    /// Outline rows derived from this document's content. Each Kind picks
+    /// the appropriate extractor; unsupported / unknown text returns empty.
+    var outlineItems: [OutlineItem] {
+        switch kind {
+        case .mindMap(let map): return Outline.fromMindMap(map)
+        case .text(let body, .markdown), .text(let body, .plantUML):
+            return Outline.fromMarkdown(body)
+        case .text, .unsupported: return []
         }
     }
 

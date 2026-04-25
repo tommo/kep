@@ -355,7 +355,6 @@ public final class MindMapView: NSView {
         return found
     }
 
-    private func element(for topic: Topic) -> MindMapElement? { element(forTopic: topic) }
 
     // MARK: - Edits
 
@@ -417,8 +416,6 @@ public final class MindMapView: NSView {
         return found
     }
 
-    private func select(_ element: MindMapElement?) { selectElement(element) }
-
     func toggleCollapse(toCollapsed: Bool) {
         guard let sel = selectedElement, !sel.children.isEmpty else { return }
         undoableSetAttribute(sel.topic, key: TopicAttribute.collapsed, value: toCollapsed ? "true" : nil)
@@ -428,18 +425,18 @@ public final class MindMapView: NSView {
         guard let sel = selectedElement else {
             if let root = mindMap?.root {
                 let child = undoableAddChild(to: root, text: "Topic")
-                if let el = element(for: child) { select(el); beginInlineEdit(on: el) }
+                if let el = element(forTopic: child) { selectElement(el); beginInlineEdit(on: el) }
             }
             return
         }
         let child = undoableAddChild(to: sel.topic, text: "Topic")
-        if let el = element(for: child) { select(el); beginInlineEdit(on: el) }
+        if let el = element(forTopic: child) { selectElement(el); beginInlineEdit(on: el) }
     }
 
     func addNextSibling() {
         guard let sel = selectedElement, let parent = sel.topic.parent else { addChild(); return }
         let new = undoableAddChild(to: parent, text: "Topic")
-        if let el = element(for: new) { select(el); beginInlineEdit(on: el) }
+        if let el = element(forTopic: new) { selectElement(el); beginInlineEdit(on: el) }
     }
 
     func addPreviousSibling() {
@@ -450,7 +447,7 @@ public final class MindMapView: NSView {
             parent.move(child: new, to: idx)
             rebuildElementsPublic()
         }
-        if let el = element(for: new) { select(el); beginInlineEdit(on: el) }
+        if let el = element(forTopic: new) { selectElement(el); beginInlineEdit(on: el) }
     }
 
     func deleteSelection() {
@@ -481,7 +478,7 @@ public final class MindMapView: NSView {
         }
         // Selection collapses to the first surviving parent.
         if let firstParent = pruned.first?.parent, let parentEl = element(forTopic: firstParent) {
-            select(parentEl)
+            selectElement(parentEl)
         }
     }
 

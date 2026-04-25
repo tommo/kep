@@ -12,6 +12,11 @@ public final class MindMapView: NSView {
     public private(set) var rootElement: MindMapElement?
     public private(set) var selectedElement: MindMapElement?
 
+    /// Topics participating in a multi-selection. The "primary" topic
+    /// (`selectedElement`) is also a member; the set is what actions like
+    /// Delete operate on.
+    public private(set) var selectedTopics: Set<ObjectIdentifier> = []
+
     /// Optional injected undo manager. When set, takes precedence over the
     /// responder-chain default (`super.undoManager`). Useful for tests and for
     /// callers that want a per-document undo stack.
@@ -151,7 +156,20 @@ public final class MindMapView: NSView {
             drawElement(el, into: ctx)
         }
 
-        // Selection overlay on top.
+        // Selection overlay on top — secondary members of the multi-selection
+        // first (lighter), primary on top.
+        if !selectedTopics.isEmpty, let root = rootElement {
+            let secondary = theme.selectionColor.withAlphaComponent(0.45)
+            ctx.setLineWidth(max(1, theme.selectionWidth - 0.5))
+            root.traverse { el in
+                guard selectedTopics.contains(ObjectIdentifier(el.topic)) else { return }
+                if el === selectedElement { return }
+                ctx.setStrokeColor(secondary.cgColor)
+                let rect = el.frame.insetBy(dx: -2, dy: -2)
+                let path = CGPath(roundedRect: rect, cornerWidth: theme.cornerRadius + 2, cornerHeight: theme.cornerRadius + 2, transform: nil)
+                ctx.addPath(path); ctx.strokePath()
+            }
+        }
         if let sel = selectedElement {
             ctx.setStrokeColor(theme.selectionColor.cgColor)
             ctx.setLineWidth(theme.selectionWidth)
@@ -475,11 +493,22 @@ public final class MindMapView: NSView {
             return
         }
         let el = element(at: p)
-        select(el)
+        // Cmd-click toggles multi-selection, Shift-click adds; otherwise replace.
+        if event.modifierFlags.contains(.command) {
+            toggleSelection(el)
+        } else if event.modifierFlags.contains(.shift) {
+            if let el = el {
+                selectedTopics.insert(ObjectIdentifier(el.topic))
+                selectedElement = el
+                needsDisplay = true
+            }
+        } else {
+            select(el)
+        }
         if event.clickCount == 2, let el = el {
             beginInlineEdit(on: el)
-        } else if let el = el, el.topic.parent != nil {
-            // Arm a potential drag on any non-root topic. Root cannot move.
+        } else if let el = el, el.topic.parent != nil,
+                  !event.modifierFlags.contains(.command) && !event.modifierFlags.contains(.shift) {
             dragOrigin = p
             dragSourceElement = el
         }
@@ -601,38 +630,46 @@ public final class MindMapView: NSView {
         case "=", "+":
             toggleCollapse(toCollapsed: false)
         case String(Character(UnicodeScalar(NSLeftArrowFunctionKey)!)):
-            move(.left)
+            isShift ? extendSelection(.left) : move(.left)
         case String(Character(UnicodeScalar(NSRightArrowFunctionKey)!)):
-            move(.right)
+            isShift ? extendSelection(.right) : move(.right)
         case String(Character(UnicodeScalar(NSUpArrowFunctionKey)!)):
-            move(.up)
+            isShift ? extendSelection(.up) : move(.up)
         case String(Character(UnicodeScalar(NSDownArrowFunctionKey)!)):
-            move(.down)
+            isShift ? extendSelection(.down) : move(.down)
         default:
             super.keyDown(with: event)
         }
     }
 
-    private enum Direction { case left, right, up, down }
+    enum Direction { case left, right, up, down }
 
-    private func move(_ direction: Direction) {
-        guard let sel = selectedElement, let root = rootElement else { return }
+    /// Resolve the topic in `direction` of `from`. Used by both the single-
+    /// select arrow handler and the multi-select extender.
+    func element(in direction: Direction, of from: MindMapElement) -> MindMapElement? {
+        guard let root = rootElement else { return nil }
         switch direction {
         case .right:
-            if let target = sel.children.first(where: { !$0.isLeftSide }) ?? sel.children.first { select(target) }
-            else if sel === root { select(root.rightChildren.first) }
+            if let target = from.children.first(where: { !$0.isLeftSide }) ?? from.children.first { return target }
+            if from === root { return root.rightChildren.first }
         case .left:
-            if let target = sel.children.first(where: { $0.isLeftSide }) { select(target) }
-            else if sel === root { select(root.leftChildren.first) }
-            else if let parent = sel.topic.parent, let parentEl = element(for: parent) { select(parentEl) }
+            if let target = from.children.first(where: { $0.isLeftSide }) { return target }
+            if from === root { return root.leftChildren.first }
+            if let parent = from.topic.parent, let parentEl = element(forTopic: parent) { return parentEl }
         case .up, .down:
-            guard let parent = sel.topic.parent, let parentEl = element(for: parent) else { return }
-            let siblings = parentEl.children.filter { $0.isLeftSide == sel.isLeftSide }
-            if let idx = siblings.firstIndex(where: { $0 === sel }) {
+            guard let parent = from.topic.parent, let parentEl = element(forTopic: parent) else { return nil }
+            let siblings = parentEl.children.filter { $0.isLeftSide == from.isLeftSide }
+            if let idx = siblings.firstIndex(where: { $0 === from }) {
                 let next = direction == .up ? idx - 1 : idx + 1
-                if siblings.indices.contains(next) { select(siblings[next]) }
+                if siblings.indices.contains(next) { return siblings[next] }
             }
         }
+        return nil
+    }
+
+    private func move(_ direction: Direction) {
+        guard let sel = selectedElement, let target = element(in: direction, of: sel) else { return }
+        select(target)
     }
 
     /// Internal — extensions in this module need to map a `Topic` back to its
@@ -650,10 +687,59 @@ public final class MindMapView: NSView {
     /// Internal so extensions in the same module (navigation, undo) can drive
     /// selection. Renamed away from BSD `select(2)`'s naming so the navigation
     /// extension doesn't accidentally bind to the C function.
+    ///
+    /// Single-selection: replaces the set with just `element`. Use
+    /// `toggleSelection` or `extendSelection` for multi-select gestures.
     func selectElement(_ element: MindMapElement?) {
         selectedElement = element
+        if let el = element {
+            selectedTopics = [ObjectIdentifier(el.topic)]
+            scrollToVisible(el.frame.insetBy(dx: -32, dy: -32))
+        } else {
+            selectedTopics.removeAll()
+        }
         needsDisplay = true
-        if let el = element { scrollToVisible(el.frame.insetBy(dx: -32, dy: -32)) }
+    }
+
+    /// Cmd-click — toggle membership without disturbing the primary selection.
+    /// Promotes the toggled topic to primary when adding.
+    func toggleSelection(_ element: MindMapElement?) {
+        guard let el = element else { return }
+        let id = ObjectIdentifier(el.topic)
+        if selectedTopics.contains(id) {
+            selectedTopics.remove(id)
+            // If we just removed the primary, fall back to any remaining one.
+            if selectedElement?.topic === el.topic {
+                selectedElement = anyOtherSelectedElement(excluding: el)
+            }
+        } else {
+            selectedTopics.insert(id)
+            selectedElement = el
+        }
+        needsDisplay = true
+    }
+
+    /// Shift+arrow — extend the selection by adding the topic in `direction`
+    /// of the primary element to the set, then promote it to primary.
+    func extendSelection(_ direction: Direction) {
+        guard let primary = selectedElement,
+              let target = element(in: direction, of: primary) else { return }
+        selectedTopics.insert(ObjectIdentifier(primary.topic))
+        selectedTopics.insert(ObjectIdentifier(target.topic))
+        selectedElement = target
+        scrollToVisible(target.frame.insetBy(dx: -32, dy: -32))
+        needsDisplay = true
+    }
+
+    private func anyOtherSelectedElement(excluding ignored: MindMapElement) -> MindMapElement? {
+        guard let root = rootElement else { return nil }
+        var found: MindMapElement?
+        root.traverse { el in
+            if found == nil, el !== ignored, selectedTopics.contains(ObjectIdentifier(el.topic)) {
+                found = el
+            }
+        }
+        return found
     }
 
     private func select(_ element: MindMapElement?) { selectElement(element) }
@@ -693,10 +779,35 @@ public final class MindMapView: NSView {
     }
 
     private func deleteSelection() {
-        guard let sel = selectedElement, sel.topic.parent != nil else { return }
-        let parent = sel.topic.parent
-        undoableRemove(sel.topic)
-        if let p = parent { select(element(for: p)) }
+        // Multi-select aware: collect every selected non-root topic, walk
+        // outermost-children-first so removing one doesn't invalidate the
+        // others' parent pointers.
+        guard let root = rootElement else { return }
+        var victims: [Topic] = []
+        root.traverse { el in
+            if el.topic.parent != nil, selectedTopics.contains(ObjectIdentifier(el.topic)) {
+                victims.append(el.topic)
+            }
+        }
+        // De-dupe: drop any victim that's a descendant of another victim, the
+        // ancestor's removal already takes care of it.
+        let descendants = Set(victims.map(ObjectIdentifier.init))
+        let pruned = victims.filter { topic in
+            var t: Topic? = topic.parent
+            while let cur = t {
+                if descendants.contains(ObjectIdentifier(cur)) { return false }
+                t = cur.parent
+            }
+            return true
+        }
+        guard !pruned.isEmpty else { return }
+        for topic in pruned {
+            undoableRemove(topic)
+        }
+        // Selection collapses to the first surviving parent.
+        if let firstParent = pruned.first?.parent, let parentEl = element(forTopic: firstParent) {
+            select(parentEl)
+        }
     }
 
     // MARK: - Inline edit

@@ -118,6 +118,15 @@ public struct CSVEditor: NSViewRepresentable {
             parent?.text = doc.serialize()
         }
 
+        /// Reload the table (optionally rebuilding the columns first) and
+        /// echo the doc back to the binding. Every editing action funnels
+        /// through here so the table view + binding stay in sync.
+        private func applyChange(rebuildColumns rebuild: Bool = false) {
+            if rebuild { rebuildColumns() }
+            tableView?.reloadData()
+            notifyChange()
+        }
+
         // MARK: - DataSource
 
         public func numberOfRows(in tableView: NSTableView) -> Int {
@@ -169,42 +178,29 @@ public struct CSVEditor: NSViewRepresentable {
 
         @objc func addRow() {
             doc.appendRow()
-            tableView?.reloadData()
-            notifyChange()
+            applyChange()
         }
 
         @objc func removeRow() {
-            guard let table = tableView else { return }
-            let selected = table.selectedRow
-            guard selected >= 0 else { return }
-            let rowIndex = doc.hasHeader ? selected + 1 : selected
-            doc.removeRow(at: rowIndex)
-            table.reloadData()
-            notifyChange()
+            guard let selected = tableView?.selectedRow, selected >= 0 else { return }
+            doc.removeRow(at: doc.hasHeader ? selected + 1 : selected)
+            applyChange()
         }
 
         @objc func addColumn() {
             doc.appendColumn()
-            rebuildColumns()
-            tableView?.reloadData()
-            notifyChange()
+            applyChange(rebuildColumns: true)
         }
 
         @objc func removeColumn() {
-            guard let table = tableView else { return }
-            let selected = table.selectedColumn
-            guard selected >= 0 else { return }
+            guard let selected = tableView?.selectedColumn, selected >= 0 else { return }
             doc.removeColumn(at: selected)
-            rebuildColumns()
-            table.reloadData()
-            notifyChange()
+            applyChange(rebuildColumns: true)
         }
 
         @objc func toggleHeader(_ sender: NSButton) {
             doc.hasHeader = sender.state == .on
-            rebuildColumns()
-            tableView?.reloadData()
-            notifyChange()
+            applyChange(rebuildColumns: true)
         }
     }
 }

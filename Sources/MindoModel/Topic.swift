@@ -101,6 +101,10 @@ public final class Topic {
         extras[extra.type] = extra
     }
 
+    public func removeExtra(_ type: ExtraType) {
+        extras.removeValue(forKey: type)
+    }
+
     public func extra(_ type: ExtraType) -> (any Extra)? { extras[type] }
 
     public func putCodeSnippet(language: String, body: String) {

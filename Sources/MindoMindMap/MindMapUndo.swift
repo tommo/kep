@@ -90,6 +90,31 @@ extension MindMapView {
         notifyChangeForUndo()
     }
 
+    /// Set or clear an extra on a topic. `nil` removes the extra. Captures
+    /// the old extra (if any) for undo restoration; mirrors the per-attribute
+    /// pattern but for the Extras EnumMap.
+    public func undoableSetExtra(_ topic: Topic, _ type: ExtraType, value: (any Extra)?) {
+        let oldExtra = topic.extra(type)
+        if let new = value {
+            topic.setExtra(new)
+        } else {
+            topic.removeExtra(type)
+        }
+        registerUndo(
+            name: value == nil ? "Remove \(type.rawName)" : "Set \(type.rawName)",
+            forward: {
+                if let new = value { topic.setExtra(new) }
+                else { topic.removeExtra(type) }
+            },
+            inverse: {
+                if let old = oldExtra { topic.setExtra(old) }
+                else { topic.removeExtra(type) }
+            }
+        )
+        rebuildElementsForUndo()
+        notifyChangeForUndo()
+    }
+
     /// Move `topic` to be the `index`th child of `newParent`. Pure undoable
     /// reparent; covers drag-to-reparent gestures.
     public func undoableReparent(_ topic: Topic, to newParent: Topic, at index: Int) {

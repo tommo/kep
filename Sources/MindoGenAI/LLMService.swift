@@ -44,9 +44,7 @@ public final class LLMService {
                 self.errors.send(.transport("Unknown provider \(input.providerID)"))
                 return
             }
-            let modelMeta = LLMConfigStore.shared.allModels(for: providerID)
-                .first(where: { $0.name == input.model })
-                ?? ModelMeta(name: input.model)
+            let modelMeta = LLMConfigStore.shared.modelMeta(for: providerID, name: input.model)
             guard let provider = self.provider(for: providerID, model: modelMeta) else {
                 self.errors.send(.transport("Provider \(providerID.displayName) is not yet implemented"))
                 return

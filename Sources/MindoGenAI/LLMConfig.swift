@@ -111,6 +111,12 @@ public final class LLMConfigStore {
         return builtin + custom
     }
 
+    /// Look up a model's full meta by name, falling back to a name-only stub
+    /// when the user supplied a model that isn't in our built-in/custom lists.
+    public func modelMeta(for providerID: GenAIProviderID, name: String) -> ModelMeta {
+        allModels(for: providerID).first(where: { $0.name == name }) ?? ModelMeta(name: name)
+    }
+
     public func addCustomModel(_ model: ModelMeta, for providerID: GenAIProviderID) {
         var list = config.customModels[providerID.rawValue] ?? []
         list.removeAll { $0.name == model.name }

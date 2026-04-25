@@ -163,8 +163,7 @@ public struct AIGeneratePane: View {
             errorMessage = "Configure a provider in Settings first."
             return
         }
-        let modelMeta = LLMConfigStore.shared.allModels(for: provider)
-            .first(where: { $0.name == model }) ?? ModelMeta(name: model)
+        let modelMeta = LLMConfigStore.shared.modelMeta(for: provider, name: model)
         let combined = context.selectedText.isEmpty
             ? prompt
             : "\(prompt)\n\nContext:\n\(context.selectedText)"

@@ -635,19 +635,28 @@ public final class MindMapView: NSView {
         }
     }
 
-    private func element(for topic: Topic) -> MindMapElement? {
+    /// Internal — extensions in this module need to map a `Topic` back to its
+    /// `MindMapElement` for selection / navigation.
+    func element(forTopic topic: Topic) -> MindMapElement? {
         var found: MindMapElement?
         rootElement?.traverse { if $0.topic === topic { found = $0 } }
         return found
     }
 
+    private func element(for topic: Topic) -> MindMapElement? { element(forTopic: topic) }
+
     // MARK: - Edits
 
-    private func select(_ element: MindMapElement?) {
+    /// Internal so extensions in the same module (navigation, undo) can drive
+    /// selection. Renamed away from BSD `select(2)`'s naming so the navigation
+    /// extension doesn't accidentally bind to the C function.
+    func selectElement(_ element: MindMapElement?) {
         selectedElement = element
         needsDisplay = true
         if let el = element { scrollToVisible(el.frame.insetBy(dx: -32, dy: -32)) }
     }
+
+    private func select(_ element: MindMapElement?) { selectElement(element) }
 
     private func toggleCollapse(toCollapsed: Bool) {
         guard let sel = selectedElement, !sel.children.isEmpty else { return }

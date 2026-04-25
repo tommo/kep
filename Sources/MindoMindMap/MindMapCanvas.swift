@@ -9,17 +9,21 @@ public struct MindMapCanvas: NSViewRepresentable {
     public var theme: MindMapTheme
     public var onChange: (MindMap) -> Void
     public var onExtraFileTap: ((URL) -> Void)?
+    /// External nav target — when this changes, navigate the canvas.
+    public var navigationTarget: String?
 
     public init(
         map: MindMap,
         theme: MindMapTheme = .light,
         onChange: @escaping (MindMap) -> Void = { _ in },
-        onExtraFileTap: ((URL) -> Void)? = nil
+        onExtraFileTap: ((URL) -> Void)? = nil,
+        navigationTarget: String? = nil
     ) {
         self.map = map
         self.theme = theme
         self.onChange = onChange
         self.onExtraFileTap = onExtraFileTap
+        self.navigationTarget = navigationTarget
     }
 
     public func makeNSView(context: Context) -> NSScrollView {
@@ -37,6 +41,7 @@ public struct MindMapCanvas: NSViewRepresentable {
         view.onExtraFileTap = onExtraFileTap
         view.display(map: map)
         scroll.documentView = view
+        context.coordinator.view = view
         return scroll
     }
 
@@ -47,5 +52,17 @@ public struct MindMapCanvas: NSViewRepresentable {
         if view.mindMap !== map {
             view.display(map: map)
         }
+        // If the target changed since last update, run navigation now.
+        if let target = navigationTarget, target != context.coordinator.lastNavigated {
+            context.coordinator.lastNavigated = target
+            DispatchQueue.main.async { view.navigate(to: target) }
+        }
+    }
+
+    public func makeCoordinator() -> Coordinator { Coordinator() }
+
+    public final class Coordinator {
+        weak var view: MindMapView?
+        var lastNavigated: String?
     }
 }

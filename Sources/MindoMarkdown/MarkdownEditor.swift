@@ -8,10 +8,14 @@ import Combine
 public struct MarkdownEditor: NSViewRepresentable {
     @Binding public var text: String
     public var isDarkMode: Bool
+    /// External navigation hint — string-encoded UTF-8 byte offset (matches
+    /// `Outline.fromMarkdown`). When this changes, scroll the text view.
+    public var navigationTarget: String?
 
-    public init(text: Binding<String>, isDarkMode: Bool = false) {
+    public init(text: Binding<String>, isDarkMode: Bool = false, navigationTarget: String? = nil) {
         self._text = text
         self.isDarkMode = isDarkMode
+        self.navigationTarget = navigationTarget
     }
 
     public func makeNSView(context: Context) -> NSSplitView {
@@ -66,6 +70,10 @@ public struct MarkdownEditor: NSViewRepresentable {
             context.coordinator.applyHighlighting()
             context.coordinator.refreshPreview()
         }
+        if let target = navigationTarget, target != context.coordinator.lastNavigated {
+            context.coordinator.lastNavigated = target
+            DispatchQueue.main.async { context.coordinator.scroll(toByteOffsetString: target) }
+        }
     }
 
     public func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
@@ -74,8 +82,33 @@ public struct MarkdownEditor: NSViewRepresentable {
         var parent: MarkdownEditor
         var textView: NSTextView?
         var webView: WKWebView?
+        var lastNavigated: String?
         let highlighter = MarkdownHighlighter()
         private var debounceWorkItem: DispatchWorkItem?
+
+        /// Convert a byte offset (string from Outline.fromMarkdown) to a UTF-16
+        /// character offset, then scroll the text view to that range and
+        /// select it. Tolerates clamped offsets so trailing edits don't crash.
+        func scroll(toByteOffsetString s: String) {
+            guard let byteOffset = Int(s), let tv = textView else { return }
+            let nsString = tv.string as NSString
+            let utf8 = tv.string.utf8
+            let safeByte = max(0, min(byteOffset, utf8.count))
+            // Map byte offset → string index by reading the UTF-8 view.
+            var byteCount = 0
+            var charIndex = 0
+            for ch in tv.string {
+                if byteCount >= safeByte { break }
+                byteCount += ch.utf8.count
+                charIndex += ch.utf16.count
+            }
+            let location = min(charIndex, nsString.length)
+            // Pick the line range so the highlight covers the whole heading line.
+            let lineRange = nsString.lineRange(for: NSRange(location: location, length: 0))
+            tv.scrollRangeToVisible(lineRange)
+            tv.setSelectedRange(lineRange)
+            tv.window?.makeFirstResponder(tv)
+        }
 
         init(parent: MarkdownEditor) { self.parent = parent }
 

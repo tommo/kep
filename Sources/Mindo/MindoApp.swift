@@ -165,6 +165,11 @@ final class AppSession {
     /// Whether the right-hand outline inspector is showing.
     var outlineOpen: Bool = true
 
+    /// Per-document outline navigation request. Editor views observe this and
+    /// scroll/center on change. Reset to nil after a brief debounce so the
+    /// same target can fire again.
+    var outlineNavigationTarget: String?
+
     /// Snippet picker sheet flag.
     var snippetPickerOpen: Bool = false
 
@@ -303,6 +308,19 @@ final class AppSession {
     private func stopFileWatcher(for id: OpenDocument.ID) {
         fileWatchers[id]?.stop()
         fileWatchers.removeValue(forKey: id)
+    }
+
+    /// Push a navigation target into the active editor. Tags the value with a
+    /// trailing UUID so two clicks on the same outline row re-fire — the
+    /// editor coordinator only acts on string change.
+    func requestOutlineNavigation(target: String) {
+        outlineNavigationTarget = "\(target)#\(UUID().uuidString)"
+    }
+
+    /// Strip the disambiguation suffix the active editor was passed.
+    var sanitizedNavigationTarget: String? {
+        guard let target = outlineNavigationTarget else { return nil }
+        return target.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false).first.map(String.init)
     }
 
     /// True when the active document is a markdown text doc (powers Export menu enabling).
@@ -582,9 +600,8 @@ struct ContentView: View {
         } detail: {
             DetailArea(session: $session)
                 .inspector(isPresented: $session.outlineOpen) {
-                    OutlinePanel(items: session.outlineItems) { _ in
-                        // Click hook: future iterations will scroll the editor
-                        // to `item.target`. For now the click is a no-op.
+                    OutlinePanel(items: session.outlineItems) { item in
+                        session.requestOutlineNavigation(target: item.target)
                     }
                     .navigationTitle(L("detail.outline.title"))
                     .inspectorColumnWidth(min: 220, ideal: 260, max: 380)
@@ -806,12 +823,14 @@ struct EditorPane: View {
                 map: map,
                 theme: theme,
                 onChange: { _ in /* dirty hook */ },
-                onExtraFileTap: { url in session.open(url: url) }
+                onExtraFileTap: { url in session.open(url: url) },
+                navigationTarget: session.sanitizedNavigationTarget
             )
         case .text(_, .markdown):
             MarkdownEditor(
                 text: textBinding(for: documentID),
-                isDarkMode: colorScheme == .dark
+                isDarkMode: colorScheme == .dark,
+                navigationTarget: session.sanitizedNavigationTarget
             )
         case .text(_, .plantUML):
             PlantUMLEditor(

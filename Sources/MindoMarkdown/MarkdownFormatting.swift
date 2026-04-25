@@ -156,4 +156,66 @@ public enum MarkdownFormatting {
         )
         return (joined, newRange)
     }
+
+    /// Strikethrough — wraps the selection in `~~`. Toggles off when
+    /// already wrapped.
+    public static func strikethrough(_ text: String, range: NSRange) -> (String, NSRange) {
+        wrap(text, range: range, with: "~~")
+    }
+
+    /// HTML comment block around the selection. Useful for stashing
+    /// scratch notes inside a document without affecting the rendered
+    /// output. Toggles off if the selection is already inside `<!-- … -->`.
+    public static func comment(_ text: String, range: NSRange) -> (String, NSRange) {
+        let nsText = text as NSString
+        guard NSMaxRange(range) <= nsText.length else { return (text, range) }
+        let inner = nsText.substring(with: range)
+        let openMarker = "<!-- "
+        let closeMarker = " -->"
+        let prefixStart = range.location - openMarker.count
+        let suffixEnd = NSMaxRange(range) + closeMarker.count
+        if prefixStart >= 0, suffixEnd <= nsText.length,
+           nsText.substring(with: NSRange(location: prefixStart, length: openMarker.count)) == openMarker,
+           nsText.substring(with: NSRange(location: NSMaxRange(range), length: closeMarker.count)) == closeMarker {
+            let head = nsText.substring(to: prefixStart)
+            let tail = nsText.substring(from: suffixEnd)
+            let joined = head + inner + tail
+            return (joined, NSRange(location: prefixStart, length: range.length))
+        }
+        let placeholder = inner.isEmpty ? "comment" : inner
+        let head = nsText.substring(to: range.location)
+        let tail = nsText.substring(from: NSMaxRange(range))
+        let joined = head + openMarker + placeholder + closeMarker + tail
+        let newRange = NSRange(
+            location: range.location + openMarker.count,
+            length: (placeholder as NSString).length
+        )
+        return (joined, newRange)
+    }
+
+    /// Insert a markdown table skeleton with `rows` body rows and `cols`
+    /// columns, replacing the selection. Mirrors what mindolph's TableDialog
+    /// emits but without a separate dialog — the editor's toolbar prompts
+    /// for the dimensions inline.
+    public static func table(_ text: String, range: NSRange, rows: Int, cols: Int) -> (String, NSRange) {
+        let r = max(1, rows), c = max(1, cols)
+        let header = "| " + (1...c).map { "Header \($0)" }.joined(separator: " | ") + " |"
+        let separator = "|" + String(repeating: " --- |", count: c)
+        var bodyLines: [String] = []
+        for _ in 0..<r {
+            bodyLines.append("|" + String(repeating: "     |", count: c))
+        }
+        let table = ([header, separator] + bodyLines).joined(separator: "\n")
+        let nsText = text as NSString
+        guard NSMaxRange(range) <= nsText.length else { return (text, range) }
+        let head = nsText.substring(to: range.location)
+        let tail = nsText.substring(from: NSMaxRange(range))
+        let leading = head.isEmpty || head.hasSuffix("\n\n") ? "" : (head.hasSuffix("\n") ? "\n" : "\n\n")
+        let trailing = tail.hasPrefix("\n") ? "" : "\n"
+        let block = leading + table + trailing
+        let joined = head + block + tail
+        let cursorOffset = (head as NSString).length + (leading as NSString).length
+        let newRange = NSRange(location: cursorOffset, length: (table as NSString).length)
+        return (joined, newRange)
+    }
 }

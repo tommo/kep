@@ -114,6 +114,10 @@ public struct MarkdownEditor: NSViewRepresentable {
         stack.addArrangedSubview(makeVerticalDivider())
         stack.addArrangedSubview(iconButton(symbol: "link", tooltip: "Link", action: #selector(Coordinator.toolbarLink)))
         stack.addArrangedSubview(iconButton(symbol: "photo", tooltip: "Image", action: #selector(Coordinator.toolbarImage)))
+        stack.addArrangedSubview(makeVerticalDivider())
+        stack.addArrangedSubview(iconButton(symbol: "strikethrough", tooltip: "Strikethrough", action: #selector(Coordinator.toolbarStrikethrough)))
+        stack.addArrangedSubview(iconButton(symbol: "tablecells", tooltip: "Table", action: #selector(Coordinator.toolbarTable)))
+        stack.addArrangedSubview(iconButton(symbol: "captions.bubble", tooltip: "HTML comment", action: #selector(Coordinator.toolbarComment)))
         stack.addArrangedSubview(NSView())  // spacer
         return stack
     }
@@ -160,6 +164,17 @@ public struct MarkdownEditor: NSViewRepresentable {
         @objc func toolbarLink() {
             guard let url = promptString(title: "Insert Link", message: "URL:", initial: "https://") else { return }
             applyTransform { MarkdownFormatting.link($0, range: $1, url: url) }
+        }
+        @objc func toolbarStrikethrough() { applyTransform(MarkdownFormatting.strikethrough) }
+        @objc func toolbarComment()       { applyTransform(MarkdownFormatting.comment) }
+        @objc func toolbarTable() {
+            // Quick row × col prompt — full TableDialog is parity #64.
+            guard let dim = promptString(title: "Insert Table", message: "rows × cols (e.g. 3x4):", initial: "3x3") else { return }
+            let parts = dim.lowercased().split(whereSeparator: { $0 == "x" || $0 == "*" || $0 == "×" })
+            guard parts.count == 2,
+                  let rows = Int(parts[0].trimmingCharacters(in: .whitespaces)),
+                  let cols = Int(parts[1].trimmingCharacters(in: .whitespaces)) else { return }
+            applyTransform { MarkdownFormatting.table($0, range: $1, rows: rows, cols: cols) }
         }
 
         @objc func toolbarImage() {

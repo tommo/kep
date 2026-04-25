@@ -69,4 +69,38 @@ final class MarkdownFormattingTests: XCTestCase {
         let (text, _) = MarkdownFormatting.image("alt", range: nsRange(0, 3), url: "https://i")
         XCTAssertEqual(text, "![alt](https://i)")
     }
+
+    func testStrikethroughWrapsAndToggles() {
+        let (wrapped, _) = MarkdownFormatting.strikethrough("done", range: nsRange(0, 4))
+        XCTAssertEqual(wrapped, "~~done~~")
+        let (off, _) = MarkdownFormatting.strikethrough(wrapped, range: nsRange(2, 4))
+        XCTAssertEqual(off, "done")
+    }
+
+    func testCommentWrapsSelectionWithHTMLComment() {
+        let (text, range) = MarkdownFormatting.comment("draft", range: nsRange(0, 5))
+        XCTAssertEqual(text, "<!-- draft -->")
+        // Selection lands inside the comment for immediate retyping.
+        XCTAssertEqual(range, nsRange(5, 5))
+    }
+
+    func testCommentTogglesOffWhenAlreadyCommented() {
+        let starting = "<!-- draft -->"
+        let (text, _) = MarkdownFormatting.comment(starting, range: nsRange(5, 5))
+        XCTAssertEqual(text, "draft")
+    }
+
+    func testTableInsertsHeaderSeparatorAndBody() {
+        let (text, _) = MarkdownFormatting.table("", range: nsRange(0, 0), rows: 2, cols: 3)
+        XCTAssertTrue(text.contains("| Header 1 | Header 2 | Header 3 |"))
+        XCTAssertTrue(text.contains("| --- | --- | --- |"))
+        // Two body rows + header + separator = 4 lines (newlines join them).
+        let bodyLines = text.split(separator: "\n").filter { $0.hasPrefix("|") }
+        XCTAssertEqual(bodyLines.count, 4)
+    }
+
+    func testTableClampsRowsAndColsToMinimumOne() {
+        let (text, _) = MarkdownFormatting.table("", range: nsRange(0, 0), rows: 0, cols: 0)
+        XCTAssertTrue(text.contains("| Header 1 |"))
+    }
 }

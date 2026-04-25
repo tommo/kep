@@ -45,6 +45,10 @@ public final class MindMapView: NSView {
     /// File-internal so MindMapView+Mouse / +Keyboard extensions in this
     /// module can read + reset the inline edit field.
     var inlineEditor: NSTextField?
+    /// Topic the inlineEditor is currently editing. Set in beginInlineEdit
+    /// so commitInlineEdit applies the text to the right node even when
+    /// the selection moved on (e.g. Tab created a child mid-edit).
+    var inlineEditTarget: Topic?
 
     // Drag-to-reparent state. `dragOrigin` arms the gesture on mouseDown; we
     // only commit to a drag once the cursor moves more than `dragThreshold`
@@ -523,6 +527,13 @@ public final class MindMapView: NSView {
     // MARK: - Inline edit
 
     func beginInlineEdit(on element: MindMapElement) {
+        // Tear down a previously-installed editor first. Without this,
+        // repeated Tab keystrokes (each one starts a new child + a new
+        // inline edit) accumulated NSTextField subviews on the canvas —
+        // the user saw them as a horizontal pile of "topic" boxes that
+        // looked like overlapping topics (bug #55).
+        commitInlineEdit()
+
         let textField = NSTextField(frame: element.frame)
         textField.stringValue = element.topic.text
         textField.font = theme.font(forLevel: element.level)
@@ -533,14 +544,19 @@ public final class MindMapView: NSView {
         addSubview(textField)
         window?.makeFirstResponder(textField)
         inlineEditor = textField
+        inlineEditTarget = element.topic
     }
 
     @objc func commitInlineEdit() {
-        guard let editor = inlineEditor, let sel = selectedElement else { return }
+        guard let editor = inlineEditor else { return }
         let newText = editor.stringValue
+        let target = inlineEditTarget
         editor.removeFromSuperview()
         inlineEditor = nil
-        undoableSetText(sel.topic, to: newText)
+        inlineEditTarget = nil
+        if let target = target {
+            undoableSetText(target, to: newText)
+        }
         window?.makeFirstResponder(self)
     }
 

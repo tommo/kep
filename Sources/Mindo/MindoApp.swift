@@ -54,6 +54,11 @@ struct MindoApp: App {
                 Button("Previous Tab") { session.cyclePreviousTab() }
                     .keyboardShortcut("[", modifiers: [.command, .shift])
                     .disabled(session.openDocuments.count < 2)
+                Divider()
+                Button(session.outlineOpen ? "Hide Outline" : "Show Outline") {
+                    session.outlineOpen.toggle()
+                }
+                .keyboardShortcut("0", modifiers: [.command, .option])
             }
             CommandMenu("View") {
                 Picker("Theme", selection: $session.theme) {
@@ -97,6 +102,20 @@ final class AppSession {
     var aiGenerateOpen: Bool = false
     var aiSupportedModes: [AIGeneratePane.InsertionMode] = [.append]
     var aiDefaultPrompt: String = ""
+
+    /// Whether the right-hand outline inspector is showing.
+    var outlineOpen: Bool = true
+
+    /// Outline rows for the currently active document. Recomputed lazily on read.
+    var outlineItems: [OutlineItem] {
+        guard let doc = activeDocument else { return [] }
+        switch doc.kind {
+        case .mindMap(let map): return Outline.fromMindMap(map)
+        case .text(let body, .markdown): return Outline.fromMarkdown(body)
+        case .text(let body, .plantUML): return Outline.fromMarkdown(body) // best-effort: treat ' some title' lines if present
+        case .text, .unsupported: return []
+        }
+    }
 
     init() {
         let mgr = WorkspaceManager.shared
@@ -346,6 +365,14 @@ struct ContentView: View {
                 .navigationSplitViewColumnWidth(min: 200, ideal: 280)
         } detail: {
             DetailArea(session: $session)
+                .inspector(isPresented: $session.outlineOpen) {
+                    OutlinePanel(items: session.outlineItems) { _ in
+                        // Click hook: future iterations will scroll the editor
+                        // to `item.target`. For now the click is a no-op.
+                    }
+                    .navigationTitle("Outline")
+                    .inspectorColumnWidth(min: 220, ideal: 260, max: 380)
+                }
         }
         .onChange(of: sidebarSelection) { _, new in
             if let node = new, node.isFile {

@@ -35,9 +35,7 @@ public final class FontIcon {
     /// Caches the result so repeated lookups are cheap.
     public func image(named name: String, size: CGFloat = 16, color: NSColor = .labelColor) -> NSImage {
         let key = CacheKey(name: name, size: size, colorKey: Self.colorKey(for: color))
-        cacheLock.lock()
-        if let cached = cache[key] { cacheLock.unlock(); return cached }
-        cacheLock.unlock()
+        if let cached = cacheLock.withLock({ cache[key] }) { return cached }
 
         let resolvedName = Self.faToSF[name] ?? name
         let config = NSImage.SymbolConfiguration(pointSize: size, weight: .regular)
@@ -48,9 +46,7 @@ public final class FontIcon {
             ?? NSImage()
 
         let tinted = Self.tinted(image: base, color: color)
-        cacheLock.lock()
-        cache[key] = tinted
-        cacheLock.unlock()
+        cacheLock.withLock { cache[key] = tinted }
         return tinted
     }
 
@@ -65,17 +61,13 @@ public final class FontIcon {
 
     /// Strip the cache. Useful for tests + theme changes that swap accent colors.
     public func clearCache() {
-        cacheLock.lock()
-        cache.removeAll()
-        cacheLock.unlock()
+        cacheLock.withLock { cache.removeAll() }
     }
 
     /// Number of cached entries — exposed for tests so they can assert
     /// caching actually short-circuits.
     public var cacheCount: Int {
-        cacheLock.lock()
-        defer { cacheLock.unlock() }
-        return cache.count
+        cacheLock.withLock { cache.count }
     }
 
     // MARK: - FontAwesome → SF Symbol map

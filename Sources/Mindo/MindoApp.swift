@@ -159,6 +159,8 @@ struct MindoApp: App {
                     .keyboardShortcut("-", modifiers: .command)
                 Button(L("menu.view.reset_zoom")) { session.zoomCommand = .reset; session.zoomCommandTick &+= 1 }
                     .keyboardShortcut("0", modifiers: .command)
+                Button(L("menu.view.zoom_to_fit")) { session.zoomCommand = .fit; session.zoomCommandTick &+= 1 }
+                    .keyboardShortcut("9", modifiers: .command)
             }
             CommandMenu(L("menu.ai")) {
                 Button(L("menu.ai.generate")) { session.openAIGenerate(intent: .input) }
@@ -230,7 +232,7 @@ final class AppSession {
 
     /// View > Zoom command + monotonically-increasing tick so the canvas
     /// observes any new request even when the same enum case repeats.
-    enum ZoomCommand { case `in`, out, reset }
+    enum ZoomCommand { case `in`, out, reset, fit }
     var zoomCommand: ZoomCommand = .reset
     var zoomCommandTick: UInt64 = 0
 

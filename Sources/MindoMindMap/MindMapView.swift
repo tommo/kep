@@ -41,7 +41,7 @@ public final class MindMapView: NSView {
     public var onExtraNoteTap: ((Topic, String) -> Void)?
 
     private var layoutEngine: MindMapLayout
-    private var contentBounds: CGRect = .zero
+    var contentBounds: CGRect = .zero
     /// File-internal so MindMapView+Mouse / +Keyboard extensions in this
     /// module can read + reset the inline edit field.
     var inlineEditor: NSTextField?

@@ -57,6 +57,11 @@ public struct MindMapCanvas: NSViewRepresentable {
         view.resetZoom()
     }
 
+    public static func fitToViewport(_ scroll: NSScrollView) {
+        guard let view = scroll.documentView as? MindMapView else { return }
+        view.zoomToFit()
+    }
+
     public func updateNSView(_ scroll: NSScrollView, context: Context) {
         guard let view = scroll.documentView as? MindMapView else { return }
         view.theme = theme

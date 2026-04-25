@@ -80,6 +80,37 @@ extension MindMapView {
         enclosingScrollView?.magnification = 1.0
     }
 
+    /// Fit the entire content into the visible viewport, clamped to the
+    /// scroll view's magnification bounds. Also re-centers the scroll
+    /// origin on the content midpoint so the root sits in view.
+    public func zoomToFit() {
+        guard let scroll = enclosingScrollView, contentBounds.width > 0, contentBounds.height > 0 else { return }
+        // Use the clip view's *unscaled* visible size so we don't compound
+        // an existing magnification.
+        let visible = scroll.contentView.bounds.size
+        let target = Self.fitMagnification(
+            visible: visible,
+            content: contentBounds.size,
+            min: scroll.minMagnification,
+            max: scroll.maxMagnification
+        )
+        scroll.magnification = target
+        // Center on the content midpoint.
+        let midPoint = NSPoint(x: contentBounds.midX, y: contentBounds.midY)
+        scroll.contentView.scroll(to: NSPoint(
+            x: max(0, midPoint.x - visible.width / (2 * target)),
+            y: max(0, midPoint.y - visible.height / (2 * target))
+        ))
+        scroll.reflectScrolledClipView(scroll.contentView)
+    }
+
+    /// Pure zoom-to-fit math, exposed for unit tests.
+    public static func fitMagnification(visible: CGSize, content: CGSize, min lower: CGFloat, max upper: CGFloat) -> CGFloat {
+        guard content.width > 0, content.height > 0 else { return 1.0 }
+        let raw = Swift.min(visible.width / content.width, visible.height / content.height)
+        return Swift.max(lower, Swift.min(upper, raw))
+    }
+
     /// Zoom math exposed for unit tests — clamps to a bounded range and snaps
     /// to the supplied factor.
     public static func clampedZoom(current: CGFloat, factor: CGFloat, min lower: CGFloat, max upper: CGFloat) -> CGFloat {

@@ -58,6 +58,7 @@ struct EditorPane: View {
                     case .in:    MindMapCanvas.zoom(scroll, by: 1.25)
                     case .out:   MindMapCanvas.zoom(scroll, by: 1.0 / 1.25)
                     case .reset: MindMapCanvas.resetZoom(scroll)
+                    case .fit:   MindMapCanvas.fitToViewport(scroll)
                     }
                 }
             }

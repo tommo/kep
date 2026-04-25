@@ -904,11 +904,17 @@ struct EditorPane: View {
     }
 
     var body: some View {
-        if let idx = documentIndex {
-            content(for: session.openDocuments[idx])
-        } else {
-            EmptyView()
+        Group {
+            if let idx = documentIndex {
+                content(for: session.openDocuments[idx])
+            } else {
+                EmptyView()
+            }
         }
+        // Stretch every editor to the available area. Without this NSViewRepresentable
+        // wrappers (NSScrollView around MindMapView, the markdown / plantuml / csv
+        // splits) fall back to their small intrinsic content sizes — bug #38.
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     @ViewBuilder

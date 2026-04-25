@@ -144,12 +144,27 @@ public final class MindMapView: NSView {
         super.viewDidMoveToWindow()
         if window != nil {
             installKeyMonitor()
+            installClipResizeWatcher()
             DispatchQueue.main.async { [weak self] in
                 self?.window?.makeFirstResponder(self)
             }
         } else {
             removeKeyMonitor()
+            removeClipResizeWatcher()
         }
+    }
+
+    private func installClipResizeWatcher() {
+        guard let scroll = enclosingScrollView else { return }
+        scroll.contentView.postsFrameChangedNotifications = true
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(clipViewDidResize(_:)),
+            name: NSView.frameDidChangeNotification, object: scroll.contentView
+        )
+    }
+
+    private func removeClipResizeWatcher() {
+        NotificationCenter.default.removeObserver(self, name: NSView.frameDidChangeNotification, object: nil)
     }
 
     public override func viewWillMove(toWindow newWindow: NSWindow?) {
@@ -232,8 +247,13 @@ public final class MindMapView: NSView {
         }
         contentBounds.origin = .zero
 
-        let minWidth = max(self.bounds.width, contentBounds.width + 64)
-        let minHeight = max(self.bounds.height, contentBounds.height + 64)
+        // Floor the document view to the scroll view's visible area so the
+        // canvas always fills the container — even when the topic content is
+        // tiny. Without this we'd shrink to (contentBounds + 64) and leave
+        // dead space on the right/bottom (bug #38).
+        let visibleSize = enclosingScrollView?.contentView.bounds.size ?? bounds.size
+        let minWidth = max(visibleSize.width, contentBounds.width + 64)
+        let minHeight = max(visibleSize.height, contentBounds.height + 64)
         if let parent = enclosingScrollView {
             self.frame = CGRect(x: 0, y: 0, width: minWidth, height: minHeight)
             parent.documentView?.frame.size = CGSize(width: minWidth, height: minHeight)
@@ -241,6 +261,12 @@ public final class MindMapView: NSView {
             self.frame.size = CGSize(width: minWidth, height: minHeight)
         }
         needsDisplay = true
+    }
+
+    /// Re-run layout whenever the enclosing scroll view's clip area changes
+    /// size — keeps the document view filling the viewport on window resize.
+    @objc private func clipViewDidResize(_ note: Notification) {
+        relayout()
     }
 
     // MARK: - Hit testing

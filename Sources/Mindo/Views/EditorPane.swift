@@ -62,6 +62,16 @@ struct EditorPane: View {
                     }
                 }
             }
+            .onChange(of: session.mindmapCommandTick) { _, _ in
+                guard let win = NSApp.keyWindow,
+                      let scroll = win.contentView?.firstSubview(ofType: NSScrollView.self,
+                                                                  where: { $0.documentView is MindMapView }),
+                      let view = scroll.documentView as? MindMapView else { return }
+                switch session.mindmapCommand {
+                case .foldAll:   view.setAllCollapsed(true)
+                case .unfoldAll: view.setAllCollapsed(false)
+                }
+            }
         case .text(_, .markdown):
             MarkdownEditor(
                 text: textBinding(for: documentID),

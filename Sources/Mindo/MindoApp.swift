@@ -183,6 +183,13 @@ struct MindoApp: App {
                     .keyboardShortcut("0", modifiers: .command)
                 Button(L("menu.view.zoom_to_fit")) { session.zoomCommand = .fit; session.zoomCommandTick &+= 1 }
                     .keyboardShortcut("9", modifiers: .command)
+                Divider()
+                Button(L("menu.view.fold_all")) { session.mindmapCommand = .foldAll; session.mindmapCommandTick &+= 1 }
+                    .keyboardShortcut("[", modifiers: [.command, .option])
+                    .disabled(session.activeFileType != .mindMap)
+                Button(L("menu.view.unfold_all")) { session.mindmapCommand = .unfoldAll; session.mindmapCommandTick &+= 1 }
+                    .keyboardShortcut("]", modifiers: [.command, .option])
+                    .disabled(session.activeFileType != .mindMap)
             }
             CommandMenu(L("menu.ai")) {
                 Button(L("menu.ai.generate")) { session.openAIGenerate(intent: .input) }
@@ -261,6 +268,12 @@ final class AppSession {
     enum ZoomCommand { case `in`, out, reset, fit }
     var zoomCommand: ZoomCommand = .reset
     var zoomCommandTick: UInt64 = 0
+
+    /// View > Fold/Unfold All commands. Same tick pattern as ZoomCommand —
+    /// the active mindmap canvas listens for changes and dispatches.
+    enum MindmapCommand { case foldAll, unfoldAll }
+    var mindmapCommand: MindmapCommand = .foldAll
+    var mindmapCommandTick: UInt64 = 0
 
     /// Snippet picker sheet flag.
     var snippetPickerOpen: Bool = false

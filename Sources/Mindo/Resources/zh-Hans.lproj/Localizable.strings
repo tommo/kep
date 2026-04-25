@@ -34,6 +34,8 @@
 "menu.view.zoom_out" = "缩小";
 "menu.view.reset_zoom" = "实际大小";
 "menu.view.zoom_to_fit" = "缩放至适合";
+"menu.view.fold_all" = "折叠所有主题";
+"menu.view.unfold_all" = "展开所有主题";
 
 /* MARK: - 窗口菜单 */
 "menu.window.next_tab" = "下一个标签页";

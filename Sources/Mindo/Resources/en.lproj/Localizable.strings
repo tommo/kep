@@ -37,6 +37,8 @@
 "menu.view.zoom_out" = "Zoom Out";
 "menu.view.reset_zoom" = "Actual Size";
 "menu.view.zoom_to_fit" = "Zoom to Fit";
+"menu.view.fold_all" = "Fold All Topics";
+"menu.view.unfold_all" = "Unfold All Topics";
 
 /* MARK: - Window menu */
 "menu.window.next_tab" = "Next Tab";

@@ -437,6 +437,12 @@ public final class MindMapView: NSView {
         undoableSetAttribute(sel.topic, key: TopicAttribute.collapsed, value: toCollapsed ? "true" : nil)
     }
 
+    /// Fold (or unfold) every topic in the map in a single undoable step.
+    /// Backs the Fold All / Unfold All menu commands.
+    public func setAllCollapsed(_ collapsed: Bool) {
+        undoableSetAllCollapsed(collapsed)
+    }
+
     func addChild() {
         guard let sel = selectedElement else {
             if let root = mindMap?.root {

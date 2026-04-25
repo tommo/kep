@@ -92,6 +92,31 @@ extension MindMapView {
         refreshAndNotify()
     }
 
+    /// Bulk set/clear of the `collapsed` attribute on every topic that has
+    /// children — backs Fold All / Unfold All. Captures every prior value so
+    /// undo restores the exact prior fold state. No-op if nothing changes.
+    public func undoableSetAllCollapsed(_ collapsed: Bool) {
+        guard let root = mindMap?.root else { return }
+        let value: String? = collapsed ? "true" : nil
+        var changes: [(Topic, String?)] = []
+        var stack: [Topic] = [root]
+        while let t = stack.popLast() {
+            if !t.children.isEmpty {
+                let old = t.attribute(TopicAttribute.collapsed)
+                if old != value { changes.append((t, old)) }
+            }
+            stack.append(contentsOf: t.children)
+        }
+        guard !changes.isEmpty else { return }
+        for (topic, _) in changes { topic.setAttribute(TopicAttribute.collapsed, value) }
+        registerUndo(
+            name: collapsed ? "Fold All" : "Unfold All",
+            forward: { for (topic, _) in changes { topic.setAttribute(TopicAttribute.collapsed, value) } },
+            inverse: { for (topic, old) in changes { topic.setAttribute(TopicAttribute.collapsed, old) } }
+        )
+        refreshAndNotify()
+    }
+
     /// Set or clear an extra on a topic. `nil` removes the extra. Captures
     /// the old extra (if any) for undo restoration; mirrors the per-attribute
     /// pattern but for the Extras EnumMap.

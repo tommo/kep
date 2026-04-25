@@ -62,6 +62,7 @@ public struct MarkdownEditor: NSViewRepresentable {
         // back to the host so we can echo them into the code area.
         let webConfig = WKWebViewConfiguration()
         webConfig.userContentController.add(context.coordinator, name: "previewScroll")
+        webConfig.userContentController.add(context.coordinator, name: "previewAnchor")
         let web = WKWebView(frame: .zero, configuration: webConfig)
         web.setValue(false, forKey: "drawsBackground") // KVO trick to make transparent
         web.navigationDelegate = context.coordinator
@@ -317,12 +318,21 @@ public struct MarkdownEditor: NSViewRepresentable {
             }
         }
 
-        /// Preview reported a user scroll — mirror the fraction back to the
-        /// code area (unless we're the ones driving it).
+        /// Preview reported either a scroll fraction or an anchor click.
         public func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
-            guard message.name == "previewScroll" else { return }
+            switch message.name {
+            case "previewScroll":
+                handlePreviewScroll(message.body)
+            case "previewAnchor":
+                if let slug = message.body as? String { scrollCodeArea(toAnchor: slug) }
+            default:
+                break
+            }
+        }
+
+        private func handlePreviewScroll(_ body: Any) {
             if ignorePreviewScroll { return }
-            guard let raw = message.body as? Double else { return }
+            guard let raw = body as? Double else { return }
             let f: CGFloat = CGFloat(raw)
             guard let scroll = textView?.enclosingScrollView else { return }
             let document = scroll.documentView?.frame ?? .zero
@@ -334,6 +344,38 @@ public struct MarkdownEditor: NSViewRepresentable {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
                 self?.ignoreTextScroll = false
             }
+        }
+
+        /// Find the heading whose slug matches `slug` and scroll the code
+        /// area to its line. Mirrors mindolph's HTMLAnchorElement listener.
+        private func scrollCodeArea(toAnchor slug: String) {
+            guard let tv = textView else { return }
+            let nsString = tv.string as NSString
+            var byteOffset = 0
+            for line in tv.string.split(separator: "\n", omittingEmptySubsequences: false) {
+                let raw = String(line)
+                if let heading = headingTitle(in: raw),
+                   MarkdownRenderer.slugify(heading) == slug {
+                    let location = min(nsString.length, byteOffset)
+                    let lineRange = nsString.lineRange(for: NSRange(location: location, length: 0))
+                    tv.scrollRangeToVisible(lineRange)
+                    tv.setSelectedRange(lineRange)
+                    tv.window?.makeFirstResponder(tv)
+                    return
+                }
+                byteOffset += (raw as NSString).length + 1   // +1 for the '\n' we split on
+            }
+        }
+
+        private func headingTitle(in line: String) -> String? {
+            var idx = line.startIndex
+            var depth = 0
+            while idx < line.endIndex, line[idx] == "#", depth < 6 {
+                idx = line.index(after: idx)
+                depth += 1
+            }
+            guard depth >= 1, idx < line.endIndex, line[idx] == " " else { return nil }
+            return String(line[line.index(after: idx)...]).trimmingCharacters(in: .whitespaces)
         }
     }
 }

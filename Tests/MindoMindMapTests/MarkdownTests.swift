@@ -37,4 +37,38 @@ final class MarkdownRendererTests: XCTestCase {
         XCTAssertTrue(html.contains("<style>"))
         XCTAssertTrue(html.contains("<strong>bold</strong>"))
     }
+
+    // MARK: - slugify
+
+    func testSlugifyLowercasesAndDashesSpaces() {
+        XCTAssertEqual(MarkdownRenderer.slugify("Hello World"), "hello-world")
+    }
+
+    func testSlugifyDropsPunctuation() {
+        XCTAssertEqual(MarkdownRenderer.slugify("What's New?"), "whats-new")
+    }
+
+    func testSlugifyCollapsesWhitespaceRuns() {
+        XCTAssertEqual(MarkdownRenderer.slugify("a    b    c"), "a-b-c")
+    }
+
+    func testSlugifyTrimsTrailingDash() {
+        XCTAssertEqual(MarkdownRenderer.slugify("trailing!!!"), "trailing")
+    }
+
+    func testSlugifyKeepsAlphanumericsAndDashes() {
+        XCTAssertEqual(MarkdownRenderer.slugify("v1.0 release notes"), "v10-release-notes")
+    }
+
+    func testSlugifyIsUnicodeAwareForLetters() {
+        // Latin-1 letters survive lowercasing and stay as-is.
+        XCTAssertEqual(MarkdownRenderer.slugify("Café Münch"), "café-münch")
+    }
+
+    func testPreviewScriptReferencesAnchorBridge() {
+        // Smoke check that the click handler is wired into the script
+        // Mindo injects into every preview document.
+        XCTAssertTrue(MarkdownRenderer.scrollSyncScript.contains("previewAnchor"))
+        XCTAssertTrue(MarkdownRenderer.scrollSyncScript.contains("href.startsWith('#')"))
+    }
 }

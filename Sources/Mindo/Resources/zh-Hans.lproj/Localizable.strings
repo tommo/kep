@@ -12,6 +12,8 @@
 "menu.file.export_markdown_html" = "Markdown 导出为 HTML…";
 "menu.file.export_markdown_pdf" = "Markdown 导出为 PDF…";
 "menu.file.export_freemind" = "思维导图导出为 FreeMind…";
+"menu.file.export_mindmap_png" = "思维导图导出为 PNG…";
+"menu.file.export_mindmap_svg" = "思维导图导出为 SVG…";
 "menu.file.open_recent" = "最近打开";
 "menu.file.open_recent.empty" = "（无最近文件）";
 "menu.file.clear_recents" = "清除菜单";

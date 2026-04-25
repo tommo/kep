@@ -138,6 +138,10 @@ struct MindoApp: App {
                         .disabled(!session.activeIsMarkdown)
                     Button(L("menu.file.export_freemind")) { session.exportActiveAsFreeMind() }
                         .disabled(session.activeFileType != .mindMap)
+                    Button(L("menu.file.export_mindmap_png")) { session.exportActiveAsPNG() }
+                        .disabled(session.activeFileType != .mindMap)
+                    Button(L("menu.file.export_mindmap_svg")) { session.exportActiveAsSVG() }
+                        .disabled(session.activeFileType != .mindMap)
                 }
             }
             CommandGroup(after: .pasteboard) {

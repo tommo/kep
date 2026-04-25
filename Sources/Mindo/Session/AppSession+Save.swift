@@ -1,6 +1,7 @@
 import AppKit
 import UniformTypeIdentifiers
 import MindoMarkdown
+import MindoMindMap
 import MindoModel
 
 extension AppSession {
@@ -57,6 +58,33 @@ extension AppSession {
         await exportActiveMarkdown(extension: "pdf") { body, url in
             try await MarkdownExporter.exportPDF(markdown: body, to: url)
         }
+    }
+
+    /// Export the active mindmap as a PNG raster.
+    @MainActor
+    func exportActiveAsPNG() {
+        exportActiveMindmapImage(extension: "png") { map, url in
+            try MindMapImageExport.exportPNG(map, theme: theme.theme, to: url)
+        }
+    }
+
+    /// Export the active mindmap as an SVG vector image.
+    @MainActor
+    func exportActiveAsSVG() {
+        exportActiveMindmapImage(extension: "svg") { map, url in
+            try MindMapImageExport.exportSVG(map, theme: theme.theme, to: url)
+        }
+    }
+
+    @MainActor
+    private func exportActiveMindmapImage(extension ext: String, write: (MindMap, URL) throws -> Void) {
+        guard let doc = activeDocument, case .mindMap(let map) = doc.kind else { return }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [UTType.init(filenameExtension: ext) ?? .data]
+        panel.nameFieldStringValue = (doc.fileURL?.deletingPathExtension().lastPathComponent ?? "Untitled") + "." + ext
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do { try write(map, url) }
+        catch { lastError = String(format: L("error.save_failed"), error.localizedDescription) }
     }
 
     /// Export the active mindmap as a FreeMind .mm file. NSSavePanel defaults

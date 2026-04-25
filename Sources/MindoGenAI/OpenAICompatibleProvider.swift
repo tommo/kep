@@ -67,13 +67,7 @@ open class OpenAICompatibleProvider: LLMProvider, @unchecked Sendable {
     open func predict(_ input: LLMInput) async throws -> StreamPartial {
         let req = try makeRequest(input, streaming: false)
         let (data, response) = try await session.data(for: req)
-        guard let http = response as? HTTPURLResponse else {
-            throw LLMError.transport("No HTTP response")
-        }
-        guard (200..<300).contains(http.statusCode) else {
-            let body = String(data: data, encoding: .utf8) ?? ""
-            throw LLMError.httpStatus(http.statusCode, body: body)
-        }
+        try LLMHTTP.checkResponse(response, body: String(data: data, encoding: .utf8) ?? "")
         return try Self.parsePredictResponse(data)
     }
 
@@ -82,15 +76,7 @@ open class OpenAICompatibleProvider: LLMProvider, @unchecked Sendable {
     open func stream(_ input: LLMInput, onPartial: @escaping @Sendable (StreamPartial) -> Void) async throws {
         let req = try makeRequest(input, streaming: true)
         let (bytes, response) = try await session.bytes(for: req)
-        guard let http = response as? HTTPURLResponse else {
-            throw LLMError.transport("No HTTP response")
-        }
-        guard (200..<300).contains(http.statusCode) else {
-            var collected = Data()
-            for try await byte in bytes { collected.append(byte) }
-            let body = String(data: collected, encoding: .utf8) ?? ""
-            throw LLMError.httpStatus(http.statusCode, body: body)
-        }
+        try await LLMHTTP.checkStreamResponse(response, bytes: bytes)
 
         var parser = SSEParser()
         var totalText = ""

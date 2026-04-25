@@ -87,10 +87,7 @@ public final class GeminiProvider: LLMProvider, @unchecked Sendable {
     public func predict(_ input: LLMInput) async throws -> StreamPartial {
         let req = try request(action: "generateContent", input: input)
         let (data, response) = try await session.data(for: req)
-        guard let http = response as? HTTPURLResponse else { throw LLMError.transport("No HTTP response") }
-        guard (200..<300).contains(http.statusCode) else {
-            throw LLMError.httpStatus(http.statusCode, body: String(data: data, encoding: .utf8) ?? "")
-        }
+        try LLMHTTP.checkResponse(response, body: String(data: data, encoding: .utf8) ?? "")
         return try Self.parsePredictResponse(data)
     }
 
@@ -99,12 +96,7 @@ public final class GeminiProvider: LLMProvider, @unchecked Sendable {
     public func stream(_ input: LLMInput, onPartial: @escaping @Sendable (StreamPartial) -> Void) async throws {
         let req = try request(action: "streamGenerateContent", input: input)
         let (bytes, response) = try await session.bytes(for: req)
-        guard let http = response as? HTTPURLResponse else { throw LLMError.transport("No HTTP response") }
-        guard (200..<300).contains(http.statusCode) else {
-            var collected = Data()
-            for try await b in bytes { collected.append(b) }
-            throw LLMError.httpStatus(http.statusCode, body: String(data: collected, encoding: .utf8) ?? "")
-        }
+        try await LLMHTTP.checkStreamResponse(response, bytes: bytes)
 
         var parser = SSEParser()
         var totalText = ""

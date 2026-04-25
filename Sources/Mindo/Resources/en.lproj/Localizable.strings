@@ -29,6 +29,7 @@
 
 /* MARK: - Edit menu */
 "menu.edit.insert_snippet" = "Insert Snippet…";
+"menu.edit.find_in_files" = "Find in Files…";
 
 /* MARK: - AI menu / panes */
 "menu.ai" = "AI";

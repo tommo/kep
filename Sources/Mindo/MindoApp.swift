@@ -53,6 +53,20 @@ struct MindoApp: App {
                         session.insertSnippet(snippet)
                     }
                 }
+                .sheet(isPresented: $session.findInFilesOpen) {
+                    NavigationStack {
+                        FindInFilesPanel(workspaceRoots: session.workspaceRoots.map(\.url)) { url, _ in
+                            session.open(url: url)
+                            session.findInFilesOpen = false
+                        }
+                        .frame(minWidth: 560, minHeight: 420)
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("Close") { session.findInFilesOpen = false }
+                            }
+                        }
+                    }
+                }
         }
         .commands {
             CommandGroup(replacing: .newItem) {
@@ -83,6 +97,9 @@ struct MindoApp: App {
                 Button(L("menu.edit.insert_snippet")) { session.snippetPickerOpen = true }
                     .keyboardShortcut("j", modifiers: [.command, .shift])
                     .disabled(session.activeDocument == nil)
+                Button(L("menu.edit.find_in_files")) { session.findInFilesOpen = true }
+                    .keyboardShortcut("f", modifiers: [.command, .shift])
+                    .disabled(session.workspaceRoots.isEmpty)
             }
             CommandMenu(L("menu.view.theme")) {
                 Picker(L("menu.view.theme"), selection: $session.theme) {
@@ -150,6 +167,9 @@ final class AppSession {
 
     /// Snippet picker sheet flag.
     var snippetPickerOpen: Bool = false
+
+    /// Find-in-files sheet flag.
+    var findInFilesOpen: Bool = false
 
     /// Outline rows for the currently active document. Recomputed lazily on read.
     var outlineItems: [OutlineItem] {

@@ -26,6 +26,7 @@
 
 /* MARK: - 编辑菜单 */
 "menu.edit.insert_snippet" = "插入片段…";
+"menu.edit.find_in_files" = "在文件中查找…";
 
 /* MARK: - AI 菜单 / 面板 */
 "menu.ai" = "AI";

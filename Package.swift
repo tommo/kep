@@ -55,7 +55,7 @@ let package = Package(
         ),
         .target(name: "MindoPlantUML", dependencies: ["MindoBase"]),
         .target(name: "MindoCSV", dependencies: ["MindoBase"]),
-        .target(name: "MindoGenAI", dependencies: ["MindoBase"]),
+        .target(name: "MindoGenAI", dependencies: ["MindoBase", "MindoCore"]),
         .executableTarget(
             name: "Mindo",
             dependencies: [

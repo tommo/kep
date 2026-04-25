@@ -1,4 +1,5 @@
 import Foundation
+import MindoCore
 
 /// Persisted configuration for all LLM providers and the user's custom models.
 /// Stored as `~/Library/Application Support/Mindo/llm_config.json`. Mirrors
@@ -90,10 +91,7 @@ public final class LLMConfigStore {
     }
 
     public static var defaultDirectory: URL {
-        let fm = FileManager.default
-        let base = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            ?? fm.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support")
-        return base.appendingPathComponent("Mindo", isDirectory: true)
+        MindoCore.applicationSupportURL
     }
 
     public func save() throws {

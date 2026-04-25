@@ -52,10 +52,7 @@ public final class SnippetStore: ObservableObject {
     }
 
     public nonisolated static var defaultDirectory: URL {
-        let fm = FileManager.default
-        let base = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            ?? fm.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support")
-        return base.appendingPathComponent("Mindo", isDirectory: true)
+        MindoCore.applicationSupportURL
     }
 
     /// Combined snippet list — built-in first, then user.

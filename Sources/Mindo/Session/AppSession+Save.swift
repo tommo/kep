@@ -154,6 +154,21 @@ extension AppSession {
         catch { lastError = String(format: L("error.save_failed"), error.localizedDescription) }
     }
 
+    /// Export the active mindmap as Org-Mode text.
+    @MainActor
+    func exportActiveAsOrgMode() {
+        guard let doc = activeDocument, case .mindMap(let map) = doc.kind else { return }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [UTType.init(filenameExtension: "org") ?? .data]
+        panel.nameFieldStringValue = (doc.fileURL?.deletingPathExtension().lastPathComponent ?? "Untitled") + ".org"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try OrgModeExporter.export(map).write(to: url, atomically: true, encoding: .utf8)
+        } catch {
+            lastError = String(format: L("error.save_failed"), error.localizedDescription)
+        }
+    }
+
     /// Export the active mindmap as a FreeMind .mm file. NSSavePanel defaults
     /// to the doc's stem + .mm; serialization is synchronous.
     @MainActor

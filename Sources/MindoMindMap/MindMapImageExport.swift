@@ -66,6 +66,44 @@ public enum MindMapImageExport {
         return bitmap
     }
 
+    // MARK: - PDF
+
+    /// Vector PDF export. Renders the offscreen MindMapView through
+    /// `dataWithPDF(inside:)` so every shape and glyph is preserved as
+    /// vector geometry — resolution-independent and printable.
+    public static func exportPDF(_ map: MindMap, theme: MindMapTheme = .light, to url: URL) throws {
+        let data = try makePDFData(map: map, theme: theme)
+        do { try data.write(to: url, options: .atomic) }
+        catch { throw ExportError.writeFailed(error.localizedDescription) }
+    }
+
+    /// Builds the PDF bytes without touching disk. Uses the same offscreen
+    /// MindMapView + content-bounds tightening pattern as the PNG path so
+    /// the PDF page snaps to the actual mindmap bounds (with a 16pt pad).
+    public static func makePDFData(map: MindMap, theme: MindMapTheme = .light) throws -> Data {
+        let view = MindMapView(frame: NSRect(x: 0, y: 0, width: 1200, height: 800))
+        view.theme = theme
+        view.display(map: map)
+        let bounds = view.contentBounds
+        guard bounds.width > 0, bounds.height > 0 else { throw ExportError.noContent }
+        let pad: CGFloat = 16
+        let frame = bounds.insetBy(dx: -pad, dy: -pad)
+        view.frame = NSRect(x: 0, y: 0, width: frame.width, height: frame.height)
+        // Reposition every element so the union sits at (pad, pad) — same
+        // shift the PNG path uses.
+        let dx = pad - bounds.minX
+        let dy = pad - bounds.minY
+        view.rootElement?.traverse { el in
+            el.frame.origin.x += dx
+            el.frame.origin.y += dy
+            el.subtreeBounds.origin.x += dx
+            el.subtreeBounds.origin.y += dy
+        }
+        view.contentBounds = view.contentBounds.offsetBy(dx: dx, dy: dy)
+        view.needsDisplay = true
+        return view.dataWithPDF(inside: view.bounds)
+    }
+
     // MARK: - SVG
 
     /// Emit a vector SVG by walking the layout. Resolution-independent and

@@ -61,4 +61,36 @@ final class MindMapImageExportTests: XCTestCase {
             }
         }
     }
+
+    // MARK: - PDF
+
+    func testPdfExportProducesValidPDFFile() throws {
+        let tmp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mindo-pdf-\(UUID()).pdf")
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        try MindMapImageExport.exportPDF(sampleMap(), to: tmp)
+        let data = try Data(contentsOf: tmp)
+        XCTAssertGreaterThan(data.count, 200, "PDF should have real bytes")
+        // PDF magic: %PDF
+        XCTAssertEqual(data.prefix(4), Data("%PDF".utf8))
+    }
+
+    func testMakePdfDataIsParseableByCGPDFDocument() throws {
+        let data = try MindMapImageExport.makePDFData(map: sampleMap())
+        // Round-trip through Quartz to confirm the bytes are a real PDF, not
+        // just something starting with %PDF.
+        let provider = CGDataProvider(data: data as CFData)!
+        let pdf = CGPDFDocument(provider)
+        XCTAssertNotNil(pdf, "Quartz should parse the PDF")
+        XCTAssertEqual(pdf?.numberOfPages, 1)
+    }
+
+    func testPdfThrowsNoContentForEmptyMap() {
+        XCTAssertThrowsError(try MindMapImageExport.makePDFData(map: MindMap())) { error in
+            guard case MindMapImageExport.ExportError.noContent = error else {
+                XCTFail("expected .noContent, got \(error)")
+                return
+            }
+        }
+    }
 }

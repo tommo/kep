@@ -153,6 +153,8 @@ struct MindoApp: App {
                         .disabled(session.activeFileType != .mindMap)
                     Button(L("menu.file.export_mindmap_svg")) { session.exportActiveAsSVG() }
                         .disabled(session.activeFileType != .mindMap)
+                    Button(L("menu.file.export_mindmap_pdf")) { session.exportActiveMindmapAsPDF() }
+                        .disabled(session.activeFileType != .mindMap)
                 }
             }
             CommandGroup(after: .pasteboard) {

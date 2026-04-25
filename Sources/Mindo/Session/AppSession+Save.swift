@@ -76,6 +76,15 @@ extension AppSession {
         }
     }
 
+    /// Export the active mindmap as a vector PDF page. Distinct from the
+    /// markdown PDF exporter (`exportActiveAsPDF`) which uses WKWebView.
+    @MainActor
+    func exportActiveMindmapAsPDF() {
+        exportActiveMindmapImage(extension: "pdf") { map, url in
+            try MindMapImageExport.exportPDF(map, theme: theme.theme, to: url)
+        }
+    }
+
     @MainActor
     private func exportActiveMindmapImage(extension ext: String, write: (MindMap, URL) throws -> Void) {
         guard let doc = activeDocument, case .mindMap(let map) = doc.kind else { return }

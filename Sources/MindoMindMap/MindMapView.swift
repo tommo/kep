@@ -133,13 +133,74 @@ public final class MindMapView: NSView {
         window?.makeFirstResponder(self)
     }
 
+    /// Local NSEvent monitor token. While installed, we intercept key
+    /// events that should drive the canvas even when the SwiftUI sidebar
+    /// list still holds first responder. Removed in `viewWillMove(toWindow:)`
+    /// when leaving a window so we don't keep eating events for an
+    /// off-screen view.
+    private var keyMonitor: Any?
+
     public override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        // Re-arm focus + selection when the canvas is hosted by a new window.
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            self.window?.makeFirstResponder(self)
+        if window != nil {
+            installKeyMonitor()
+            DispatchQueue.main.async { [weak self] in
+                self?.window?.makeFirstResponder(self)
+            }
+        } else {
+            removeKeyMonitor()
         }
+    }
+
+    public override func viewWillMove(toWindow newWindow: NSWindow?) {
+        super.viewWillMove(toWindow: newWindow)
+        if newWindow == nil { removeKeyMonitor() }
+    }
+
+    deinit { Self.removeMonitor(keyMonitor) }
+
+    private func installKeyMonitor() {
+        guard keyMonitor == nil else { return }
+        // Catch only the keys the canvas actually drives. Anything else
+        // (typing into a text field, ⌘shortcuts, etc.) flows through
+        // unchanged. Returning the event passes it on; nil swallows it.
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
+            guard let self, let win = self.window, event.window === win else { return event }
+            // Skip if a text editor (in-place edit, TextField, etc.) is the
+            // current responder — those should keep their typing behavior.
+            if let responder = win.firstResponder,
+               responder is NSText || responder is NSTextField || responder is NSTextView {
+                return event
+            }
+            let chars = event.charactersIgnoringModifiers ?? ""
+            let arrows: Set<String> = [
+                String(Character(UnicodeScalar(NSLeftArrowFunctionKey)!)),
+                String(Character(UnicodeScalar(NSRightArrowFunctionKey)!)),
+                String(Character(UnicodeScalar(NSUpArrowFunctionKey)!)),
+                String(Character(UnicodeScalar(NSDownArrowFunctionKey)!)),
+            ]
+            let driven: Set<String> = ["\t", "\r", "-", "=", "+", " ", "\u{7F}", "\u{08}"]
+            guard driven.contains(chars) || arrows.contains(chars) else { return event }
+            // Make sure this canvas is actually visible in the window before
+            // claiming the key — otherwise we'd silently swallow events for
+            // closed tabs (the AppSession recreates MindMapViews per doc).
+            guard self.window?.contentView?.subviewIsVisible(self) ?? false else { return event }
+            if event.type == .keyDown {
+                self.keyDown(with: event)
+            } else {
+                self.keyUp(with: event)
+            }
+            return nil
+        }
+    }
+
+    private func removeKeyMonitor() {
+        Self.removeMonitor(keyMonitor)
+        keyMonitor = nil
+    }
+
+    private static func removeMonitor(_ monitor: Any?) {
+        if let m = monitor { NSEvent.removeMonitor(m) }
     }
 
     /// Public hook for the undo extension. Same as `rebuildElements()`.
@@ -1023,6 +1084,18 @@ public final class MindMapView: NSView {
 
     private func notifyChange() {
         if let map = mindMap { onChange?(map) }
+    }
+}
+
+private extension NSView {
+    /// True when `target` lives in this view's hierarchy and is rendered.
+    /// Used by the key monitor to skip canvases for closed/hidden tabs.
+    func subviewIsVisible(_ target: NSView) -> Bool {
+        if target === self { return !isHidden && window != nil }
+        for sub in subviews where sub.subviewIsVisible(target) {
+            return true
+        }
+        return false
     }
 }
 

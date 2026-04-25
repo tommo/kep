@@ -174,6 +174,18 @@ extension MindMapView {
         ctx.fillPath()
     }
 
+    /// Stroke a rounded outline that hugs `frame`, expanded outward by
+    /// `inset`. The corner radius grows with the inset so concentric outlines
+    /// (selection / drop-target / multi-select halo) stay visually balanced.
+    /// Caller pre-sets `setStrokeColor` and `setLineWidth`.
+    func strokeRoundedOutline(around frame: CGRect, inset: CGFloat, into ctx: CGContext) {
+        let rect = frame.insetBy(dx: -inset, dy: -inset)
+        let radius = theme.cornerRadius + inset
+        let path = CGPath(roundedRect: rect, cornerWidth: radius, cornerHeight: radius, transform: nil)
+        ctx.addPath(path)
+        ctx.strokePath()
+    }
+
     /// Clip a line endpoint to the rectangle's edge along the line towards `away`.
     func clip(point: CGPoint, against rect: CGRect, towards away: CGPoint) -> CGPoint {
         let dx = away.x - point.x, dy = away.y - point.y

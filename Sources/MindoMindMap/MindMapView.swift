@@ -298,28 +298,20 @@ public final class MindMapView: NSView {
                 guard selectedTopics.contains(ObjectIdentifier(el.topic)) else { return }
                 if el === selectedElement { return }
                 ctx.setStrokeColor(secondary.cgColor)
-                let rect = el.frame.insetBy(dx: -2, dy: -2)
-                let path = CGPath(roundedRect: rect, cornerWidth: theme.cornerRadius + 2, cornerHeight: theme.cornerRadius + 2, transform: nil)
-                ctx.addPath(path); ctx.strokePath()
+                strokeRoundedOutline(around: el.frame, inset: 2, into: ctx)
             }
         }
         if let sel = selectedElement {
             ctx.setStrokeColor(theme.selectionColor.cgColor)
             ctx.setLineWidth(theme.selectionWidth)
-            let rect = sel.frame.insetBy(dx: -3, dy: -3)
-            let path = CGPath(roundedRect: rect, cornerWidth: theme.cornerRadius + 3, cornerHeight: theme.cornerRadius + 3, transform: nil)
-            ctx.addPath(path)
-            ctx.strokePath()
+            strokeRoundedOutline(around: sel.frame, inset: 3, into: ctx)
         }
 
         // Drag overlays — drop-target highlight + dragged-topic ghost.
         if let target = dragTargetElement {
             ctx.setStrokeColor(NSColor.systemGreen.cgColor)
             ctx.setLineWidth(2.0)
-            let rect = target.frame.insetBy(dx: -5, dy: -5)
-            let path = CGPath(roundedRect: rect, cornerWidth: theme.cornerRadius + 5, cornerHeight: theme.cornerRadius + 5, transform: nil)
-            ctx.addPath(path)
-            ctx.strokePath()
+            strokeRoundedOutline(around: target.frame, inset: 5, into: ctx)
         }
         if let center = dragGhostCenter, let source = dragSourceElement {
             let size = source.frame.size

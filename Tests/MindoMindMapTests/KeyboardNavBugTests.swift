@@ -33,8 +33,7 @@ final class KeyboardNavBugTests: XCTestCase {
         map.root = root
         let a = root.addChild(text: "A")
 
-        let view = MindMapView(frame: NSRect(x: 0, y: 0, width: 600, height: 400))
-        view.display(map: map)
+        let view = makeHeadlessMindMap(map: map, frame: NSRect(x: 0, y: 0, width: 600, height: 400))
         guard let primary = view.selectedElement else {
             XCTFail("auto-selection failed"); return
         }

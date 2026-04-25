@@ -10,7 +10,7 @@ final class UndoExtrasTests: XCTestCase {
         let map = MindMap()
         let root = Topic(text: "Root")
         map.root = root
-        let (view, mgr) = makeHeadlessMindMap(map: map)
+        let (view, mgr) = makeHeadlessMindMapWithUndo(map: map)
         return (view, root, mgr)
     }
 

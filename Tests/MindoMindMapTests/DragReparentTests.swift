@@ -16,11 +16,7 @@ final class DragReparentTests: XCTestCase {
         let a = root.addChild(text: "A")
         let a1 = a.addChild(text: "A1")
         let b = root.addChild(text: "B")
-
-        let view = MindMapView(frame: NSRect(x: 0, y: 0, width: 600, height: 400))
-        let mgr = UndoManager()
-        view.injectedUndoManager = mgr
-        view.display(map: map)
+        let (view, _) = makeHeadlessMindMapWithUndo(map: map, frame: NSRect(x: 0, y: 0, width: 600, height: 400))
         return (view, root, a, a1, b)
     }
 

@@ -11,7 +11,7 @@ final class MindMapUndoTests: XCTestCase {
         let root = Topic(text: "Root")
         map.root = root
         _ = root.addChild(text: "Original")
-        return makeHeadlessMindMap(map: map)
+        return makeHeadlessMindMapWithUndo(map: map)
     }
 
     func testAddChildIsUndoable() {

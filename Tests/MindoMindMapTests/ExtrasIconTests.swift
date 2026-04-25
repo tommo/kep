@@ -52,8 +52,7 @@ final class ExtrasIconTests: XCTestCase {
         map.root = root
         root.setExtra(ExtraLink(uri: "https://example.com/path"))
 
-        let view = MindMapView(frame: NSRect(x: 0, y: 0, width: 600, height: 400))
-        view.display(map: map)
+        let view = makeHeadlessMindMap(map: map, frame: NSRect(x: 0, y: 0, width: 600, height: 400))
 
         guard let rootEl = view.rootElement else { XCTFail("no root element"); return }
         guard let (_, iconRect) = rootEl.extraIconRects.first else {

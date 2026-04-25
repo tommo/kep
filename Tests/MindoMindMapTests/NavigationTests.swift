@@ -30,8 +30,7 @@ final class MindMapNavigationTests: XCTestCase {
         let b = root.addChild(text: "B")
         _ = b
 
-        let view = MindMapView(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
-        view.display(map: map)
+        let view = makeHeadlessMindMap(map: map, frame: NSRect(x: 0, y: 0, width: 800, height: 600))
 
         view.navigate(to: "0/0")
         XCTAssertTrue(view.selectedElement?.topic === a1)
@@ -47,8 +46,7 @@ final class MindMapNavigationTests: XCTestCase {
         let map = MindMap()
         let root = Topic(text: "Root")
         map.root = root
-        let view = MindMapView(frame: NSRect(x: 0, y: 0, width: 600, height: 400))
-        view.display(map: map)
+        let view = makeHeadlessMindMap(map: map, frame: NSRect(x: 0, y: 0, width: 600, height: 400))
 
         view.navigate(to: "999")
         view.navigate(to: "0/9")

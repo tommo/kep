@@ -82,12 +82,7 @@ public final class LLMConfigStore {
 
     public init(directory: URL = LLMConfigStore.defaultDirectory) {
         self.url = directory.appendingPathComponent("llm_config.json")
-        if let data = try? Data(contentsOf: self.url),
-           let decoded = try? JSONDecoder().decode(LLMConfig.self, from: data) {
-            self.config = decoded
-        } else {
-            self.config = LLMConfig()
-        }
+        self.config = JSONFile.read(LLMConfig.self, from: url) ?? LLMConfig()
     }
 
     public static var defaultDirectory: URL {
@@ -95,10 +90,7 @@ public final class LLMConfigStore {
     }
 
     public func save() throws {
-        let dir = url.deletingLastPathComponent()
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let data = try JSONEncoder().encode(config)
-        try data.write(to: url, options: .atomic)
+        try JSONFile.write(config, to: url)
     }
 
     public func setProviderMeta(_ meta: ProviderMeta, for providerID: GenAIProviderID) {

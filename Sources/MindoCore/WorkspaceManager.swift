@@ -12,14 +12,11 @@ public final class WorkspaceManager {
 
     public init(directory: URL = MindoCore.applicationSupportURL) {
         self.workspaceListURL = directory.appendingPathComponent("workspaces.json")
-        self.list = Self.loadList(from: workspaceListURL) ?? WorkspaceList()
+        self.list = JSONFile.read(WorkspaceList.self, from: workspaceListURL) ?? WorkspaceList()
     }
 
     public func save() throws {
-        let dir = workspaceListURL.deletingLastPathComponent()
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let data = try JSONEncoder().encode(list)
-        try data.write(to: workspaceListURL, options: .atomic)
+        try JSONFile.write(list, to: workspaceListURL)
     }
 
     public func add(workspaceAt url: URL) -> WorkspaceMeta {
@@ -47,8 +44,4 @@ public final class WorkspaceManager {
         return node
     }
 
-    private static func loadList(from url: URL) -> WorkspaceList? {
-        guard let data = try? Data(contentsOf: url) else { return nil }
-        return try? JSONDecoder().decode(WorkspaceList.self, from: data)
-    }
 }

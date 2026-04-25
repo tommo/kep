@@ -42,12 +42,7 @@ public final class SnippetStore: ObservableObject {
 
     public init(directory: URL = SnippetStore.defaultDirectory) {
         self.url = directory.appendingPathComponent("snippets.json")
-        if let data = try? Data(contentsOf: url),
-           let decoded = try? JSONDecoder().decode([Snippet].self, from: data) {
-            self.userSnippets = decoded
-        } else {
-            self.userSnippets = []
-        }
+        self.userSnippets = JSONFile.read([Snippet].self, from: url) ?? []
         self.builtIn = SnippetStore.bundledSnippets()
     }
 
@@ -87,10 +82,7 @@ public final class SnippetStore: ObservableObject {
     }
 
     public func save() throws {
-        let dir = url.deletingLastPathComponent()
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let data = try JSONEncoder().encode(userSnippets)
-        try data.write(to: url, options: .atomic)
+        try JSONFile.write(userSnippets, to: url)
     }
 
     // MARK: - Built-in seeds

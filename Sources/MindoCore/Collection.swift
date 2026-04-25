@@ -53,18 +53,8 @@ public final class CollectionStore {
         self.recentsURL = directory.appendingPathComponent("recent_files.json")
         self.recentLimit = recentLimit
 
-        if let data = try? Data(contentsOf: collectionsURL),
-           let decoded = try? JSONDecoder().decode([FileCollection].self, from: data) {
-            self.collections = decoded
-        } else {
-            self.collections = []
-        }
-        if let data = try? Data(contentsOf: recentsURL),
-           let decoded = try? JSONDecoder().decode([RecentFileEntry].self, from: data) {
-            self.recents = decoded
-        } else {
-            self.recents = []
-        }
+        self.collections = JSONFile.read([FileCollection].self, from: collectionsURL) ?? []
+        self.recents = JSONFile.read([RecentFileEntry].self, from: recentsURL) ?? []
     }
 
     // MARK: - Collections
@@ -89,10 +79,7 @@ public final class CollectionStore {
     }
 
     private func saveCollections() throws {
-        let dir = collectionsURL.deletingLastPathComponent()
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let data = try JSONEncoder().encode(collections)
-        try data.write(to: collectionsURL, options: .atomic)
+        try JSONFile.write(collections, to: collectionsURL)
     }
 
     // MARK: - Recent files
@@ -115,9 +102,6 @@ public final class CollectionStore {
     }
 
     private func saveRecents() throws {
-        let dir = recentsURL.deletingLastPathComponent()
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let data = try JSONEncoder().encode(recents)
-        try data.write(to: recentsURL, options: .atomic)
+        try JSONFile.write(recents, to: recentsURL)
     }
 }

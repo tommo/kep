@@ -40,10 +40,35 @@ extension MindMapView {
             menu.addItem(makeContextItem(title: "Remove Icon", action: #selector(contextRemoveEmoticon(_:)), payload: element))
         }
         menu.addItem(NSMenuItem.separator())
+        // Clone (only meaningful for non-root topics — root has no parent slot
+        // to insert a sibling into).
+        if element.topic.parent != nil {
+            menu.addItem(makeContextItem(title: "Duplicate Topic", action: #selector(contextDuplicateTopic(_:)), payload: element))
+            if !element.topic.children.isEmpty {
+                menu.addItem(makeContextItem(title: "Clone with Subtree", action: #selector(contextCloneTopicDeep(_:)), payload: element))
+            }
+        }
+        menu.addItem(NSMenuItem.separator())
         let deleteItem = makeContextItem(title: "Delete Topic", action: #selector(contextDeleteTopic(_:)), payload: element)
         deleteItem.isEnabled = element.topic.parent != nil
         menu.addItem(deleteItem)
         return menu
+    }
+
+    @objc func contextDuplicateTopic(_ sender: NSMenuItem) {
+        guard let element = sender.representedObject as? MindMapElement else { return }
+        if let clone = undoableCloneTopic(element.topic, deep: false),
+           let cloneEl = self.element(forTopic: clone) {
+            selectElement(cloneEl)
+        }
+    }
+
+    @objc func contextCloneTopicDeep(_ sender: NSMenuItem) {
+        guard let element = sender.representedObject as? MindMapElement else { return }
+        if let clone = undoableCloneTopic(element.topic, deep: true),
+           let cloneEl = self.element(forTopic: clone) {
+            selectElement(cloneEl)
+        }
     }
 
     /// NSMenuItem with target=self + a stashed payload. Hand-rolled because

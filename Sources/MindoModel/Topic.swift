@@ -173,6 +173,27 @@ public final class Topic {
         }
     }
 
+    /// Build an independent copy of this topic. Shares Extra references
+    /// since all built-in Extras are immutable, but `attributes`,
+    /// `codeSnippets`, and `children` are deep-copied so mutations on the
+    /// clone (or source) don't bleed across. `parent` and `map` are left
+    /// nil on the new node — caller is expected to attach it via
+    /// `parent.append(_:)`. When `deep` is false only this node is cloned;
+    /// children are dropped.
+    public func clone(deep: Bool) -> Topic {
+        let copy = Topic(text: text)
+        copy.attributes = attributes
+        copy.extras = extras
+        copy.codeSnippets = codeSnippets
+        if deep {
+            for child in children {
+                let childCopy = child.clone(deep: true)
+                copy.append(childCopy)
+            }
+        }
+        return copy
+    }
+
     /// Total number of topics in this subtree (including self).
     public func subtreeCount() -> Int {
         var n = 1

@@ -87,6 +87,51 @@ final class UndoExtrasTests: XCTestCase {
         XCTAssertEqual(a.attribute(TopicAttribute.collapsed), "true")
     }
 
+    // MARK: - Clone topic
+
+    func testCloneTopicInsertsAsNextSiblingAndIsUndoable() {
+        let map = MindMap()
+        let root = Topic(text: "Root")
+        map.root = root
+        let a = root.addChild(text: "A")
+        let b = root.addChild(text: "B")
+        let (view, mgr) = makeHeadlessMindMapWithUndo(map: map)
+
+        let clone = view.undoableCloneTopic(a, deep: false)
+        XCTAssertNotNil(clone)
+        // Order: A, clone, B.
+        XCTAssertEqual(root.children.count, 3)
+        XCTAssertTrue(root.children[0] === a)
+        XCTAssertTrue(root.children[1] === clone)
+        XCTAssertTrue(root.children[2] === b)
+
+        mgr.undo()
+        XCTAssertEqual(root.children.count, 2)
+        XCTAssertTrue(root.children[0] === a)
+        XCTAssertTrue(root.children[1] === b)
+    }
+
+    func testDeepCloneCarriesSubtree() {
+        let map = MindMap()
+        let root = Topic(text: "Root")
+        map.root = root
+        let a = root.addChild(text: "A")
+        _ = a.addChild(text: "A1")
+        let (view, _) = makeHeadlessMindMapWithUndo(map: map)
+
+        let clone = view.undoableCloneTopic(a, deep: true)
+        XCTAssertEqual(clone?.children.count, 1)
+        XCTAssertEqual(clone?.children.first?.text, "A1")
+    }
+
+    func testCloneRootIsNoOp() {
+        let map = MindMap()
+        let root = Topic(text: "Root")
+        map.root = root
+        let (view, _) = makeHeadlessMindMapWithUndo(map: map)
+        XCTAssertNil(view.undoableCloneTopic(root, deep: false))
+    }
+
     func testFoldAllIsNoOpWhenAlreadyFullyFolded() {
         let map = MindMap()
         let root = Topic(text: "Root")

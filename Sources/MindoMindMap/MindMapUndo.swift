@@ -51,6 +51,28 @@ extension MindMapView {
         return child
     }
 
+    /// Clone `source` (optionally with its full subtree) and insert the
+    /// clone as the next sibling of `source`. Single undoable step. The
+    /// returned topic is the newly-inserted clone.
+    @discardableResult
+    public func undoableCloneTopic(_ source: Topic, deep: Bool) -> Topic? {
+        guard let parent = source.parent else { return nil }  // can't clone the root
+        let clone = source.clone(deep: deep)
+        parent.append(clone)
+        let sourceIdx = parent.children.firstIndex(where: { $0 === source }) ?? parent.children.endIndex
+        parent.move(child: clone, to: sourceIdx + 1)
+        registerUndo(
+            name: deep ? "Clone Topic with Subtree" : "Clone Topic",
+            forward: {
+                parent.append(clone)
+                parent.move(child: clone, to: sourceIdx + 1)
+            },
+            inverse: { parent.removeChild(clone) }
+        )
+        refreshAndNotify()
+        return clone
+    }
+
     public func undoableRemove(_ topic: Topic) {
         guard let parent = topic.parent else { return }
         let originalIndex = parent.children.firstIndex(where: { $0 === topic }) ?? parent.children.endIndex

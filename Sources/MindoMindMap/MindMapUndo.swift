@@ -51,6 +51,40 @@ extension MindMapView {
         return child
     }
 
+    /// Split a topic whose text spans multiple lines into one parent (keeps
+    /// the first non-empty line) plus N children (one per remaining
+    /// non-empty line). No-op when the text contains fewer than 2 non-empty
+    /// lines. Single undoable step. Existing children are preserved — new
+    /// children are appended after them.
+    public func undoableConvertMultilineToChildren(_ topic: Topic) {
+        let lines = ConvertMultiline.split(topic.text)
+        guard lines.count >= 2 else { return }
+        let oldText = topic.text
+        let newText = lines[0]
+        let newChildTexts = Array(lines.dropFirst())
+
+        let newChildren: [Topic] = newChildTexts.map { Topic(text: $0) }
+        topic.text = newText
+        for child in newChildren { topic.append(child) }
+
+        registerUndo(
+            name: "Convert to Subtree",
+            forward: {
+                topic.text = newText
+                for child in newChildren {
+                    if !topic.children.contains(where: { $0 === child }) {
+                        topic.append(child)
+                    }
+                }
+            },
+            inverse: {
+                topic.text = oldText
+                for child in newChildren { topic.removeChild(child) }
+            }
+        )
+        refreshAndNotify()
+    }
+
     /// Clone `source` (optionally with its full subtree) and insert the
     /// clone as the next sibling of `source`. Single undoable step. The
     /// returned topic is the newly-inserted clone.

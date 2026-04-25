@@ -124,6 +124,63 @@ final class UndoExtrasTests: XCTestCase {
         XCTAssertEqual(clone?.children.first?.text, "A1")
     }
 
+    // MARK: - Convert multiline → subtree
+
+    func testConvertMultilineSplitsLinesIntoChildren() {
+        let map = MindMap()
+        let root = Topic(text: "Root")
+        map.root = root
+        let t = root.addChild(text: "alpha\nbeta\ngamma")
+        let (view, _) = makeHeadlessMindMapWithUndo(map: map)
+
+        view.undoableConvertMultilineToChildren(t)
+        XCTAssertEqual(t.text, "alpha")
+        XCTAssertEqual(t.children.count, 2)
+        XCTAssertEqual(t.children[0].text, "beta")
+        XCTAssertEqual(t.children[1].text, "gamma")
+    }
+
+    func testConvertMultilineUndoRestoresOriginalText() {
+        let map = MindMap()
+        let root = Topic(text: "Root")
+        map.root = root
+        let t = root.addChild(text: "alpha\nbeta")
+        let (view, mgr) = makeHeadlessMindMapWithUndo(map: map)
+
+        view.undoableConvertMultilineToChildren(t)
+        mgr.undo()
+        XCTAssertEqual(t.text, "alpha\nbeta")
+        XCTAssertTrue(t.children.isEmpty)
+    }
+
+    func testConvertSingleLineIsNoOp() {
+        let map = MindMap()
+        let root = Topic(text: "Root")
+        map.root = root
+        let t = root.addChild(text: "just one")
+        let (view, mgr) = makeHeadlessMindMapWithUndo(map: map)
+
+        view.undoableConvertMultilineToChildren(t)
+        XCTAssertEqual(t.text, "just one")
+        XCTAssertTrue(t.children.isEmpty)
+        XCTAssertFalse(mgr.canUndo, "no-op must not register an undo entry")
+    }
+
+    func testConvertPreservesExistingChildren() {
+        let map = MindMap()
+        let root = Topic(text: "Root")
+        map.root = root
+        let t = root.addChild(text: "header\nfirst\nsecond")
+        let pre = t.addChild(text: "pre-existing")
+        let (view, _) = makeHeadlessMindMapWithUndo(map: map)
+
+        view.undoableConvertMultilineToChildren(t)
+        XCTAssertEqual(t.children.count, 3)
+        XCTAssertTrue(t.children[0] === pre, "existing children stay first")
+        XCTAssertEqual(t.children[1].text, "first")
+        XCTAssertEqual(t.children[2].text, "second")
+    }
+
     func testCloneRootIsNoOp() {
         let map = MindMap()
         let root = Topic(text: "Root")

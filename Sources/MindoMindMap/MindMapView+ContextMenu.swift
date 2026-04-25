@@ -48,6 +48,11 @@ extension MindMapView {
                 menu.addItem(makeContextItem(title: "Clone with Subtree", action: #selector(contextCloneTopicDeep(_:)), payload: element))
             }
         }
+        // Convert multiline → subtree. Only show when the text actually
+        // splits into 2+ non-empty lines so the menu entry isn't a no-op.
+        if ConvertMultiline.split(element.topic.text).count >= 2 {
+            menu.addItem(makeContextItem(title: "Convert to Subtree", action: #selector(contextConvertToSubtree(_:)), payload: element))
+        }
         menu.addItem(NSMenuItem.separator())
         let deleteItem = makeContextItem(title: "Delete Topic", action: #selector(contextDeleteTopic(_:)), payload: element)
         deleteItem.isEnabled = element.topic.parent != nil
@@ -69,6 +74,11 @@ extension MindMapView {
            let cloneEl = self.element(forTopic: clone) {
             selectElement(cloneEl)
         }
+    }
+
+    @objc func contextConvertToSubtree(_ sender: NSMenuItem) {
+        guard let element = sender.representedObject as? MindMapElement else { return }
+        undoableConvertMultilineToChildren(element.topic)
     }
 
     /// NSMenuItem with target=self + a stashed payload. Hand-rolled because

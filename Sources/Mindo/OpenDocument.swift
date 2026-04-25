@@ -49,6 +49,12 @@ struct OpenDocument: Identifiable, Hashable {
         }
     }
 
+    /// Convenience flag — true for any document whose kind is .mindMap.
+    var isMindMap: Bool {
+        if case .mindMap = kind { return true }
+        return false
+    }
+
     /// Outline rows derived from this document's content. Each Kind picks
     /// the appropriate extractor; unsupported / unknown text returns empty.
     var outlineItems: [OutlineItem] {

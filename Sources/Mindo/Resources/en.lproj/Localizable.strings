@@ -48,6 +48,8 @@
 /* MARK: - AI menu / panes */
 "menu.ai" = "AI";
 "menu.ai.generate" = "Generate…";
+"menu.ai.summarize" = "Summarize…";
+"menu.ai.reframe" = "Reframe…";
 "menu.ai.settings" = "Settings…";
 "ai.settings.title" = "AI Settings";
 "ai.settings.section.provider" = "Provider";

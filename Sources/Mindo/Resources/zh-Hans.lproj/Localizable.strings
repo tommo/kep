@@ -45,6 +45,8 @@
 /* MARK: - AI 菜单 / 面板 */
 "menu.ai" = "AI";
 "menu.ai.generate" = "生成…";
+"menu.ai.summarize" = "摘要…";
+"menu.ai.reframe" = "改写…";
 "menu.ai.settings" = "设置…";
 "ai.settings.title" = "AI 设置";
 "ai.settings.section.provider" = "服务提供方";

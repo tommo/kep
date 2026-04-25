@@ -161,8 +161,14 @@ struct MindoApp: App {
                     .keyboardShortcut("0", modifiers: .command)
             }
             CommandMenu(L("menu.ai")) {
-                Button(L("menu.ai.generate")) { session.openAIGenerate() }
+                Button(L("menu.ai.generate")) { session.openAIGenerate(intent: .input) }
                     .keyboardShortcut("g", modifiers: [.command, .shift])
+                    .disabled(session.activeDocument == nil)
+                Button(L("menu.ai.summarize")) { session.openAIGenerate(intent: .summarize) }
+                    .keyboardShortcut("s", modifiers: [.command, .control])
+                    .disabled(session.activeDocument == nil)
+                Button(L("menu.ai.reframe")) { session.openAIGenerate(intent: .reframe) }
+                    .keyboardShortcut("r", modifiers: [.command, .control])
                     .disabled(session.activeDocument == nil)
                 Divider()
                 Button(L("menu.ai.settings")) { session.aiSettingsOpen = true }

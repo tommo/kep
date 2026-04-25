@@ -82,14 +82,6 @@ struct NodeRow: View {
     }
 
     private func icon(for node: NodeData) -> String {
-        switch node.fileType {
-        case .mindMap: return "brain"
-        case .markdown: return "text.alignleft"
-        case .plantUML: return "rectangle.connected.to.line.below"
-        case .csv: return "tablecells"
-        case .plainText: return "doc.text"
-        case .jpeg, .png: return "photo"
-        case .none: return "doc"
-        }
+        node.fileType?.sfSymbolName ?? SupportedFileType.unknownSymbolName
     }
 }

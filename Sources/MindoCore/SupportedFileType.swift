@@ -30,4 +30,19 @@ public enum SupportedFileType: String, CaseIterable, Codable, Sendable {
         case .jpeg, .png: return false
         }
     }
+
+    /// SF Symbol name to use when displaying this file type in lists, tabs, or
+    /// the sidebar. Use `unknownSymbolName` for files we couldn't classify.
+    public var sfSymbolName: String {
+        switch self {
+        case .mindMap: return "brain"
+        case .markdown: return "text.alignleft"
+        case .plantUML: return "rectangle.connected.to.line.below"
+        case .csv: return "tablecells"
+        case .plainText: return "doc.text"
+        case .jpeg, .png: return "photo"
+        }
+    }
+
+    public static let unknownSymbolName = "doc"
 }

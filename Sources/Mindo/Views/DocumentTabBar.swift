@@ -1,4 +1,5 @@
 import SwiftUI
+import MindoCore
 
 /// Horizontal scrollable strip of tabs above the editor pane.
 struct DocumentTabBar: View {
@@ -45,12 +46,12 @@ struct DocumentTabBar: View {
 
     private func tabIcon(for doc: OpenDocument) -> String {
         switch doc.kind {
-        case .mindMap: return "brain"
-        case .text(_, .markdown): return "text.alignleft"
-        case .text(_, .plantUML): return "rectangle.connected.to.line.below"
-        case .text(_, .csv): return "tablecells"
-        case .text: return "doc.text"
-        case .unsupported: return "doc"
+        case .mindMap:
+            return SupportedFileType.mindMap.sfSymbolName
+        case .text(_, let t):
+            return (t ?? .plainText).sfSymbolName
+        case .unsupported:
+            return SupportedFileType.unknownSymbolName
         }
     }
 }

@@ -55,6 +55,41 @@ final class FreemindImporterTests: XCTestCase {
         XCTAssertEqual(map.root?.text, "Bold title")
     }
 
+    func testCapturesEdgeColorStyleAndWidth() throws {
+        let xml = """
+        <map>
+          <node TEXT="Root">
+            <node TEXT="Styled">
+              <edge COLOR="#990000" STYLE="bezier" WIDTH="thin"/>
+            </node>
+            <node TEXT="Plain"/>
+          </node>
+        </map>
+        """
+        let map = try FreemindImporter.parse(xml)
+        let styled = map.root?.children[0]
+        XCTAssertEqual(styled?.attribute(TopicAttribute.edgeColor), "#990000")
+        XCTAssertEqual(styled?.attribute(TopicAttribute.edgeStyle), "bezier")
+        XCTAssertEqual(styled?.attribute(TopicAttribute.edgeWidth), "thin")
+        let plain = map.root?.children[1]
+        XCTAssertNil(plain?.attribute(TopicAttribute.edgeColor))
+    }
+
+    func testCapturesBuiltInIconAsEmoticon() throws {
+        let xml = """
+        <map>
+          <node TEXT="Root">
+            <node TEXT="Important">
+              <icon BUILTIN="bell"/>
+            </node>
+          </node>
+        </map>
+        """
+        let map = try FreemindImporter.parse(xml)
+        let topic = map.root?.children[0]
+        XCTAssertEqual(topic?.attribute(TopicAttribute.emoticon), "bell")
+    }
+
     func testRoundTripsThroughMmdSerializer() throws {
         let xml = """
         <map>

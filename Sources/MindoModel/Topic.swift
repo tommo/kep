@@ -9,6 +9,12 @@ public enum TopicAttribute {
     public static let collapsed = "collapsed"
     public static let emoticon = "mmd.emoticon"
     public static let image = "mmd.image"
+    /// Edge connector color preserved from FreeMind imports (#RRGGBB).
+    public static let edgeColor = "edgeColor"
+    /// Edge style preserved from FreeMind imports (e.g. `bezier`, `linear`).
+    public static let edgeStyle = "edgeStyle"
+    /// Edge width preserved from FreeMind imports (e.g. `thin`, `1`, `2`).
+    public static let edgeWidth = "edgeWidth"
 }
 
 /// A node in a mind map's topic tree. Mirrors `Topic<T>` from `mindmap-model`.

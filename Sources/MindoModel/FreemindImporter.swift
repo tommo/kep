@@ -19,7 +19,9 @@ import Foundation
 ///   HTML for the title — we extract the visible text from the HTML.
 /// - `FOLDED="true"` maps to the topic's `collapsed` attribute.
 /// - `POSITION="left"` maps to `leftSide`.
-/// - Edge color, icons, and styles are not yet imported (future work).
+/// - `<edge COLOR= STYLE= WIDTH=/>` lands on `edgeColor` / `edgeStyle` /
+///   `edgeWidth` attributes (renderer side is parity card #44).
+/// - `<icon BUILTIN="..."/>` lands on the `mmd.emoticon` attribute.
 public enum FreemindImporter {
 
     public enum ImportError: Error, LocalizedError {
@@ -97,6 +99,30 @@ private final class FreemindParserDelegate: NSObject, XMLParserDelegate {
                 rootTopic = topic
             }
             stack.append(topic)
+
+        case "edge":
+            // <edge COLOR="#990000" STYLE="bezier" WIDTH="thin"/> attaches to
+            // the enclosing node. Capture so a future renderer can honor it
+            // and a future writer can round-trip the attributes.
+            if let topic = stack.last {
+                if let color = attrs["COLOR"] {
+                    topic.setAttribute(TopicAttribute.edgeColor, color)
+                }
+                if let style = attrs["STYLE"] {
+                    topic.setAttribute(TopicAttribute.edgeStyle, style)
+                }
+                if let width = attrs["WIDTH"] {
+                    topic.setAttribute(TopicAttribute.edgeWidth, width)
+                }
+            }
+
+        case "icon":
+            // <icon BUILTIN="bell"/> — FreeMind icon name. Surface as the
+            // mmd.emoticon attribute so the existing renderer can pick it
+            // up once emoticon rendering lands (parity card #44).
+            if let topic = stack.last, let name = attrs["BUILTIN"] {
+                topic.setAttribute(TopicAttribute.emoticon, name)
+            }
 
         case "richcontent":
             if let type = attrs["TYPE"]?.uppercased(), type == "NODE", let topic = stack.last {

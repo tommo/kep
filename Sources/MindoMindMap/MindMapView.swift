@@ -223,22 +223,13 @@ public final class MindMapView: NSView {
         let bounds = layoutEngine.layout(root)
         contentBounds = bounds
 
-        // Translate so all coordinates are positive. We do this by shifting frames
-        // by `-bounds.origin`.
-        let dx = -bounds.origin.x
-        let dy = -bounds.origin.y
-        root.traverse { el in
-            el.frame.origin.x += dx
-            el.frame.origin.y += dy
-            el.subtreeBounds.origin.x += dx
-            el.subtreeBounds.origin.y += dy
-        }
+        // First normalize so the content's top-left sits at (0, 0).
+        shiftAllFrames(rootElement: root, dx: -bounds.origin.x, dy: -bounds.origin.y)
         contentBounds.origin = .zero
 
         // Floor the document view to the scroll view's visible area so the
         // canvas always fills the container — even when the topic content is
-        // tiny. Without this we'd shrink to (contentBounds + 64) and leave
-        // dead space on the right/bottom (bug #38).
+        // tiny (bug #38).
         let visibleSize = enclosingScrollView?.contentView.bounds.size ?? bounds.size
         let minWidth = max(visibleSize.width, contentBounds.width + 64)
         let minHeight = max(visibleSize.height, contentBounds.height + 64)
@@ -248,7 +239,30 @@ public final class MindMapView: NSView {
         } else {
             self.frame.size = CGSize(width: minWidth, height: minHeight)
         }
+
+        // Then center the content inside the document view. Without this the
+        // tree is glued to the top-left and the user sees a "canvas edge"
+        // off to the right/bottom when content is smaller than the viewport
+        // (bug #41). Centering also makes scroll-back-to-root predictable
+        // — the root sits at the middle of the document area instead of
+        // at (32, 32).
+        let centerX = (minWidth - contentBounds.width) / 2
+        let centerY = (minHeight - contentBounds.height) / 2
+        shiftAllFrames(rootElement: root, dx: centerX, dy: centerY)
+        contentBounds.origin = CGPoint(x: centerX, y: centerY)
+
         needsDisplay = true
+    }
+
+    /// Translate every element's frame + subtreeBounds by (dx, dy).
+    private func shiftAllFrames(rootElement: MindMapElement, dx: CGFloat, dy: CGFloat) {
+        guard dx != 0 || dy != 0 else { return }
+        rootElement.traverse { el in
+            el.frame.origin.x += dx
+            el.frame.origin.y += dy
+            el.subtreeBounds.origin.x += dx
+            el.subtreeBounds.origin.y += dy
+        }
     }
 
     /// Re-run layout whenever the enclosing scroll view's clip area changes

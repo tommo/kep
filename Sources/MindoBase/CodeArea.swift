@@ -13,14 +13,15 @@ public enum CodeArea {
     /// them and add per-editor configuration.
     public static func makeMonospaced(
         text: String,
-        delegate: NSTextViewDelegate? = nil
+        delegate: NSTextViewDelegate? = nil,
+        textViewFactory: () -> NSTextView = { NSTextView() }
     ) -> (scroll: NSScrollView, textView: NSTextView) {
         let scroll = NSScrollView()
         scroll.hasVerticalScroller = true
         scroll.borderType = .noBorder
 
         let fontSize = CGFloat(PrefKeys.double(PrefKeys.editorFontSize, fallback: 13))
-        let textView = NSTextView()
+        let textView = textViewFactory()
         textView.isRichText = false
         textView.allowsUndo = true
         textView.usesFindBar = true

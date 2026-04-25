@@ -42,8 +42,13 @@ public struct MarkdownEditor: NSViewRepresentable {
             split.bottomAnchor.constraint(equalTo: container.bottomAnchor),
         ])
 
-        // Left: code editor
-        let (scroll, textView) = CodeArea.makeMonospaced(text: text, delegate: context.coordinator)
+        // Left: code editor — drop-aware subclass turns dropped image / text
+        // files into the appropriate markdown snippet.
+        let (scroll, textView) = CodeArea.makeMonospaced(
+            text: text,
+            delegate: context.coordinator,
+            textViewFactory: { MarkdownDropTextView(frame: .zero) }
+        )
         textView.usesFontPanel = false
         textView.autoresizingMask = [.width]
         textView.translatesAutoresizingMaskIntoConstraints = true

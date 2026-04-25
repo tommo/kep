@@ -11,6 +11,15 @@
 "menu.file.export" = "导出";
 "menu.file.export_markdown_html" = "Markdown 导出为 HTML…";
 "menu.file.export_markdown_pdf" = "Markdown 导出为 PDF…";
+"menu.file.open_recent" = "最近打开";
+"menu.file.open_recent.empty" = "（无最近文件）";
+"menu.file.clear_recents" = "清除菜单";
+"menu.file.collections" = "合集";
+"menu.file.save_tabs_as_collection" = "将标签保存为合集…";
+"collections.save_prompt.title" = "保存合集";
+"collections.save_prompt.message" = "给这组打开的文件起个名字：";
+"collections.save_prompt.confirm" = "保存";
+"collections.save_prompt.cancel" = "取消";
 
 /* MARK: - 视图菜单 */
 "menu.view.theme" = "主题";

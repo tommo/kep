@@ -98,6 +98,34 @@ struct MindoApp: App {
                     .disabled(session.activeDocument == nil)
                 Divider()
                 Button(L("menu.file.import_freemind")) { session.importFreemind() }
+                Divider()
+                Menu(L("menu.file.open_recent")) {
+                    let recents = CollectionStore.shared.recents
+                    if recents.isEmpty {
+                        Text(L("menu.file.open_recent.empty")).disabled(true)
+                    } else {
+                        ForEach(recents, id: \.path) { entry in
+                            Button(URL(fileURLWithPath: entry.path).lastPathComponent) {
+                                session.open(url: entry.url)
+                            }
+                        }
+                        Divider()
+                        Button(L("menu.file.clear_recents")) { session.clearRecents() }
+                    }
+                }
+                Menu(L("menu.file.collections")) {
+                    Button(L("menu.file.save_tabs_as_collection")) {
+                        session.saveActiveTabsAsCollection()
+                    }
+                    .disabled(session.openDocuments.isEmpty)
+                    let cols = CollectionStore.shared.collections
+                    if !cols.isEmpty {
+                        Divider()
+                        ForEach(cols) { col in
+                            Button(col.name) { session.openCollection(col) }
+                        }
+                    }
+                }
                 Menu(L("menu.file.export")) {
                     Button(L("menu.file.export_markdown_html")) { Task { await session.exportActiveAsHTML() } }
                         .disabled(!session.activeIsMarkdown)
@@ -297,9 +325,52 @@ final class AppSession {
             openDocuments.append(doc)
             activeDocumentID = doc.id
             startFileWatcher(for: doc)
+            CollectionStore.shared.touch(url: url)
         } catch {
             lastError = String(format: L("error.open_failed"), error.localizedDescription)
         }
+    }
+
+    // MARK: - Collections
+
+    func saveActiveTabsAsCollection() {
+        let openURLs = openDocuments.compactMap(\.fileURL)
+        guard !openURLs.isEmpty else { return }
+        let alert = NSAlert()
+        alert.messageText = L("collections.save_prompt.title")
+        alert.informativeText = L("collections.save_prompt.message")
+        let field = NSTextField(string: defaultCollectionName())
+        field.frame = NSRect(x: 0, y: 0, width: 280, height: 24)
+        alert.accessoryView = field
+        alert.addButton(withTitle: L("collections.save_prompt.confirm"))
+        alert.addButton(withTitle: L("collections.save_prompt.cancel"))
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let name = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+        _ = CollectionStore.shared.addCollection(name: name, fileURLs: openURLs)
+    }
+
+    func openCollection(_ collection: FileCollection) {
+        // Close tabs without on-disk backing only — preserve unsaved scratch
+        // documents (rare but possible).
+        for doc in openDocuments where doc.fileURL != nil {
+            stopFileWatcher(for: doc.id)
+            tabManager.remove(doc.id)
+        }
+        openDocuments.removeAll { $0.fileURL != nil }
+        for url in collection.fileURLs {
+            open(url: url)
+        }
+    }
+
+    func clearRecents() {
+        CollectionStore.shared.clearRecents()
+    }
+
+    private func defaultCollectionName() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        return "Tabs \(formatter.string(from: Date()))"
     }
 
     private func startFileWatcher(for doc: OpenDocument) {

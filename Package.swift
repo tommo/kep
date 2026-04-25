@@ -69,7 +69,7 @@ let package = Package(
             dependencies: ["MindoModel"],
             resources: [.copy("Fixtures")]
         ),
-        .testTarget(name: "MindoCoreTests", dependencies: ["MindoCore"]),
+        .testTarget(name: "MindoCoreTests", dependencies: ["MindoCore", "MindoBase"]),
         .testTarget(name: "MindoMindMapTests", dependencies: ["MindoMindMap", "MindoMarkdown", "MindoPlantUML", "MindoCSV", "MindoGenAI"]),
     ]
 )

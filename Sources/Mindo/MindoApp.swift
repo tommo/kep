@@ -3,6 +3,7 @@ import AppKit
 import UniformTypeIdentifiers
 import MindoCore
 import MindoMindMap
+import MindoBase
 import MindoCSV
 import MindoGenAI
 import MindoMarkdown
@@ -46,6 +47,14 @@ struct MindoApp: App {
                     .keyboardShortcut("w", modifiers: .command)
                     .disabled(session.activeDocument == nil)
             }
+            CommandMenu("Window") {
+                Button("Next Tab") { session.cycleNextTab() }
+                    .keyboardShortcut("]", modifiers: [.command, .shift])
+                    .disabled(session.openDocuments.count < 2)
+                Button("Previous Tab") { session.cyclePreviousTab() }
+                    .keyboardShortcut("[", modifiers: [.command, .shift])
+                    .disabled(session.openDocuments.count < 2)
+            }
             CommandMenu("View") {
                 Picker("Theme", selection: $session.theme) {
                     Text("Light").tag(ThemeChoice.light)
@@ -72,9 +81,16 @@ final class AppSession {
     var workspaces: [WorkspaceMeta] = []
     var workspaceRoots: [NodeData] = []   // mirrors `workspaces` 1:1, lazy children
     var openDocuments: [OpenDocument] = []
-    var activeDocumentID: OpenDocument.ID?
+    var activeDocumentID: OpenDocument.ID? {
+        didSet {
+            if let id = activeDocumentID { tabManager.activate(id) }
+        }
+    }
     var theme: ThemeChoice = .light
     var lastError: String?
+
+    /// MRU tab tracker — drives ⌃⇥ / ⌃⇧⇥ "next/previous tab" navigation.
+    @ObservationIgnored let tabManager = TabManager<OpenDocument.ID>()
 
     // AI sheets
     var aiSettingsOpen: Bool = false
@@ -158,7 +174,22 @@ final class AppSession {
         guard let id = activeDocumentID,
               let idx = openDocuments.firstIndex(where: { $0.id == id }) else { return }
         openDocuments.remove(at: idx)
-        activeDocumentID = openDocuments.last?.id
+        tabManager.remove(id)
+        activeDocumentID = tabManager.activeID ?? openDocuments.last?.id
+    }
+
+    func cycleNextTab() {
+        guard let current = activeDocumentID else { return }
+        if let next = tabManager.nextMRU(after: current) {
+            activeDocumentID = next
+        }
+    }
+
+    func cyclePreviousTab() {
+        guard let current = activeDocumentID else { return }
+        if let prev = tabManager.previousMRU(before: current) {
+            activeDocumentID = prev
+        }
     }
 
     // MARK: - Save

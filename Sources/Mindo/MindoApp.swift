@@ -257,8 +257,3 @@ final class AppSession {
     //   • AI.swift            — openAIGenerate + applyAIResult
     //   • Helpers.swift       — outline nav, active-doc accessors, snippets
 }
-
-// Old method bodies retained below for the in-progress split — to be
-// removed once the extensions take over. Wrap in a stale type so they
-// don't double-declare.
-

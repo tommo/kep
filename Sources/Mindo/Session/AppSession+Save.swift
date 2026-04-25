@@ -37,28 +37,34 @@ extension AppSession {
     /// Pull the active doc's markdown text and write it as standalone HTML.
     @MainActor
     func exportActiveAsHTML() async {
-        guard let doc = activeDocument, case .text(let body, .markdown) = doc.kind else { return }
-        let panel = NSSavePanel()
-        panel.allowedContentTypes = [UTType.init(filenameExtension: "html") ?? .data]
-        panel.nameFieldStringValue = (doc.fileURL?.deletingPathExtension().lastPathComponent ?? "Untitled") + ".html"
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        do {
+        await exportActiveMarkdown(extension: "html") { body, url in
             try MarkdownExporter.exportHTML(markdown: body, to: url)
-        } catch {
-            lastError = String(format: L("error.save_failed"), error.localizedDescription)
         }
     }
 
     /// Render the active doc's markdown to PDF via the offscreen WKWebView.
     @MainActor
     func exportActiveAsPDF() async {
+        await exportActiveMarkdown(extension: "pdf") { body, url in
+            try await MarkdownExporter.exportPDF(markdown: body, to: url)
+        }
+    }
+
+    /// Shared scaffolding for HTML / PDF export of the active markdown doc:
+    /// pulls the body, runs an NSSavePanel, then hands the body+url to the
+    /// exporter and routes any thrown error to `lastError`.
+    @MainActor
+    private func exportActiveMarkdown(
+        extension ext: String,
+        write: (String, URL) async throws -> Void
+    ) async {
         guard let doc = activeDocument, case .text(let body, .markdown) = doc.kind else { return }
         let panel = NSSavePanel()
-        panel.allowedContentTypes = [UTType.init(filenameExtension: "pdf") ?? .data]
-        panel.nameFieldStringValue = (doc.fileURL?.deletingPathExtension().lastPathComponent ?? "Untitled") + ".pdf"
+        panel.allowedContentTypes = [UTType.init(filenameExtension: ext) ?? .data]
+        panel.nameFieldStringValue = (doc.fileURL?.deletingPathExtension().lastPathComponent ?? "Untitled") + "." + ext
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
-            try await MarkdownExporter.exportPDF(markdown: body, to: url)
+            try await write(body, url)
         } catch {
             lastError = String(format: L("error.save_failed"), error.localizedDescription)
         }

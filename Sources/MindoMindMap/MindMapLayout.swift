@@ -86,12 +86,7 @@ public final class MindMapLayout {
             placeRoot(element, at: center)
             return
         }
-        let halfW = element.elementSize.width / 2
-        let halfH = element.elementSize.height / 2
-        element.frame = CGRect(
-            x: center.x - halfW, y: center.y - halfH,
-            width: element.elementSize.width, height: element.elementSize.height
-        )
+        centerFrame(element, at: center)
 
         let visible = element.visibleChildren
         guard !visible.isEmpty else {
@@ -100,34 +95,43 @@ public final class MindMapLayout {
         }
 
         let direction: CGFloat = element.isLeftSide ? -1 : 1
-        let childX = element.frame.midX + direction * (halfW + theme.horizontalGap)
+        let childX = element.frame.midX + direction * (element.elementSize.width / 2 + theme.horizontalGap)
         layOutColumn(visible, columnX: childX, parentCenterY: element.frame.midY, side: direction)
 
-        // Subtree bounds = union of self frame + children subtreeBounds.
-        var union = element.frame
-        for c in visible { union = union.union(c.subtreeBounds) }
-        element.subtreeBounds = union
+        unionSubtreeBounds(element, with: visible)
     }
 
     private func placeRoot(_ root: MindMapElement, at center: CGPoint) {
-        let halfW = root.elementSize.width / 2
-        let halfH = root.elementSize.height / 2
-        root.frame = CGRect(
-            x: center.x - halfW, y: center.y - halfH,
-            width: root.elementSize.width, height: root.elementSize.height
-        )
+        centerFrame(root, at: center)
 
         let leftChildren = root.isCollapsed ? [] : root.leftChildren
         let rightChildren = root.isCollapsed ? [] : root.rightChildren
 
+        let halfW = root.elementSize.width / 2
         let leftX = root.frame.midX - (halfW + theme.horizontalGap)
         let rightX = root.frame.midX + (halfW + theme.horizontalGap)
         layOutColumn(leftChildren, columnX: leftX, parentCenterY: root.frame.midY, side: -1)
         layOutColumn(rightChildren, columnX: rightX, parentCenterY: root.frame.midY, side: +1)
 
-        var union = root.frame
-        for c in leftChildren + rightChildren { union = union.union(c.subtreeBounds) }
-        root.subtreeBounds = union
+        unionSubtreeBounds(root, with: leftChildren + rightChildren)
+    }
+
+    /// Position `element.frame` so its midpoint sits at `center`.
+    private func centerFrame(_ element: MindMapElement, at center: CGPoint) {
+        let size = element.elementSize
+        element.frame = CGRect(
+            x: center.x - size.width / 2,
+            y: center.y - size.height / 2,
+            width: size.width,
+            height: size.height
+        )
+    }
+
+    /// `element.subtreeBounds` = element.frame ∪ each child's subtreeBounds.
+    private func unionSubtreeBounds(_ element: MindMapElement, with children: [MindMapElement]) {
+        var union = element.frame
+        for c in children { union = union.union(c.subtreeBounds) }
+        element.subtreeBounds = union
     }
 
     /// Stack `elements` vertically centered around `parentCenterY` at column x = `columnX`.

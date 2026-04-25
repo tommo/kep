@@ -171,8 +171,69 @@ public struct MarkdownEditor: NSViewRepresentable {
         @objc func toolbarBullet()     { applyTransform(MarkdownFormatting.bulletList) }
         @objc func toolbarNumbered()   { applyTransform(MarkdownFormatting.numberedList) }
         @objc func toolbarQuote()      { applyTransform(MarkdownFormatting.blockquote) }
-        @objc func toolbarLink()       { applyTransform { MarkdownFormatting.link($0, range: $1, url: "https://") } }
-        @objc func toolbarImage()      { applyTransform { MarkdownFormatting.image($0, range: $1, url: "https://") } }
+        @objc func toolbarLink() {
+            guard let url = promptString(title: "Insert Link", message: "URL:", initial: "https://") else { return }
+            applyTransform { MarkdownFormatting.link($0, range: $1, url: url) }
+        }
+
+        @objc func toolbarImage() {
+            // Two-button alert: paste URL or pick a local file (NSOpenPanel
+            // → base64-encoded data: URL for offline embedding).
+            let alert = NSAlert()
+            alert.messageText = "Insert Image"
+            alert.informativeText = "Paste a URL, or choose a local file to embed as data:"
+            let field = NSTextField(string: "https://")
+            field.frame = NSRect(x: 0, y: 0, width: 320, height: 24)
+            alert.accessoryView = field
+            alert.addButton(withTitle: "Insert URL")
+            alert.addButton(withTitle: "Choose File…")
+            alert.addButton(withTitle: "Cancel")
+            switch alert.runModal() {
+            case .alertFirstButtonReturn:
+                let url = field.stringValue
+                guard !url.isEmpty else { return }
+                applyTransform { MarkdownFormatting.image($0, range: $1, url: url) }
+            case .alertSecondButtonReturn:
+                let panel = NSOpenPanel()
+                panel.allowedContentTypes = [.image, .png, .jpeg, .gif]
+                panel.allowsMultipleSelection = false
+                guard panel.runModal() == .OK, let fileURL = panel.url else { return }
+                guard let data = try? Data(contentsOf: fileURL) else { return }
+                let mime = Self.mimeType(for: fileURL.pathExtension.lowercased())
+                let dataURL = "data:\(mime);base64,\(data.base64EncodedString())"
+                applyTransform { MarkdownFormatting.image($0, range: $1, url: dataURL) }
+            default:
+                return
+            }
+        }
+
+        /// One-line text-field prompt — returns nil on Cancel or empty input.
+        private func promptString(title: String, message: String, initial: String) -> String? {
+            let alert = NSAlert()
+            alert.messageText = title
+            alert.informativeText = message
+            let field = NSTextField(string: initial)
+            field.frame = NSRect(x: 0, y: 0, width: 320, height: 24)
+            alert.accessoryView = field
+            alert.addButton(withTitle: "OK")
+            alert.addButton(withTitle: "Cancel")
+            guard alert.runModal() == .alertFirstButtonReturn else { return nil }
+            let value = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            return value.isEmpty ? nil : value
+        }
+
+        /// MIME type lookup for the small set of image formats `NSOpenPanel`
+        /// surfaces. Static so it's testable independently.
+        public static func mimeType(for ext: String) -> String {
+            switch ext {
+            case "png": return "image/png"
+            case "jpg", "jpeg": return "image/jpeg"
+            case "gif": return "image/gif"
+            case "svg": return "image/svg+xml"
+            case "webp": return "image/webp"
+            default: return "application/octet-stream"
+            }
+        }
 
         private func applyTransform(_ transform: (String, NSRange) -> (String, NSRange)) {
             guard let tv = textView else { return }

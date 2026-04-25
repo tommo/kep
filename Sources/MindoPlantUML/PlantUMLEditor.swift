@@ -15,7 +15,10 @@ public struct PlantUMLEditor: NSViewRepresentable {
         self.isDarkMode = isDarkMode
     }
 
-    public func makeNSView(context: Context) -> NSSplitView {
+    public func makeNSView(context: Context) -> NSView {
+        let container = NSView()
+        let toolbar = makeToolbar(coordinator: context.coordinator)
+
         let split = NSSplitView()
         split.isVertical = true
         split.dividerStyle = .thin
@@ -29,14 +32,56 @@ public struct PlantUMLEditor: NSViewRepresentable {
         split.addArrangedSubview(web)
         split.setHoldingPriority(NSLayoutConstraint.Priority(rawValue: 250), forSubviewAt: 0)
 
+        toolbar.translatesAutoresizingMaskIntoConstraints = false
+        split.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(toolbar)
+        container.addSubview(split)
+        NSLayoutConstraint.activate([
+            toolbar.topAnchor.constraint(equalTo: container.topAnchor),
+            toolbar.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            toolbar.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            toolbar.heightAnchor.constraint(equalToConstant: 32),
+            split.topAnchor.constraint(equalTo: toolbar.bottomAnchor),
+            split.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            split.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            split.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+
         context.coordinator.textView = textView
         context.coordinator.webView = web
         context.coordinator.applyHighlighting()
         context.coordinator.scheduleRender(immediate: true)
-        return split
+        return container
     }
 
-    public func updateNSView(_ nsView: NSSplitView, context: Context) {
+    /// Toolbar with insert-skeleton buttons for the most-used PlantUML
+    /// diagram types. Mirrors mindolph's PlantUmlToolbar at the
+    /// "click → drop a skeleton at the cursor" level; the full snippet
+    /// browser stays a future enhancement.
+    private func makeToolbar(coordinator: Coordinator) -> NSStackView {
+        let stack = NSStackView()
+        stack.orientation = .horizontal
+        stack.spacing = 4
+        stack.edgeInsets = NSEdgeInsets(top: 4, left: 8, bottom: 4, right: 8)
+        stack.alignment = .centerY
+
+        func skeletonButton(_ title: String, tooltip: String, action: Selector) -> NSButton {
+            let b = NSButton(title: title, target: coordinator, action: action)
+            b.bezelStyle = .accessoryBarAction
+            b.toolTip = tooltip
+            return b
+        }
+        stack.addArrangedSubview(skeletonButton("Sequence", tooltip: "Insert sequence diagram skeleton", action: #selector(Coordinator.insertSequence)))
+        stack.addArrangedSubview(skeletonButton("Class",    tooltip: "Insert class diagram skeleton",   action: #selector(Coordinator.insertClass)))
+        stack.addArrangedSubview(skeletonButton("Activity", tooltip: "Insert activity diagram skeleton", action: #selector(Coordinator.insertActivity)))
+        stack.addArrangedSubview(skeletonButton("State",    tooltip: "Insert state diagram skeleton",   action: #selector(Coordinator.insertState)))
+        stack.addArrangedSubview(skeletonButton("Use Case", tooltip: "Insert use case diagram skeleton", action: #selector(Coordinator.insertUseCase)))
+        stack.addArrangedSubview(skeletonButton("Mind Map", tooltip: "Insert mind map skeleton",        action: #selector(Coordinator.insertMindMap)))
+        stack.addArrangedSubview(NSView())  // spacer
+        return stack
+    }
+
+    public func updateNSView(_ nsView: NSView, context: Context) {
         context.coordinator.parent = self
         context.coordinator.applyHighlighting()
         if let tv = context.coordinator.textView, tv.string != text {
@@ -62,6 +107,37 @@ public struct PlantUMLEditor: NSViewRepresentable {
             parent.text = tv.string
             applyHighlighting()
             scheduleRender(immediate: false)
+        }
+
+        // MARK: - Toolbar actions
+
+        @objc func insertSequence() { insertSkeleton(PlantUMLSkeletons.sequence) }
+        @objc func insertClass()    { insertSkeleton(PlantUMLSkeletons.classDiagram) }
+        @objc func insertActivity() { insertSkeleton(PlantUMLSkeletons.activity) }
+        @objc func insertState()    { insertSkeleton(PlantUMLSkeletons.state) }
+        @objc func insertUseCase()  { insertSkeleton(PlantUMLSkeletons.useCase) }
+        @objc func insertMindMap()  { insertSkeleton(PlantUMLSkeletons.mindMap) }
+
+        /// Replace the current selection (or insert at the cursor) with
+        /// `skeleton`, surrounded by the necessary blank lines so the
+        /// renderer treats it as a top-level block. Updates the binding +
+        /// re-renders.
+        private func insertSkeleton(_ skeleton: String) {
+            guard let tv = textView else { return }
+            let range = tv.selectedRange()
+            let nsText = tv.string as NSString
+            let head = nsText.substring(to: range.location)
+            let tail = nsText.substring(from: NSMaxRange(range))
+            let leading = head.isEmpty || head.hasSuffix("\n\n") ? "" : (head.hasSuffix("\n") ? "\n" : "\n\n")
+            let trailing = tail.hasPrefix("\n") ? "" : "\n"
+            let block = leading + skeleton + trailing
+            let combined = head + block + tail
+            tv.string = combined
+            let cursor = (head as NSString).length + (leading as NSString).length
+            tv.setSelectedRange(NSRange(location: cursor, length: (skeleton as NSString).length))
+            parent.text = combined
+            applyHighlighting()
+            scheduleRender(immediate: true)
         }
 
         func applyHighlighting() {

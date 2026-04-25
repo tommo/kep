@@ -115,6 +115,23 @@
 "conflict.button.keep_mine" = "Keep My Changes";
 "conflict.button.save_mine" = "Save My Changes";
 
+/* MARK: - Preferences */
+"prefs.tab.general" = "General";
+"prefs.tab.editor" = "Editor";
+"prefs.tab.mindmap" = "Mind Map";
+"prefs.tab.ai" = "AI";
+"prefs.general.section.appearance" = "Appearance";
+"prefs.general.theme" = "Default mind-map theme";
+"prefs.general.outline_default_open" = "Show outline panel by default";
+"prefs.editor.section.text" = "Text";
+"prefs.editor.font_size_value" = "Editor font size: %d pt";
+"prefs.editor.sync_scroll" = "Sync code area & preview scroll (Markdown)";
+"prefs.mindmap.section.layout" = "Layout";
+"prefs.mindmap.vertical_gap" = "Vertical gap between siblings: %d pt";
+"prefs.mindmap.horizontal_gap" = "Horizontal gap between levels: %d pt";
+"prefs.ai.section.behavior" = "Behavior";
+"prefs.ai.streaming" = "Stream responses (recommended)";
+
 /* MARK: - Errors */
 "error.open_failed" = "Open failed: %@";
 "error.save_failed" = "Save failed: %@";

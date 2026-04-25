@@ -199,6 +199,7 @@ struct MindoApp: App {
                 .keyboardShortcut("0", modifiers: [.command, .option])
             }
         }
+        Settings { PreferencesView() }
     }
 }
 

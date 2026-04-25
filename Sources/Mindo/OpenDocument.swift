@@ -1,0 +1,73 @@
+import Foundation
+import MindoCore
+import MindoMindMap
+import MindoModel
+
+/// One row in the App's open-tabs list. Wraps the actual document payload
+/// (`Kind`) plus the metadata the tab bar / file watcher need.
+struct OpenDocument: Identifiable, Hashable {
+    enum Kind {
+        case mindMap(MindMap)
+        case text(String, fileType: SupportedFileType?)
+        case unsupported(String)
+
+        var preferredExtension: String? {
+            switch self {
+            case .mindMap: return "mmd"
+            case .text(_, let t): return t?.rawValue
+            case .unsupported: return nil
+            }
+        }
+    }
+
+    let id = UUID()
+    var kind: Kind
+    var fileURL: URL?
+    var title: String
+    /// Set when the file watcher detected an external write since we last
+    /// reloaded. UI shows an orange dot on the tab.
+    var hasExternalChanges: Bool = false
+
+    static func load(from url: URL) throws -> OpenDocument {
+        let title = url.lastPathComponent
+        let type = SupportedFileType.classify(url: url)
+        switch type {
+        case .mindMap:
+            let text = try String(contentsOf: url, encoding: .utf8)
+            let map = try MindMap(text: text)
+            return OpenDocument(kind: .mindMap(map), fileURL: url, title: title)
+        case .markdown, .plantUML, .csv, .plainText:
+            let text = try String(contentsOf: url, encoding: .utf8)
+            return OpenDocument(kind: .text(text, fileType: type), fileURL: url, title: title)
+        case .jpeg, .png, .none:
+            return OpenDocument(kind: .unsupported(url.path), fileURL: url, title: title)
+        }
+    }
+
+    func save(to url: URL) throws {
+        switch kind {
+        case .mindMap(let map):
+            try map.write().write(to: url, atomically: true, encoding: .utf8)
+        case .text(let s, _):
+            try s.write(to: url, atomically: true, encoding: .utf8)
+        case .unsupported:
+            break
+        }
+    }
+
+    static func == (lhs: OpenDocument, rhs: OpenDocument) -> Bool { lhs.id == rhs.id }
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
+}
+
+/// One of the bundled mindmap themes (Light / Dark / Classic). Persisted as
+/// a `String` so it round-trips through UserDefaults cleanly.
+enum ThemeChoice: String, CaseIterable, Hashable {
+    case light, dark, classic
+    var theme: MindMapTheme {
+        switch self {
+        case .light: return .light
+        case .dark: return .dark
+        case .classic: return .classic
+        }
+    }
+}

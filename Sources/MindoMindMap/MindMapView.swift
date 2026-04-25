@@ -88,6 +88,16 @@ public final class MindMapView: NSView {
 
     public override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
+    /// Keystrokes the canvas claims when it's first responder — both the
+    /// `performKeyEquivalent` short-circuit and the local NSEvent monitor
+    /// gate on this set.
+    static let arrowKeyChars: Set<String> = [
+        String(Character(UnicodeScalar(NSLeftArrowFunctionKey)!)),
+        String(Character(UnicodeScalar(NSRightArrowFunctionKey)!)),
+        String(Character(UnicodeScalar(NSUpArrowFunctionKey)!)),
+        String(Character(UnicodeScalar(NSDownArrowFunctionKey)!)),
+    ]
+
 
     // MARK: - Public API
 
@@ -170,14 +180,8 @@ public final class MindMapView: NSView {
                 return event
             }
             let chars = event.charactersIgnoringModifiers ?? ""
-            let arrows: Set<String> = [
-                String(Character(UnicodeScalar(NSLeftArrowFunctionKey)!)),
-                String(Character(UnicodeScalar(NSRightArrowFunctionKey)!)),
-                String(Character(UnicodeScalar(NSUpArrowFunctionKey)!)),
-                String(Character(UnicodeScalar(NSDownArrowFunctionKey)!)),
-            ]
             let driven: Set<String> = ["\t", "\r", "-", "=", "+", " ", "\u{7F}", "\u{08}"]
-            guard driven.contains(chars) || arrows.contains(chars) else { return event }
+            guard driven.contains(chars) || Self.arrowKeyChars.contains(chars) else { return event }
             // Make sure this canvas is actually visible in the window before
             // claiming the key — otherwise we'd silently swallow events for
             // closed tabs (the AppSession recreates MindMapViews per doc).

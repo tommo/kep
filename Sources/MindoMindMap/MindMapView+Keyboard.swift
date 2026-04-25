@@ -13,14 +13,8 @@ extension MindMapView {
     /// signals the system to fall back to keyDown for non-equivalent keys.
     public override func performKeyEquivalent(with event: NSEvent) -> Bool {
         let chars = event.charactersIgnoringModifiers ?? ""
-        let arrows: Set<String> = [
-            String(Character(UnicodeScalar(NSLeftArrowFunctionKey)!)),
-            String(Character(UnicodeScalar(NSRightArrowFunctionKey)!)),
-            String(Character(UnicodeScalar(NSUpArrowFunctionKey)!)),
-            String(Character(UnicodeScalar(NSDownArrowFunctionKey)!)),
-        ]
         if window?.firstResponder === self,
-           ["\t", "\r", "-", "=", "+", " "].contains(chars) || arrows.contains(chars) {
+           ["\t", "\r", "-", "=", "+", " "].contains(chars) || Self.arrowKeyChars.contains(chars) {
             self.keyDown(with: event)
             return true
         }

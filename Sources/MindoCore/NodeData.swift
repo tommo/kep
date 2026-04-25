@@ -85,6 +85,14 @@ public final class NodeData: Identifiable {
             options: []
         ) else { _children = []; return }
 
+        let owningWorkspace = self.workspace ?? (self.isWorkspace ? self : nil)
+        func makeChild(url: URL, type: NodeType) -> NodeData {
+            let n = NodeData(nodeType: type, url: url)
+            n.workspace = owningWorkspace
+            n.parent = self
+            return n
+        }
+
         var folders: [NodeData] = []
         var files: [NodeData] = []
         for child in contents {
@@ -92,16 +100,10 @@ public final class NodeData: Identifiable {
             fm.fileExists(atPath: child.path, isDirectory: &isDir)
             if isDir.boolValue {
                 guard config.acceptsDirectory(child) else { continue }
-                let n = NodeData(nodeType: .folder, url: child)
-                n.workspace = self.workspace ?? (self.isWorkspace ? self : nil)
-                n.parent = self
-                folders.append(n)
+                folders.append(makeChild(url: child, type: .folder))
             } else {
                 guard config.acceptsFile(child) else { continue }
-                let n = NodeData(nodeType: .file, url: child)
-                n.workspace = self.workspace ?? (self.isWorkspace ? self : nil)
-                n.parent = self
-                files.append(n)
+                files.append(makeChild(url: child, type: .file))
             }
         }
         folders.sort { $0.name.localizedStandardCompare($1.name) == .orderedAscending }

@@ -45,9 +45,20 @@ public struct MarkdownEditor: NSViewRepresentable {
         textView.delegate = context.coordinator
         textView.string = text
         scroll.documentView = textView
+        // Track text-view scrolling so we can mirror to the preview.
+        scroll.contentView.postsBoundsChangedNotifications = true
+        NotificationCenter.default.addObserver(
+            context.coordinator,
+            selector: #selector(Coordinator.textScrollDidChange(_:)),
+            name: NSView.boundsDidChangeNotification,
+            object: scroll.contentView
+        )
 
-        // Right: WKWebView preview
-        let web = WKWebView()
+        // Right: WKWebView preview with a JS bridge that reports user scrolls
+        // back to the host so we can echo them into the code area.
+        let webConfig = WKWebViewConfiguration()
+        webConfig.userContentController.add(context.coordinator, name: "previewScroll")
+        let web = WKWebView(frame: .zero, configuration: webConfig)
         web.setValue(false, forKey: "drawsBackground") // KVO trick to make transparent
         web.navigationDelegate = context.coordinator
 
@@ -78,13 +89,17 @@ public struct MarkdownEditor: NSViewRepresentable {
 
     public func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
 
-    public final class Coordinator: NSObject, NSTextViewDelegate, WKNavigationDelegate {
+    public final class Coordinator: NSObject, NSTextViewDelegate, WKNavigationDelegate, WKScriptMessageHandler {
         var parent: MarkdownEditor
         var textView: NSTextView?
         var webView: WKWebView?
         var lastNavigated: String?
         let highlighter = MarkdownHighlighter()
         private var debounceWorkItem: DispatchWorkItem?
+        /// Suppress reciprocal scroll mirroring while we're programmatically
+        /// driving one side. Counted both ways to avoid feedback loops.
+        private var ignoreTextScroll = false
+        private var ignorePreviewScroll = false
 
         /// Convert a byte offset (string from Outline.fromMarkdown) to a UTF-16
         /// character offset, then scroll the text view to that range and
@@ -133,6 +148,50 @@ public struct MarkdownEditor: NSViewRepresentable {
             guard let web = webView else { return }
             let html = MarkdownRenderer.render(markdown: parent.text)
             web.loadHTMLString(html, baseURL: nil)
+        }
+
+        // MARK: - Scroll sync
+
+        /// Compute the current code-area scroll fraction (0…1).
+        private func textScrollFraction() -> CGFloat {
+            guard let scroll = textView?.enclosingScrollView else { return 0 }
+            let visible = scroll.contentView.bounds
+            let document = scroll.documentView?.frame ?? .zero
+            let denom = max(1, document.height - visible.height)
+            return min(1, max(0, visible.minY / denom))
+        }
+
+        /// Code-area scrolled — mirror the fraction to the preview, unless
+        /// the preview just told us to scroll.
+        @objc func textScrollDidChange(_ note: Notification) {
+            if ignoreTextScroll { return }
+            let f = textScrollFraction()
+            ignorePreviewScroll = true
+            webView?.evaluateJavaScript("window.mindoScrollTo && mindoScrollTo(\(f))", completionHandler: nil)
+            // Tiny grace window so the bounce-back from the preview's scroll
+            // event handler doesn't flip us.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+                self?.ignorePreviewScroll = false
+            }
+        }
+
+        /// Preview reported a user scroll — mirror the fraction back to the
+        /// code area (unless we're the ones driving it).
+        public func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+            guard message.name == "previewScroll" else { return }
+            if ignorePreviewScroll { return }
+            guard let raw = message.body as? Double else { return }
+            let f: CGFloat = CGFloat(raw)
+            guard let scroll = textView?.enclosingScrollView else { return }
+            let document = scroll.documentView?.frame ?? .zero
+            let visible = scroll.contentView.bounds
+            let target = max(0, (document.height - visible.height) * f)
+            ignoreTextScroll = true
+            scroll.contentView.scroll(to: NSPoint(x: 0, y: target))
+            scroll.reflectScrolledClipView(scroll.contentView)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+                self?.ignoreTextScroll = false
+            }
         }
     }
 }

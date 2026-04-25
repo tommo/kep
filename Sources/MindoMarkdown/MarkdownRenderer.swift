@@ -65,9 +65,36 @@ public enum MarkdownRenderer {
         <!doctype html>
         <html><head><meta charset="utf-8">
         <style>\(previewStylesheet)</style>
+        <script>\(scrollSyncScript)</script>
         </head><body>\(body)</body></html>
         """
     }
+
+    /// JavaScript shim injected into every preview document. It exposes:
+    ///   window.mindoScrollTo(fraction) — scrolls the page to the given
+    ///                                    fractional position (0…1).
+    /// And reports user-driven scrolls back to the host via the
+    /// `previewScroll` message handler.
+    public static let scrollSyncScript = """
+    (function() {
+        let suppress = false;
+        window.mindoScrollTo = function(fraction) {
+            const max = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+            suppress = true;
+            window.scrollTo(0, fraction * max);
+            // Re-enable native scroll reporting on the next tick.
+            requestAnimationFrame(() => { suppress = false; });
+        };
+        window.addEventListener('scroll', function() {
+            if (suppress) return;
+            const max = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+            const fraction = window.scrollY / max;
+            try {
+                window.webkit.messageHandlers.previewScroll.postMessage(fraction);
+            } catch (e) { /* host handler not present */ }
+        }, { passive: true });
+    })();
+    """
 
     /// Plain HTML body (no `<html>` wrapper), useful for embedding in larger templates.
     public static func renderBody(markdown: String) -> String {

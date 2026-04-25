@@ -1,4 +1,5 @@
 import AppKit
+import UniformTypeIdentifiers
 import MindoModel
 
 extension MindMapView {
@@ -53,6 +54,20 @@ extension MindMapView {
         if ConvertMultiline.split(element.topic.text).count >= 2 {
             menu.addItem(makeContextItem(title: "Convert to Subtree", action: #selector(contextConvertToSubtree(_:)), payload: element))
         }
+        // Export Branch As → submenu. Only meaningful when there's something
+        // to export beyond the topic's own headline.
+        let exportParent = NSMenuItem(title: "Export Branch As…", action: nil, keyEquivalent: "")
+        let exportSub = NSMenu()
+        for fmt in BranchExportFormat.allCases {
+            exportSub.addItem(makeContextItem(
+                title: fmt.menuTitle,
+                action: #selector(contextExportBranch(_:)),
+                payload: BranchExportPayload(element: element, format: fmt)
+            ))
+        }
+        exportParent.submenu = exportSub
+        menu.addItem(exportParent)
+
         // Text alignment submenu.
         let alignParent = NSMenuItem(title: "Text Alignment", action: nil, keyEquivalent: "")
         let alignSub = NSMenu()
@@ -91,6 +106,30 @@ extension MindMapView {
     @objc func contextConvertToSubtree(_ sender: NSMenuItem) {
         guard let element = sender.representedObject as? MindMapElement else { return }
         undoableConvertMultilineToChildren(element.topic)
+    }
+
+    @objc func contextExportBranch(_ sender: NSMenuItem) {
+        guard let payload = sender.representedObject as? BranchExportPayload else { return }
+        let panel = NSSavePanel()
+        if let type = UTType(filenameExtension: payload.format.fileExtension) {
+            panel.allowedContentTypes = [type]
+        }
+        let stem = (payload.element.topic.text.split(separator: "\n").first.map(String.init) ?? "branch")
+            .trimmingCharacters(in: .whitespaces)
+            .replacingOccurrences(of: "/", with: "-")
+        panel.nameFieldStringValue = "\(stem.isEmpty ? "branch" : stem).\(payload.format.fileExtension)"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        // Build a temporary MindMap rooted at a deep clone of the source so
+        // we don't mutate the live tree (clone() leaves parent/map nil).
+        let branchMap = MindMap(root: payload.element.topic.clone(deep: true))
+        let body: String
+        switch payload.format {
+        case .mindmap:  body = branchMap.write()
+        case .orgMode:  body = OrgModeExporter.export(branchMap)
+        case .freemind: body = FreemindExporter.export(branchMap)
+        case .text:     body = PlainTextExporter.export(branchMap)
+        }
+        try? body.write(to: url, atomically: true, encoding: .utf8)
     }
 
     @objc func contextSetTextAlign(_ sender: NSMenuItem) {
@@ -335,4 +374,35 @@ struct ExtraMenuPayload {
 struct TextAlignPayload {
     let element: MindMapElement
     let alignment: TopicTextAlign
+}
+
+/// One of the formats a branch can be exported as. Lives outside
+/// MindMapView so the per-format file extension + label are unit-testable.
+public enum BranchExportFormat: String, CaseIterable {
+    case mindmap, orgMode, freemind, text
+
+    public var fileExtension: String {
+        switch self {
+        case .mindmap:  return "mmd"
+        case .orgMode:  return "org"
+        case .freemind: return "mm"
+        case .text:     return "txt"
+        }
+    }
+
+    public var menuTitle: String {
+        switch self {
+        case .mindmap:  return "Mindo .mmd"
+        case .orgMode:  return "Org-Mode (.org)"
+        case .freemind: return "FreeMind (.mm)"
+        case .text:     return "Plain Text Outline (.txt)"
+        }
+    }
+}
+
+/// Payload for the Export Branch submenu — bundles the element + the
+/// chosen format so one @objc handler can dispatch all four entries.
+struct BranchExportPayload {
+    let element: MindMapElement
+    let format: BranchExportFormat
 }

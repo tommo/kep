@@ -1,0 +1,163 @@
+import Foundation
+
+/// In-memory representation of a CSV document. Rows are arrays of field
+/// strings; the first row, when treated as headers, drives column titles in
+/// the visual editor. Parsing follows RFC 4180 with two tweaks for real-world
+/// files: lone CR/LF terminators are accepted, and trailing blank lines are
+/// dropped.
+public final class CSVDocument {
+    public var rows: [[String]]
+    public var hasHeader: Bool
+
+    public init(rows: [[String]] = [[""]], hasHeader: Bool = true) {
+        self.rows = rows.isEmpty ? [[""]] : rows
+        self.hasHeader = hasHeader
+    }
+
+    /// Number of columns the editor should display. Derived from the widest row.
+    public var columnCount: Int {
+        rows.map(\.count).max() ?? 1
+    }
+
+    /// Header strings — falls back to "Column 1, 2, …" when `hasHeader` is false.
+    public var headers: [String] {
+        if hasHeader, let first = rows.first { return first }
+        return (0..<columnCount).map { "Column \($0 + 1)" }
+    }
+
+    /// Body rows (skips the header when `hasHeader` is true).
+    public var bodyRows: [[String]] {
+        hasHeader ? Array(rows.dropFirst()) : rows
+    }
+
+    /// Pad short rows so every row has `columnCount` cells. Used after editing
+    /// rows of uneven length so the table view sees a clean rectangle.
+    public func normalize() {
+        let cols = columnCount
+        for i in 0..<rows.count where rows[i].count < cols {
+            rows[i].append(contentsOf: Array(repeating: "", count: cols - rows[i].count))
+        }
+    }
+
+    // MARK: - Mutations
+
+    public func setCell(row: Int, column: Int, to value: String) {
+        guard row >= 0, row < rows.count else { return }
+        if column >= rows[row].count {
+            rows[row].append(contentsOf: Array(repeating: "", count: column - rows[row].count + 1))
+        }
+        rows[row][column] = value
+    }
+
+    public func appendRow() {
+        rows.append(Array(repeating: "", count: columnCount))
+    }
+
+    public func appendColumn() {
+        let newCount = columnCount + 1
+        for i in rows.indices {
+            if rows[i].count < newCount { rows[i].append("") }
+        }
+    }
+
+    public func removeRow(at index: Int) {
+        guard rows.count > 1, index >= 0, index < rows.count else { return }
+        rows.remove(at: index)
+    }
+
+    public func removeColumn(at index: Int) {
+        guard columnCount > 1, index >= 0 else { return }
+        for i in rows.indices where index < rows[i].count {
+            rows[i].remove(at: index)
+        }
+    }
+
+    // MARK: - Parsing & serialization
+
+    /// Parse RFC-4180 CSV text into a `CSVDocument`. Always succeeds; malformed
+    /// quoting is treated leniently (best-effort parse).
+    ///
+    /// We iterate over `UnicodeScalar` rather than `Character` because Swift
+    /// treats `\r\n` as a single grapheme cluster — that would prevent us from
+    /// matching `"\r"` and `"\n"` cases independently.
+    public static func parse(_ text: String, hasHeader: Bool = true) -> CSVDocument {
+        var rows: [[String]] = []
+        var current: [String] = []
+        var field = ""
+        var inQuotes = false
+
+        let scalars = Array(text.unicodeScalars)
+        var i = 0
+        while i < scalars.count {
+            let c = scalars[i]
+            if inQuotes {
+                if c == "\"" {
+                    if i + 1 < scalars.count, scalars[i + 1] == "\"" {
+                        field.append("\"")          // doubled quote → literal "
+                        i += 2
+                        continue
+                    }
+                    inQuotes = false
+                    i += 1
+                    continue
+                }
+                field.unicodeScalars.append(c)
+                i += 1
+                continue
+            }
+
+            switch c {
+            case ",":
+                current.append(field); field.removeAll(keepingCapacity: true)
+            case "\r":
+                current.append(field); field.removeAll(keepingCapacity: true)
+                rows.append(current); current.removeAll(keepingCapacity: true)
+                if i + 1 < scalars.count, scalars[i + 1] == "\n" {
+                    i += 1                      // swallow LF following CR
+                }
+            case "\n":
+                current.append(field); field.removeAll(keepingCapacity: true)
+                rows.append(current); current.removeAll(keepingCapacity: true)
+            case "\"":
+                if field.isEmpty {
+                    inQuotes = true
+                } else {
+                    field.unicodeScalars.append(c)  // tolerate stray mid-field quotes
+                }
+            default:
+                field.unicodeScalars.append(c)
+            }
+            i += 1
+        }
+
+        // Flush whatever's left in `field` / `current`.
+        if !field.isEmpty || !current.isEmpty {
+            current.append(field)
+            rows.append(current)
+        }
+        // Drop trailing blank rows (single empty cell).
+        while let last = rows.last, last.count <= 1, last.first?.isEmpty ?? true {
+            rows.removeLast()
+        }
+        if rows.isEmpty { rows = [[""]] }
+
+        let doc = CSVDocument(rows: rows, hasHeader: hasHeader)
+        doc.normalize()
+        return doc
+    }
+
+    /// Serialize back to RFC-4180 CSV. Uses `\n` line terminators.
+    public func serialize() -> String {
+        rows.map { row in
+            row.map(Self.escapeField).joined(separator: ",")
+        }.joined(separator: "\n") + "\n"
+    }
+
+    private static func escapeField(_ field: String) -> String {
+        if field.contains(",") || field.contains("\"") || field.contains("\n") || field.contains("\r") {
+            let escaped = field.replacingOccurrences(of: "\"", with: "\"\"")
+            return "\"\(escaped)\""
+        }
+        return field
+    }
+}

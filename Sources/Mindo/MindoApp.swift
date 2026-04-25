@@ -3,6 +3,7 @@ import AppKit
 import UniformTypeIdentifiers
 import MindoCore
 import MindoMindMap
+import MindoCSV
 import MindoMarkdown
 import MindoPlantUML
 import MindoModel
@@ -461,6 +462,8 @@ struct EditorPane: View {
                 text: textBinding(for: documentID),
                 isDarkMode: colorScheme == .dark
             )
+        case .text(_, .csv):
+            CSVEditor(text: textBinding(for: documentID))
         case .text(let body, _):
             ScrollView {
                 Text(body)

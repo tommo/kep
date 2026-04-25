@@ -91,6 +91,22 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertNil(SupportedFileType.classify(name: "binary.exe"))
     }
 
+    func testSupportedFileTypeSFSymbolNames() {
+        // Every case must produce a non-empty symbol name so DocumentTabBar /
+        // SidebarView NodeRow never end up rendering an empty Image.
+        for type in SupportedFileType.allCases {
+            XCTAssertFalse(type.sfSymbolName.isEmpty, "missing symbol for \(type)")
+        }
+        // Spot-check that the dedicated symbols stayed mapped through the
+        // SupportedFileType.sfSymbolName extraction so the tabs/sidebar don't
+        // silently revert to a generic doc icon.
+        XCTAssertEqual(SupportedFileType.mindMap.sfSymbolName, "brain")
+        XCTAssertEqual(SupportedFileType.markdown.sfSymbolName, "text.alignleft")
+        XCTAssertEqual(SupportedFileType.jpeg.sfSymbolName, "photo")
+        XCTAssertEqual(SupportedFileType.png.sfSymbolName, "photo")
+        XCTAssertFalse(SupportedFileType.unknownSymbolName.isEmpty)
+    }
+
     // MARK: - WorkspaceManager
 
     func testWorkspaceManagerPersistsAndReloads() throws {

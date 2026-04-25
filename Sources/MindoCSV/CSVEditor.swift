@@ -108,10 +108,35 @@ public struct CSVEditor: NSViewRepresentable {
             for (idx, header) in doc.headers.enumerated() {
                 let col = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("col\(idx)"))
                 col.title = header
-                col.width = 120
+                col.width = columnWidths[idx] ?? 120
                 col.minWidth = 60
+                // Sort descriptor key encodes the column index — the
+                // delegate's sortDescriptorsDidChange callback parses it
+                // back to call CSVDocument.sort.
+                col.sortDescriptorPrototype = NSSortDescriptor(key: "col\(idx)", ascending: true)
                 table.addTableColumn(col)
             }
+        }
+
+        /// In-session column-width memo. Persists across reloadData /
+        /// rebuildColumns within the same editor instance so the user's
+        /// resize doesn't snap back when the doc reparses. Keyed by
+        /// column index because the column identity itself is rebuilt.
+        private var columnWidths: [Int: CGFloat] = [:]
+
+        public func tableViewColumnDidResize(_ notification: Notification) {
+            guard let col = notification.userInfo?["NSTableColumn"] as? NSTableColumn,
+                  let idx = tableView?.tableColumns.firstIndex(of: col) else { return }
+            columnWidths[idx] = col.width
+        }
+
+        public func tableView(_ tableView: NSTableView, sortDescriptorsDidChange oldDescriptors: [NSSortDescriptor]) {
+            guard let descriptor = tableView.sortDescriptors.first,
+                  let key = descriptor.key,
+                  key.hasPrefix("col"),
+                  let columnIndex = Int(key.dropFirst(3)) else { return }
+            doc.sort(byColumn: columnIndex, ascending: descriptor.ascending)
+            applyChange()
         }
 
         private func notifyChange() {

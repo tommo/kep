@@ -72,6 +72,29 @@ public final class CSVDocument {
         }
     }
 
+    /// Sort body rows by the value in `columnIndex`. Header row (if any)
+    /// stays put. Numeric values sort numerically when both cells parse,
+    /// otherwise the comparison falls back to localized string ordering
+    /// (case-insensitive). `ascending: nil` clears any prior sort by
+    /// re-reading the rows from disk would be ideal, but the editor
+    /// drives that path — this method just orders the in-memory body.
+    public func sort(byColumn columnIndex: Int, ascending: Bool) {
+        guard columnIndex >= 0, columnIndex < columnCount else { return }
+        let header = hasHeader && !rows.isEmpty ? [rows[0]] : []
+        var body = bodyRows
+        body.sort { lhs, rhs in
+            let a = columnIndex < lhs.count ? lhs[columnIndex] : ""
+            let b = columnIndex < rhs.count ? rhs[columnIndex] : ""
+            // Try numeric comparison when both sides parse as Double.
+            if let na = Double(a), let nb = Double(b) {
+                return ascending ? na < nb : na > nb
+            }
+            let order = a.localizedCaseInsensitiveCompare(b)
+            return ascending ? order == .orderedAscending : order == .orderedDescending
+        }
+        rows = header + body
+    }
+
     // MARK: - Parsing & serialization
 
     /// Parse RFC-4180 CSV text into a `CSVDocument`. Always succeeds; malformed

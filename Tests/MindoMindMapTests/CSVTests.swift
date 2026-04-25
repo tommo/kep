@@ -69,4 +69,41 @@ final class CSVDocumentTests: XCTestCase {
         let doc = CSVDocument.parse("a,b\n1,2\n\n\n")
         XCTAssertEqual(doc.rows.count, 2)
     }
+
+    // MARK: - Sort
+
+    func testSortByColumnAscendingPreservesHeader() {
+        let doc = CSVDocument.parse("name,age\nCharlie,30\nAlice,40\nBob,20\n")
+        doc.sort(byColumn: 0, ascending: true)
+        XCTAssertEqual(doc.rows[0], ["name", "age"], "header row stays put")
+        XCTAssertEqual(doc.rows[1], ["Alice", "40"])
+        XCTAssertEqual(doc.rows[2], ["Bob", "20"])
+        XCTAssertEqual(doc.rows[3], ["Charlie", "30"])
+    }
+
+    func testSortByColumnDescending() {
+        let doc = CSVDocument.parse("k\nb\na\nc\n")
+        doc.sort(byColumn: 0, ascending: false)
+        XCTAssertEqual(doc.bodyRows.map { $0[0] }, ["c", "b", "a"])
+    }
+
+    func testSortNumericComparisonWhenBothCellsParse() {
+        // Substring sort would put "10" before "2"; numeric compare puts 2 first.
+        let doc = CSVDocument.parse("n\n10\n2\n100\n3\n")
+        doc.sort(byColumn: 0, ascending: true)
+        XCTAssertEqual(doc.bodyRows.map { $0[0] }, ["2", "3", "10", "100"])
+    }
+
+    func testSortFallsBackToCaseInsensitiveStringCompare() {
+        let doc = CSVDocument(rows: [["x"], ["banana"], ["Apple"], ["cherry"]], hasHeader: true)
+        doc.sort(byColumn: 0, ascending: true)
+        // Case-insensitive: Apple, banana, cherry.
+        XCTAssertEqual(doc.bodyRows.map { $0[0] }, ["Apple", "banana", "cherry"])
+    }
+
+    func testSortIgnoresOutOfBoundsColumn() {
+        let doc = CSVDocument.parse("a\n1\n2\n")
+        doc.sort(byColumn: 99, ascending: true)
+        XCTAssertEqual(doc.rows.count, 3, "out-of-range column is a no-op, doesn't crash")
+    }
 }

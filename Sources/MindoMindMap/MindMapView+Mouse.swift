@@ -189,4 +189,22 @@ extension MindMapView {
         alert.addButton(withTitle: "OK")
         alert.runModal()
     }
+
+    // MARK: - Trackpad pinch
+
+    /// Pinch-to-zoom on the canvas. NSScrollView's built-in pinch only
+    /// gives a rubber-band overlay that snaps back; this commits the
+    /// magnification so the zoom sticks. Centered on the gesture so the
+    /// content under the user's fingers stays put.
+    public override func magnify(with event: NSEvent) {
+        guard let scroll = enclosingScrollView else { return }
+        let target = Self.clampedZoom(
+            current: scroll.magnification,
+            factor: 1 + event.magnification,
+            min: scroll.minMagnification,
+            max: scroll.maxMagnification
+        )
+        let center = convert(event.locationInWindow, from: nil)
+        scroll.setMagnification(target, centeredAt: center)
+    }
 }

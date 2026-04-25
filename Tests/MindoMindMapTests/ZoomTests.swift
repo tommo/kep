@@ -67,4 +67,34 @@ final class ZoomMathTests: XCTestCase {
         )
         XCTAssertEqual(mag, 1.0)
     }
+
+    // MARK: - Pinch composition (NSEvent.magnification is a delta)
+
+    func testPinchPositiveDeltaScalesUp() {
+        // A +0.10 trackpad delta against current 1.0 → factor 1.10 → 1.10.
+        let next = MindMapView.clampedZoom(current: 1.0, factor: 1 + 0.10, min: 0.25, max: 3.0)
+        XCTAssertEqual(next, 1.10, accuracy: 1e-9)
+    }
+
+    func testPinchNegativeDeltaScalesDown() {
+        let next = MindMapView.clampedZoom(current: 1.0, factor: 1 + (-0.20), min: 0.25, max: 3.0)
+        XCTAssertEqual(next, 0.80, accuracy: 1e-9)
+    }
+
+    func testPinchAccumulatedDeltasClampAtMax() {
+        // Simulate three large outward pinches in a row — should cap at max.
+        var current: CGFloat = 2.5
+        for _ in 0..<3 {
+            current = MindMapView.clampedZoom(current: current, factor: 1 + 0.5, min: 0.25, max: 3.0)
+        }
+        XCTAssertEqual(current, 3.0, accuracy: 1e-9)
+    }
+
+    func testPinchAccumulatedDeltasClampAtMin() {
+        var current: CGFloat = 0.5
+        for _ in 0..<3 {
+            current = MindMapView.clampedZoom(current: current, factor: 1 + (-0.5), min: 0.25, max: 3.0)
+        }
+        XCTAssertEqual(current, 0.25, accuracy: 1e-9)
+    }
 }

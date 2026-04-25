@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import MindoBase
 import MindoCore
@@ -39,6 +40,26 @@ extension AppSession {
         case .mindMap: return .mindMap
         case .text(_, let t): return t
         case .unsupported: return nil
+        }
+    }
+
+    /// Route ⌘F to the appropriate Find affordance for the active doc:
+    /// mindmap → toggles the in-document find bar overlay; text editors
+    /// (markdown / plantuml / csv) → invokes NSTextView's built-in find
+    /// bar via the standard NSTextFinderClient action.
+    @MainActor
+    func invokeFindInActiveDocument() {
+        guard let doc = activeDocument else { return }
+        switch doc.kind {
+        case .mindMap:
+            inDocFindOpen.toggle()
+        case .text, .unsupported:
+            // Performing the standard "performFindPanelAction" via the
+            // first responder chain lets NSTextView's built-in find bar
+            // take over (we set usesFindBar=true on the editors).
+            let target: AnyObject? = nil
+            let sender: AnyObject? = nil
+            NSApp.sendAction(Selector(("performFindPanelAction:")), to: target, from: sender)
         }
     }
 

@@ -136,6 +136,9 @@ struct MindoApp: App {
                 }
             }
             CommandGroup(after: .pasteboard) {
+                Button(L("menu.edit.find")) { session.invokeFindInActiveDocument() }
+                    .keyboardShortcut("f", modifiers: .command)
+                    .disabled(session.activeDocument == nil)
                 Button(L("menu.edit.insert_snippet")) { session.snippetPickerOpen = true }
                     .keyboardShortcut("j", modifiers: [.command, .shift])
                     .disabled(session.activeDocument == nil)
@@ -230,6 +233,9 @@ final class AppSession {
 
     /// Find-in-files sheet flag.
     var findInFilesOpen: Bool = false
+    /// In-document Find bar visible (mindmap canvas only — text editors
+    /// route ⌘F to NSTextView's built-in find bar).
+    var inDocFindOpen: Bool = false
 
     /// Outline rows for the currently active document. Recomputed lazily on read.
     var outlineItems: [OutlineItem] { activeDocument?.outlineItems ?? [] }

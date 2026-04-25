@@ -41,6 +41,7 @@
 "menu.window.hide_outline" = "Hide Outline";
 
 /* MARK: - Edit menu */
+"menu.edit.find" = "Find…";
 "menu.edit.insert_snippet" = "Insert Snippet…";
 "menu.edit.find_in_files" = "Find in Files…";
 

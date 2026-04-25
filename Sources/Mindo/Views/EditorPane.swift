@@ -34,13 +34,19 @@ struct EditorPane: View {
     private func content(for document: OpenDocument) -> some View {
         switch document.kind {
         case .mindMap(let map):
-            MindMapCanvas(
-                map: map,
-                theme: theme,
-                onChange: { _ in markDirty(documentID) },
-                onExtraFileTap: { url in session.open(url: url) },
-                navigationTarget: session.sanitizedNavigationTarget
-            )
+            VStack(spacing: 0) {
+                if session.inDocFindOpen, let view = activeMindMapView() {
+                    MindMapFindBar(view: view) { session.inDocFindOpen = false }
+                    Divider()
+                }
+                MindMapCanvas(
+                    map: map,
+                    theme: theme,
+                    onChange: { _ in markDirty(documentID) },
+                    onExtraFileTap: { url in session.open(url: url) },
+                    navigationTarget: session.sanitizedNavigationTarget
+                )
+            }
             .onChange(of: session.zoomCommandTick) { _, _ in
                 // The canvas is created lazily inside MindMapCanvas; we route
                 // zoom commands by walking the App's window's content tree
@@ -106,5 +112,16 @@ struct EditorPane: View {
     private func markDirty(_ id: OpenDocument.ID) {
         guard let idx = session.openDocuments.firstIndex(where: { $0.id == id }) else { return }
         session.openDocuments[idx].isDirty = true
+    }
+
+    /// Walk the key window's view tree to find the active MindMapView.
+    /// Same trick the zoom-routing path uses — gives the find bar direct
+    /// access to the AppKit canvas without exposing it through SwiftUI
+    /// state.
+    private func activeMindMapView() -> MindMapView? {
+        guard let win = NSApp.keyWindow,
+              let scroll = win.contentView?.firstSubview(ofType: NSScrollView.self, where: { $0.documentView is MindMapView })
+        else { return nil }
+        return scroll.documentView as? MindMapView
     }
 }

@@ -59,6 +59,10 @@ public final class MindMapView: NSView {
     var dragSourceElement: MindMapElement?
     var dragGhostCenter: CGPoint?
     var dragTargetElement: MindMapElement?
+    /// "Drop between siblings" target — a horizontal indicator line + the
+    /// children-array index where the dragged topic should land. When set,
+    /// it takes precedence over `dragTargetElement` on mouseUp.
+    var dragInsertionTarget: (parent: MindMapElement, index: Int, lineY: CGFloat, lineMinX: CGFloat, lineMaxX: CGFloat)?
     let dragThreshold: CGFloat = 4
 
     /// Pan state — entered when the user holds space and drags. Distinct from
@@ -332,6 +336,15 @@ public final class MindMapView: NSView {
             ctx.setStrokeColor(NSColor.systemGreen.cgColor)
             ctx.setLineWidth(2.0)
             strokeRoundedOutline(around: target.frame, inset: 5, into: ctx)
+        }
+        if let ins = dragInsertionTarget {
+            ctx.setStrokeColor(NSColor.systemBlue.cgColor)
+            ctx.setLineWidth(3.0)
+            ctx.setLineCap(.round)
+            ctx.move(to: CGPoint(x: ins.lineMinX, y: ins.lineY))
+            ctx.addLine(to: CGPoint(x: ins.lineMaxX, y: ins.lineY))
+            ctx.strokePath()
+            ctx.setLineCap(.butt)
         }
         if let center = dragGhostCenter, let source = dragSourceElement {
             let size = source.frame.size

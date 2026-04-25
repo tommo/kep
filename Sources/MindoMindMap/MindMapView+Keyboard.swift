@@ -47,6 +47,10 @@ extension MindMapView {
             toggleCollapse(toCollapsed: true)
         case "=", "+":
             toggleCollapse(toCollapsed: false)
+        case "\u{1B}":
+            // Esc cancels an in-flight reorder/reparent drag without committing.
+            if dragSourceElement != nil { resetDragState() }
+            else { super.keyDown(with: event) }
         default:
             super.keyDown(with: event)
         }

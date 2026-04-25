@@ -78,7 +78,16 @@ extension MindMapView {
             if hypot(p.x - origin.x, p.y - origin.y) < dragThreshold { return }
         }
         dragGhostCenter = p
-        dragTargetElement = candidateDropTarget(under: p, excluding: source)
+        // "Drop between siblings" wins over "drop onto topic" — when the
+        // cursor lands in a gap among the source's existing siblings, show
+        // the insertion indicator instead of highlighting a parent.
+        if let ins = candidateInsertionTarget(under: p, source: source) {
+            dragInsertionTarget = ins
+            dragTargetElement = nil
+        } else {
+            dragInsertionTarget = nil
+            dragTargetElement = candidateDropTarget(under: p, excluding: source)
+        }
         needsDisplay = true
     }
 
@@ -89,9 +98,15 @@ extension MindMapView {
             return
         }
         defer { resetDragState() }
-        guard let source = dragSourceElement,
-              dragGhostCenter != nil,
-              let target = dragTargetElement,
+        guard let source = dragSourceElement, dragGhostCenter != nil else { return }
+        if let ins = dragInsertionTarget {
+            // Reorder among siblings — index already accounts for source's
+            // current position via undoableReparent's remove-then-insert.
+            undoableReparent(source.topic, to: ins.parent.topic, at: ins.index)
+            if let moved = element(forTopic: source.topic) { selectElement(moved) }
+            return
+        }
+        guard let target = dragTargetElement,
               target.topic !== source.topic.parent else { return }
         let index = target.topic.children.count
         undoableReparent(source.topic, to: target.topic, at: index)
@@ -99,13 +114,64 @@ extension MindMapView {
     }
 
     func resetDragState() {
-        if dragGhostCenter != nil || dragTargetElement != nil {
+        if dragGhostCenter != nil || dragTargetElement != nil || dragInsertionTarget != nil {
             dragGhostCenter = nil
             dragTargetElement = nil
+            dragInsertionTarget = nil
             needsDisplay = true
         }
         dragOrigin = nil
         dragSourceElement = nil
+    }
+
+    /// Find a "drop between siblings" insertion target. Walks the source's
+    /// current parent's children (filtered to the same side for root
+    /// children), maps them to Y-ranges, and uses MindMapDragGap to map the
+    /// probe to a gap index — then translates that back to the children
+    /// array. Returns nil when the cursor isn't in any gap or strays far
+    /// from the sibling X-band (so we don't fight with reparent drops).
+    func candidateInsertionTarget(under p: CGPoint, source: MindMapElement)
+        -> (parent: MindMapElement, index: Int, lineY: CGFloat, lineMinX: CGFloat, lineMaxX: CGFloat)?
+    {
+        guard let parentTopic = source.topic.parent,
+              let parentEl = element(forTopic: parentTopic) else { return nil }
+        let siblings = parentEl.children.filter { $0.isLeftSide == source.isLeftSide && $0 !== source }
+        guard !siblings.isEmpty else { return nil }
+        let sortedSiblings = siblings.sorted { $0.frame.minY < $1.frame.minY }
+        let ranges = sortedSiblings.map { MindMapDragGap.YRange($0.frame.minY, $0.frame.maxY) }
+
+        // Don't activate if the cursor is far outside the sibling X-band —
+        // otherwise dragging across the canvas to reparent flickers.
+        let minX = sortedSiblings.map(\.frame.minX).min() ?? 0
+        let maxX = sortedSiblings.map(\.frame.maxX).max() ?? 0
+        let hPad: CGFloat = 60
+        guard p.x >= minX - hPad, p.x <= maxX + hPad else { return nil }
+
+        guard let gap = MindMapDragGap.gapIndex(for: p.y, sortedRanges: ranges) else { return nil }
+
+        // Map gap (in sortedSiblings space) → insertion index in
+        // parent.children (which can include the source itself + other-side
+        // children, neither of which appear in `siblings`).
+        // Find the children-array index of the sibling we're inserting *before*.
+        let insertBefore: MindMapElement? = gap < sortedSiblings.count ? sortedSiblings[gap] : nil
+        let insertIndex: Int
+        if let target = insertBefore,
+           let idx = parentEl.children.firstIndex(where: { $0 === target }) {
+            insertIndex = idx
+        } else {
+            insertIndex = parentEl.children.count
+        }
+
+        // Indicator Y: midpoint of the gap (or just above first / below last).
+        let lineY: CGFloat
+        if gap == 0 {
+            lineY = sortedSiblings[0].frame.minY - 4
+        } else if gap == sortedSiblings.count {
+            lineY = sortedSiblings.last!.frame.maxY + 4
+        } else {
+            lineY = (sortedSiblings[gap - 1].frame.maxY + sortedSiblings[gap].frame.minY) / 2
+        }
+        return (parentEl, insertIndex, lineY, minX, maxX)
     }
 
     /// Find a valid drop-target element under `point`. A target is valid when

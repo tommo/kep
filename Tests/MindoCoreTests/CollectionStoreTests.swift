@@ -4,9 +4,7 @@ import XCTest
 final class CollectionStoreTests: XCTestCase {
 
     private func makeStore() throws -> (CollectionStore, URL) {
-        let tmp = FileManager.default.temporaryDirectory
-            .appendingPathComponent("mindo-coll-\(UUID())")
-        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        let tmp = try makeScratchDirectory(prefix: "mindo-coll")
         return (CollectionStore(directory: tmp, recentLimit: 5), tmp)
     }
 

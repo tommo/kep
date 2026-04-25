@@ -110,9 +110,7 @@ final class WorkspaceTests: XCTestCase {
     // MARK: - WorkspaceManager
 
     func testWorkspaceManagerPersistsAndReloads() throws {
-        let tmp = FileManager.default.temporaryDirectory
-            .appendingPathComponent("mindo-mgr-\(UUID())")
-        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        let tmp = try makeScratchDirectory(prefix: "mindo-mgr")
         defer { try? FileManager.default.removeItem(at: tmp) }
 
         let mgr = WorkspaceManager(directory: tmp)

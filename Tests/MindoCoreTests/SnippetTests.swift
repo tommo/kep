@@ -6,9 +6,7 @@ import MindoCore
 final class SnippetStoreTests: XCTestCase {
 
     private func makeStore() throws -> (SnippetStore, URL) {
-        let tmp = FileManager.default.temporaryDirectory
-            .appendingPathComponent("mindo-snip-\(UUID())")
-        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        let tmp = try makeScratchDirectory(prefix: "mindo-snip")
         return (SnippetStore(directory: tmp), tmp)
     }
 

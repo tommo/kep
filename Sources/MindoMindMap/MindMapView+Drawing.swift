@@ -47,7 +47,9 @@ extension MindMapView {
         // Text — leaves room on the right for the extra-icons strip.
         let font = theme.font(forLevel: level)
         let style = NSMutableParagraphStyle()
-        style.alignment = .center
+        // Per-topic alignment override (TopicAttribute.textAlign), defaults
+        // to center to match historical Mindo behaviour.
+        style.alignment = TopicTextAlign.from(attribute: el.topic.attribute(TopicAttribute.textAlign)).nsAlignment
         style.lineBreakMode = .byWordWrapping
         let attrs: [NSAttributedString.Key: Any] = [
             .font: font,

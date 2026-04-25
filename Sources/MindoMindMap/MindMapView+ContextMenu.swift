@@ -53,6 +53,18 @@ extension MindMapView {
         if ConvertMultiline.split(element.topic.text).count >= 2 {
             menu.addItem(makeContextItem(title: "Convert to Subtree", action: #selector(contextConvertToSubtree(_:)), payload: element))
         }
+        // Text alignment submenu.
+        let alignParent = NSMenuItem(title: "Text Alignment", action: nil, keyEquivalent: "")
+        let alignSub = NSMenu()
+        let current = TopicTextAlign.from(attribute: element.topic.attribute(TopicAttribute.textAlign))
+        for option in [TopicTextAlign.left, .center, .right] {
+            let title = option == .left ? "Left" : option == .center ? "Center" : "Right"
+            let item = makeContextItem(title: title, action: #selector(contextSetTextAlign(_:)), payload: TextAlignPayload(element: element, alignment: option))
+            item.state = current == option ? .on : .off
+            alignSub.addItem(item)
+        }
+        alignParent.submenu = alignSub
+        menu.addItem(alignParent)
         menu.addItem(NSMenuItem.separator())
         let deleteItem = makeContextItem(title: "Delete Topic", action: #selector(contextDeleteTopic(_:)), payload: element)
         deleteItem.isEnabled = element.topic.parent != nil
@@ -79,6 +91,14 @@ extension MindMapView {
     @objc func contextConvertToSubtree(_ sender: NSMenuItem) {
         guard let element = sender.representedObject as? MindMapElement else { return }
         undoableConvertMultilineToChildren(element.topic)
+    }
+
+    @objc func contextSetTextAlign(_ sender: NSMenuItem) {
+        guard let payload = sender.representedObject as? TextAlignPayload else { return }
+        // Center is the default — clear the attribute instead of writing
+        // "center" so .mmd files stay clean for unaligned topics.
+        let value: String? = payload.alignment == .center ? nil : payload.alignment.rawValue
+        undoableSetAttribute(payload.element.topic, key: TopicAttribute.textAlign, value: value)
     }
 
     /// NSMenuItem with target=self + a stashed payload. Hand-rolled because
@@ -308,4 +328,11 @@ struct ExtraMenuPayload {
     let element: MindMapElement
     let type: ExtraType
     let placeholder: String
+}
+
+/// Payload for the Text Alignment submenu — bundles the element + the
+/// chosen alignment so the @objc handler can dispatch in one step.
+struct TextAlignPayload {
+    let element: MindMapElement
+    let alignment: TopicTextAlign
 }

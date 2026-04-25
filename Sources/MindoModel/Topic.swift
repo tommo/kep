@@ -15,6 +15,9 @@ public enum TopicAttribute {
     public static let edgeStyle = "edgeStyle"
     /// Edge width preserved from FreeMind imports (e.g. `thin`, `1`, `2`).
     public static let edgeWidth = "edgeWidth"
+    /// Per-topic text alignment override (`left` | `center` | `right`).
+    /// Absent attribute falls back to the default centered layout.
+    public static let textAlign = "textAlign"
 }
 
 /// A node in a mind map's topic tree. Mirrors `Topic<T>` from `mindmap-model`.

@@ -29,28 +29,25 @@ extension Topic {
                 let body = trimmedNewline.hasPrefix(" ") ? String(trimmedNewline.dropFirst()) : trimmedNewline
                 let newText = ModelUtils.unescapeMarkdown(body)
 
-                if detectedLevel == depth + 1 {
-                    depth = detectedLevel
-                    if let t = topic {
+                if let t = topic {
+                    // Existing tree — pick the insertion site based on
+                    // detectedLevel relative to the current depth.
+                    if detectedLevel == depth + 1 {
+                        depth = detectedLevel
                         topic = t.addChild(text: newText)
-                    } else {
-                        let r = Topic(text: newText, parent: nil, map: map)
-                        rootTopic = r
-                        topic = r
-                    }
-                } else if detectedLevel == depth {
-                    if let t = topic, let parent = t.parent {
+                    } else if detectedLevel == depth, let parent = t.parent {
                         topic = parent.addChild(text: newText)
-                    } else {
-                        let r = Topic(text: newText, parent: nil, map: map)
-                        rootTopic = r
-                        topic = r
-                    }
-                } else if detectedLevel < depth {
-                    if let t = topic, let parent = t.findParent(forDepth: depth - detectedLevel) {
+                    } else if detectedLevel < depth, let parent = t.findParent(forDepth: depth - detectedLevel) {
                         topic = parent.addChild(text: newText)
                         depth = detectedLevel
                     }
+                } else {
+                    // First topicTitle — becomes the root. Sync depth so the
+                    // next sibling/child math against this root works.
+                    let r = Topic(text: newText, parent: nil, map: map)
+                    rootTopic = r
+                    topic = r
+                    depth = detectedLevel
                 }
 
             case .extraType:

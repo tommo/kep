@@ -126,6 +126,7 @@
 
 /* MARK: - 标签栏 */
 "tab.tooltip.modified_externally" = "文件已被外部修改 —— 内容已重新加载";
+"tab.tooltip.unsaved_changes" = "未保存的更改";
 
 /* MARK: - 外部修改冲突 */
 "conflict.title" = "“%@” 已在磁盘上发生改变";

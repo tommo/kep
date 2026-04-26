@@ -22,6 +22,14 @@ struct DocumentTabBar: View {
                                 .fill(Color.orange)
                                 .frame(width: 6, height: 6)
                                 .help(L("tab.tooltip.modified_externally"))
+                        } else if doc.isDirty {
+                            // Unsaved-edits dot — distinct color from the
+                            // orange external-changes marker so the user can
+                            // tell at a glance which side made the change.
+                            Circle()
+                                .fill(Color.secondary)
+                                .frame(width: 6, height: 6)
+                                .help(L("tab.tooltip.unsaved_changes"))
                         }
                         Button {
                             if let idx = session.openDocuments.firstIndex(where: { $0.id == doc.id }) {

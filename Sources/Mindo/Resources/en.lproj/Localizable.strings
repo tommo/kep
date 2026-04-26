@@ -129,6 +129,7 @@
 
 /* MARK: - Tab bar */
 "tab.tooltip.modified_externally" = "Modified outside Mindo — content reloaded";
+"tab.tooltip.unsaved_changes" = "Unsaved changes";
 
 /* MARK: - External-change conflict */
 "conflict.title" = "“%@” changed on disk";

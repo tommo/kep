@@ -50,10 +50,12 @@ extension MindMapView {
             transform: nil
         )
 
-        // Fill (with drop shadow on non-root levels).
+        // Fill (with optional drop shadow on non-root levels). Pref-
+        // gated so users can flatten the canvas — matches mindolph's
+        // ckbDropShadow toggle.
         let fill = el.customFillColor ?? theme.fillColor(forLevel: level)
         ctx.saveGState()
-        if level > 0 {
+        if level > 0, PrefKeys.bool(PrefKeys.mindmapDropShadow, fallback: true) {
             ctx.setShadow(offset: theme.dropShadowOffset, blur: 4, color: NSColor.black.withAlphaComponent(theme.dropShadowOpacity).cgColor)
         }
         ctx.addPath(path)

@@ -49,6 +49,10 @@ public enum PrefKeys {
     /// Default 16pt — visible without crowding most reasonable zoom
     /// levels.
     public static let mindmapGridStep = "mindo.prefs.mindmapGridStep"
+    /// Render a drop shadow under non-root topic boxes. Default on
+    /// (matches mindolph's default + Mindo's existing behavior).
+    /// Mirrors `ckbDropShadow` in MmdPreferencesPane.
+    public static let mindmapDropShadow = "mindo.prefs.mindmapDropShadow"
 
     /// Convenience: pulls a Double from UserDefaults, returning `fallback`
     /// when the key is unset or stored as a non-positive value.

@@ -171,6 +171,7 @@
 "quit.confirm.cancel" = "取消";
 "prefs.mindmap.section.grid" = "网格";
 "prefs.mindmap.show_grid" = "显示背景网格";
+"prefs.mindmap.drop_shadow" = "话题方块投影";
 "prefs.mindmap.grid_step" = "网格间距：%d pt";
 "prefs.editor.section.split" = "编辑器分屏方向";
 "prefs.editor.split.markdown" = "Markdown 编辑器";

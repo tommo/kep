@@ -86,7 +86,18 @@ extension MindMapView {
             dragTargetElement = nil
         } else {
             dragInsertionTarget = nil
-            dragTargetElement = candidateDropTarget(under: p, excluding: source)
+            let target = candidateDropTarget(under: p, excluding: source)
+            // Auto-unfold a collapsed drop target so the user can re-target
+            // into its children. Cleared on dragExited via resetDragState's
+            // re-render. Live edit (no undo step) — the fold flip would
+            // otherwise stack a confusing entry on the undo manager.
+            if let t = target,
+               t.topic.attribute(TopicAttribute.collapsed) == "true",
+               !t.children.isEmpty {
+                t.topic.setAttribute(TopicAttribute.collapsed, nil)
+                rebuildElementsPublic()
+            }
+            dragTargetElement = target
         }
         needsDisplay = true
     }

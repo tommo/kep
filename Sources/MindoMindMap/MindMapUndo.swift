@@ -1,4 +1,5 @@
 import AppKit
+import MindoCore
 import MindoModel
 
 /// Helpers that wrap `Topic` mutations in `NSUndoManager` registrations.
@@ -41,6 +42,13 @@ extension MindMapView {
 
     public func undoableAddChild(to parent: Topic, text: String) -> Topic {
         let child = Topic(text: text)
+        // Pref-gated: cascade the parent's fill color to the new child so
+        // colored category branches stay visually consistent. Off by
+        // default (matches Mindolph's `PREF_KEY_MMD_COPY_COLOR_INFO_TO_NEW_CHILD`).
+        if PrefKeys.bool(PrefKeys.mindmapInheritFillColor, fallback: false),
+           let inherited = parent.attribute(TopicAttribute.fillColor) {
+            child.setAttribute(TopicAttribute.fillColor, inherited)
+        }
         parent.append(child)
         registerUndo(
             name: "Add Topic",

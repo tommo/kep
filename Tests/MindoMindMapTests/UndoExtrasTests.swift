@@ -189,6 +189,43 @@ final class UndoExtrasTests: XCTestCase {
         XCTAssertNil(view.undoableCloneTopic(root, deep: false))
     }
 
+    // MARK: - Inherit fill color from parent (PrefKey-gated)
+
+    func testNewChildInheritsParentFillColorWhenPrefIsOn() {
+        let defaults = UserDefaults.standard
+        let key = "mindo.prefs.mindmapInheritFillColor"
+        let prior = defaults.object(forKey: key)
+        defer {
+            if let v = prior { defaults.set(v, forKey: key) } else { defaults.removeObject(forKey: key) }
+        }
+        defaults.set(true, forKey: key)
+        let map = MindMap()
+        let root = Topic(text: "Root")
+        root.setAttribute(TopicAttribute.fillColor, "#FF0000")
+        map.root = root
+        let (view, _) = makeHeadlessMindMapWithUndo(map: map)
+        let child = view.undoableAddChild(to: root, text: "Child")
+        XCTAssertEqual(child.attribute(TopicAttribute.fillColor), "#FF0000")
+    }
+
+    func testNewChildDoesNotInheritFillColorWhenPrefIsOff() {
+        let defaults = UserDefaults.standard
+        let key = "mindo.prefs.mindmapInheritFillColor"
+        let prior = defaults.object(forKey: key)
+        defer {
+            if let v = prior { defaults.set(v, forKey: key) } else { defaults.removeObject(forKey: key) }
+        }
+        defaults.set(false, forKey: key)
+        let map = MindMap()
+        let root = Topic(text: "Root")
+        root.setAttribute(TopicAttribute.fillColor, "#FF0000")
+        map.root = root
+        let (view, _) = makeHeadlessMindMapWithUndo(map: map)
+        let child = view.undoableAddChild(to: root, text: "Child")
+        XCTAssertNil(child.attribute(TopicAttribute.fillColor),
+                     "default-off behavior preserves the pre-feature look")
+    }
+
     func testFoldSubtreeOnlyAffectsTheNamedBranch() {
         let map = MindMap()
         let root = Topic(text: "Root")

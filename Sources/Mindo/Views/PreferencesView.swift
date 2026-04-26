@@ -65,6 +65,7 @@ private struct MindMapPrefs: View {
     @AppStorage(PrefKeys.mindmapHorizontalGap) private var horizontalGap: Double = 60
     @AppStorage(PrefKeys.mindmapConnectorStyle) private var connectorStyle: String = "bezier"
     @AppStorage(PrefKeys.mindmapConnectorWidth) private var connectorWidth: Double = 1.5
+    @AppStorage(PrefKeys.mindmapInheritFillColor) private var inheritFillColor: Bool = false
 
     var body: some View {
         Form {
@@ -84,6 +85,9 @@ private struct MindMapPrefs: View {
                 Stepper(value: $connectorWidth, in: 0.5...4.0, step: 0.5) {
                     Text(String(format: L("prefs.mindmap.connector_width"), connectorWidth))
                 }
+            }
+            Section(L("prefs.mindmap.section.behavior")) {
+                Toggle(L("prefs.mindmap.inherit_fill_color"), isOn: $inheritFillColor)
             }
         }
         .formStyle(.grouped)

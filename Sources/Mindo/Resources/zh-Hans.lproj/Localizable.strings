@@ -154,6 +154,8 @@
 "prefs.mindmap.connector_style.bezier" = "贝塞尔曲线";
 "prefs.mindmap.connector_style.polyline" = "折线";
 "prefs.mindmap.connector_width" = "粗细：%.1f pt";
+"prefs.mindmap.section.behavior" = "行为";
+"prefs.mindmap.inherit_fill_color" = "新子主题继承父主题填充色";
 "prefs.ai.section.behavior" = "行为";
 "prefs.ai.streaming" = "流式输出（推荐）";
 

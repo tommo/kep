@@ -157,6 +157,8 @@
 "prefs.mindmap.connector_style.bezier" = "Bezier curve";
 "prefs.mindmap.connector_style.polyline" = "Polyline (elbow)";
 "prefs.mindmap.connector_width" = "Width: %.1f pt";
+"prefs.mindmap.section.behavior" = "Behavior";
+"prefs.mindmap.inherit_fill_color" = "New child topics inherit parent fill color";
 "prefs.ai.section.behavior" = "Behavior";
 "prefs.ai.streaming" = "Stream responses (recommended)";
 

@@ -116,7 +116,10 @@ struct MindoApp: App {
                     .keyboardShortcut("p", modifiers: .command)
                     .disabled(session.activeDocument == nil)
                 Divider()
-                Button(L("menu.file.import_freemind")) { session.importFreemind() }
+                Menu(L("menu.file.import")) {
+                    Button(L("menu.file.import_freemind")) { session.importFreemind() }
+                    Button(L("menu.file.import_text_outline")) { session.importTextOutline() }
+                }
                 Divider()
                 Menu(L("menu.file.open_recent")) {
                     let recents = CollectionStore.shared.recents

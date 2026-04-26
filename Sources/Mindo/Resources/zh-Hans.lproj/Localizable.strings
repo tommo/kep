@@ -8,7 +8,9 @@
 "menu.file.save_as" = "另存为…";
 "menu.file.close_tab" = "关闭标签页";
 "menu.file.print" = "打印…";
-"menu.file.import_freemind" = "导入 FreeMind…";
+"menu.file.import" = "导入";
+"menu.file.import_freemind" = "FreeMind (.mm)…";
+"menu.file.import_text_outline" = "文本大纲 (.txt)…";
 "menu.file.export" = "导出";
 "menu.file.export_markdown_html" = "Markdown 导出为 HTML…";
 "menu.file.export_markdown_pdf" = "Markdown 导出为 PDF…";

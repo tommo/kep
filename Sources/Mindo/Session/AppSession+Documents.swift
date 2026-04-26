@@ -74,13 +74,30 @@ extension AppSession {
     /// it as a fresh in-memory mindmap document (no fileURL, so Save will
     /// prompt for a .mmd path).
     func importFreemind() {
+        importMindMap(extension: "mm") { url in
+            let xml = try String(contentsOf: url, encoding: .utf8)
+            return try FreemindImporter.parse(xml)
+        }
+    }
+
+    /// Import an indented-text outline (one topic per line, indent = nesting).
+    func importTextOutline() {
+        importMindMap(extension: "txt") { url in
+            let text = try String(contentsOf: url, encoding: .utf8)
+            return try TextOutlineImporter.parse(text)
+        }
+    }
+
+    /// Shared scaffolding for any mindmap importer: open panel scoped to one
+    /// extension, parse via the supplied closure, present as an untitled
+    /// .mmd doc. Errors route to lastError.
+    private func importMindMap(extension ext: String, parse: (URL) throws -> MindMap) {
         let panel = NSOpenPanel()
-        panel.allowedContentTypes = [UTType.init(filenameExtension: "mm") ?? .data]
+        panel.allowedContentTypes = [UTType.init(filenameExtension: ext) ?? .data]
         panel.allowsMultipleSelection = false
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
-            let xml = try String(contentsOf: url, encoding: .utf8)
-            let map = try FreemindImporter.parse(xml)
+            let map = try parse(url)
             let title = url.deletingPathExtension().lastPathComponent + ".mmd"
             let doc = OpenDocument(kind: .mindMap(map), fileURL: nil, title: title)
             openDocuments.append(doc)

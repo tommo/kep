@@ -73,6 +73,28 @@ public final class MarkdownDropTextView: NSTextView {
         }
     }
 
+    /// Auto-pair openers — when the user types a bracket / quote / backtick
+    /// against an empty selection, insert the matching closer and place
+    /// the caret between them. Multi-char inserts (IME composition,
+    /// pasted runs) and non-opener chars fall through unchanged.
+    public override func insertText(_ string: Any, replacementRange: NSRange) {
+        if let str = string as? String,
+           replacementRange.length == 0,
+           selectedRange().length == 0,
+           let closer = MarkdownAutoPair.closer(for: str) {
+            let pair = "\(str)\(closer)"
+            let target = selectedRange()
+            if shouldChangeText(in: target, replacementString: pair) {
+                replaceCharacters(in: target, with: pair)
+                didChangeText()
+                // Caret between the opener and the closer.
+                setSelectedRange(NSRange(location: target.location + 1, length: 0))
+            }
+            return
+        }
+        super.insertText(string, replacementRange: replacementRange)
+    }
+
     /// Smart paste — when text is selected AND the pasteboard contains a
     /// URL, wrap the selection as `[selected](URL)` instead of replacing
     /// with the raw URL. Standard editor convention; matches what Bear /

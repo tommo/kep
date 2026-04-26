@@ -152,6 +152,9 @@ extension MindMapView {
         case .mindmap:  body = branchMap.write()
         case .orgMode:  body = OrgModeExporter.export(branchMap)
         case .freemind: body = FreemindExporter.export(branchMap)
+        case .markdown: body = MindMapMarkdownExporter.export(branchMap)
+        case .asciidoc: body = AsciiDocExporter.export(branchMap)
+        case .mindmup:  body = MindmupExporter.export(branchMap)
         case .text:     body = PlainTextExporter.export(branchMap)
         }
         try? body.write(to: url, atomically: true, encoding: .utf8)
@@ -434,13 +437,16 @@ struct TextAlignPayload {
 /// One of the formats a branch can be exported as. Lives outside
 /// MindMapView so the per-format file extension + label are unit-testable.
 public enum BranchExportFormat: String, CaseIterable {
-    case mindmap, orgMode, freemind, text
+    case mindmap, orgMode, freemind, markdown, asciidoc, mindmup, text
 
     public var fileExtension: String {
         switch self {
         case .mindmap:  return "mmd"
         case .orgMode:  return "org"
         case .freemind: return "mm"
+        case .markdown: return "md"
+        case .asciidoc: return "adoc"
+        case .mindmup:  return "mup"
         case .text:     return "txt"
         }
     }
@@ -450,6 +456,9 @@ public enum BranchExportFormat: String, CaseIterable {
         case .mindmap:  return "Mindo .mmd"
         case .orgMode:  return "Org-Mode (.org)"
         case .freemind: return "FreeMind (.mm)"
+        case .markdown: return "Markdown (.md)"
+        case .asciidoc: return "AsciiDoc (.adoc)"
+        case .mindmup:  return "Mindmup (.mup)"
         case .text:     return "Plain Text Outline (.txt)"
         }
     }

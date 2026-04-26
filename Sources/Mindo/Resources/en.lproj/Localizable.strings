@@ -175,6 +175,7 @@
 "prefs.mindmap.section.grid" = "Grid";
 "prefs.mindmap.show_grid" = "Show background grid";
 "prefs.mindmap.drop_shadow" = "Drop shadow under topics";
+"prefs.mindmap.unfold_on_drop" = "Unfold collapsed topic when something is dropped on it";
 "prefs.mindmap.grid_step" = "Grid spacing: %d pt";
 "prefs.editor.section.split" = "Editor split orientation";
 "prefs.editor.split.markdown" = "Markdown editor";

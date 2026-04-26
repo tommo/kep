@@ -53,6 +53,10 @@ public enum PrefKeys {
     /// (matches mindolph's default + Mindo's existing behavior).
     /// Mirrors `ckbDropShadow` in MmdPreferencesPane.
     public static let mindmapDropShadow = "mindo.prefs.mindmapDropShadow"
+    /// When the user drops a topic onto a collapsed parent, auto-clear
+    /// the parent's `collapsed` attribute so the dropped subtree is
+    /// visible. Default on. Mirrors `ckbUnfoldCollapsedDropTarget`.
+    public static let mindmapUnfoldCollapsedDropTarget = "mindo.prefs.mindmapUnfoldCollapsedDropTarget"
 
     /// Convenience: pulls a Double from UserDefaults, returning `fallback`
     /// when the key is unset or stored as a non-positive value.

@@ -1,4 +1,5 @@
 import AppKit
+import MindoCore
 import MindoModel
 
 /// Mouse handling for `MindMapView` — split out so the core file stays
@@ -120,6 +121,14 @@ extension MindMapView {
         guard let target = dragTargetElement,
               target.topic !== source.topic.parent else { return }
         let index = target.topic.children.count
+        // Drop onto a collapsed parent auto-unfolds it (mindolph parity:
+        // ckbUnfoldCollapsedDropTarget). Without this the dropped subtree
+        // disappears the instant it lands. Done BEFORE reparent so the
+        // unfold + reparent share a single visible state transition.
+        if PrefKeys.bool(PrefKeys.mindmapUnfoldCollapsedDropTarget, fallback: true),
+           target.isCollapsed {
+            undoableSetAttribute(target.topic, key: TopicAttribute.collapsed, value: nil)
+        }
         undoableReparent(source.topic, to: target.topic, at: index)
         if let moved = element(forTopic: source.topic) { selectElement(moved) }
     }

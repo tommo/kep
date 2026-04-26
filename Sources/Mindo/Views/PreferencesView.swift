@@ -103,6 +103,7 @@ private struct MindMapPrefs: View {
     @AppStorage(PrefKeys.mindmapShowGrid) private var showGrid: Bool = false
     @AppStorage(PrefKeys.mindmapGridStep) private var gridStep: Double = 16
     @AppStorage(PrefKeys.mindmapDropShadow) private var dropShadow: Bool = true
+    @AppStorage(PrefKeys.mindmapUnfoldCollapsedDropTarget) private var unfoldOnDrop: Bool = true
 
     var body: some View {
         Form {
@@ -127,6 +128,7 @@ private struct MindMapPrefs: View {
                 Toggle(L("prefs.mindmap.inherit_fill_color"), isOn: $inheritFillColor)
                 Toggle(L("prefs.mindmap.trim_topic_text"), isOn: $trimTopicText)
                 Toggle(L("prefs.mindmap.drop_shadow"), isOn: $dropShadow)
+                Toggle(L("prefs.mindmap.unfold_on_drop"), isOn: $unfoldOnDrop)
             }
             Section(L("prefs.mindmap.section.grid")) {
                 Toggle(L("prefs.mindmap.show_grid"), isOn: $showGrid)

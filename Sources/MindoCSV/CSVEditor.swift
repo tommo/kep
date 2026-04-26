@@ -24,6 +24,7 @@ public struct CSVEditor: NSViewRepresentable {
         table.style = .inset
         table.allowsColumnResizing = true
         table.allowsColumnReordering = false
+        table.allowsMultipleSelection = true
         table.dataSource = context.coordinator
         table.delegate = context.coordinator
         table.target = context.coordinator
@@ -135,8 +136,9 @@ public struct CSVEditor: NSViewRepresentable {
                   let key = descriptor.key,
                   key.hasPrefix("col"),
                   let columnIndex = Int(key.dropFirst(3)) else { return }
-            doc.sort(byColumn: columnIndex, ascending: descriptor.ascending)
-            applyChange()
+            performUndoable(actionName: "Sort by Column") {
+                doc.sort(byColumn: columnIndex, ascending: descriptor.ascending)
+            }
         }
 
         private func notifyChange() {
@@ -197,35 +199,87 @@ public struct CSVEditor: NSViewRepresentable {
             let packed = sender.tag
             let rowIndex = packed >> 16
             let colIndex = packed & 0xFFFF
-            doc.setCell(row: rowIndex, column: colIndex, to: sender.stringValue)
-            notifyChange()
+            // Skip the snapshot if the value didn't actually change — typing
+            // in and tabbing out of an unchanged cell shouldn't pollute the
+            // undo stack.
+            let oldValue = doc.rows[safe: rowIndex]?[safe: colIndex] ?? ""
+            guard oldValue != sender.stringValue else { return }
+            performUndoable(actionName: "Edit Cell") {
+                doc.setCell(row: rowIndex, column: colIndex, to: sender.stringValue)
+            }
         }
 
         @objc func addRow() {
-            doc.appendRow()
-            applyChange()
+            performUndoable(actionName: "Add Row") {
+                doc.appendRow()
+            }
         }
 
         @objc func removeRow() {
-            guard let selected = tableView?.selectedRow, selected >= 0 else { return }
-            doc.removeRow(at: doc.hasHeader ? selected + 1 : selected)
-            applyChange()
+            // Walk the multi-selection in descending order so removal indices
+            // stay valid as rows shift up.
+            guard let selected = tableView?.selectedRowIndexes, !selected.isEmpty else { return }
+            performUndoable(actionName: selected.count > 1 ? "Delete Rows" : "Delete Row") {
+                for i in selected.reversed() {
+                    doc.removeRow(at: doc.hasHeader ? i + 1 : i)
+                }
+            }
         }
 
         @objc func addColumn() {
-            doc.appendColumn()
-            applyChange(rebuildColumns: true)
+            performUndoable(actionName: "Add Column", rebuildColumns: true) {
+                doc.appendColumn()
+            }
         }
 
         @objc func removeColumn() {
-            guard let selected = tableView?.selectedColumn, selected >= 0 else { return }
-            doc.removeColumn(at: selected)
-            applyChange(rebuildColumns: true)
+            guard let selected = tableView?.selectedColumnIndexes, !selected.isEmpty else { return }
+            performUndoable(actionName: selected.count > 1 ? "Delete Columns" : "Delete Column", rebuildColumns: true) {
+                for i in selected.reversed() {
+                    doc.removeColumn(at: i)
+                }
+            }
         }
 
         @objc func toggleHeader(_ sender: NSButton) {
-            doc.hasHeader = sender.state == .on
-            applyChange(rebuildColumns: true)
+            performUndoable(actionName: "Toggle Header", rebuildColumns: true) {
+                doc.hasHeader = sender.state == .on
+            }
+        }
+
+        // MARK: - Undo
+
+        /// Snapshot the current rows + hasHeader, run the mutation, then
+        /// register an inverse that restores the snapshot. Sort changes use
+        /// the same path; multi-select deletes too. Snapshot-based undo is
+        /// simpler than per-mutation inverses and bulletproof for batch
+        /// operations because the whole document state round-trips.
+        private func performUndoable(
+            actionName: String,
+            rebuildColumns rebuild: Bool = false,
+            mutate: () -> Void
+        ) {
+            let snapshot = doc.rows
+            let hadHeader = doc.hasHeader
+            mutate()
+            registerUndo(actionName: actionName, snapshotRows: snapshot, hadHeader: hadHeader, rebuildColumns: rebuild)
+            applyChange(rebuildColumns: rebuild)
+        }
+
+        private func registerUndo(actionName: String, snapshotRows: [[String]], hadHeader: Bool, rebuildColumns rebuild: Bool) {
+            guard let undo = tableView?.window?.undoManager else { return }
+            let coordinator = self
+            undo.setActionName(actionName)
+            undo.registerUndo(withTarget: self) { _ in
+                let redoSnapshot = coordinator.doc.rows
+                let redoHadHeader = coordinator.doc.hasHeader
+                coordinator.doc.rows = snapshotRows
+                coordinator.doc.hasHeader = hadHeader
+                coordinator.headerCheckbox?.state = hadHeader ? .on : .off
+                coordinator.applyChange(rebuildColumns: rebuild)
+                // Register the redo (inverse of the inverse) so ⌘⇧Z works.
+                coordinator.registerUndo(actionName: actionName, snapshotRows: redoSnapshot, hadHeader: redoHadHeader, rebuildColumns: rebuild)
+            }
         }
     }
 }

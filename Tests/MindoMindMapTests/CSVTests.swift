@@ -106,4 +106,38 @@ final class CSVDocumentTests: XCTestCase {
         doc.sort(byColumn: 99, ascending: true)
         XCTAssertEqual(doc.rows.count, 3, "out-of-range column is a no-op, doesn't crash")
     }
+
+    // MARK: - Multi-row delete (descending iteration keeps indices stable)
+
+    func testDescendingRemovalOfMultipleRowsLeavesCorrectSurvivors() {
+        let doc = CSVDocument.parse("h\nA\nB\nC\nD\nE\n")
+        // Editor removes selected indices (0-based against bodyRows: A=0..E=4)
+        // by walking in descending order, mapping each to rows index by adding
+        // 1 for the header offset.
+        let bodySelections = IndexSet([0, 2, 4]) // A, C, E
+        for i in bodySelections.reversed() {
+            doc.removeRow(at: doc.hasHeader ? i + 1 : i)
+        }
+        XCTAssertEqual(doc.bodyRows.map { $0[0] }, ["B", "D"])
+    }
+
+    func testDescendingRemovalOfMultipleColumnsLeavesCorrectSurvivors() {
+        let doc = CSVDocument.parse("a,b,c,d,e\n1,2,3,4,5\n")
+        for i in IndexSet([1, 3]).reversed() { // remove b, d
+            doc.removeColumn(at: i)
+        }
+        XCTAssertEqual(doc.rows[0], ["a", "c", "e"])
+        XCTAssertEqual(doc.rows[1], ["1", "3", "5"])
+    }
+
+    func testSnapshotRestoreRoundTripsTheRowsArray() {
+        // Mirrors the editor's undo path: take a snapshot, mutate, restore.
+        let doc = CSVDocument.parse("h\nA\nB\nC\n")
+        let snapshot = doc.rows
+        doc.appendRow()
+        doc.setCell(row: 1, column: 0, to: "MUTATED")
+        XCTAssertNotEqual(doc.rows, snapshot)
+        doc.rows = snapshot
+        XCTAssertEqual(doc.rows, snapshot)
+    }
 }

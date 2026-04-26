@@ -25,6 +25,41 @@ public final class MarkdownDropTextView: NSTextView {
         registerForDraggedTypes([.fileURL])
     }
 
+    /// Override Enter to auto-continue lists. When the current line starts
+    /// with a markdown list marker (`-`, `*`, `+`, `1.`), the next line
+    /// gets the same marker prepended (numeric markers increment). When
+    /// the source line is just-a-marker (no body text), Enter strips the
+    /// marker instead — that's how the user breaks out of a list.
+    public override func insertNewline(_ sender: Any?) {
+        let body = string as NSString
+        let caret = selectedRange().location
+        let lineRange = body.lineRange(for: NSRange(location: caret, length: 0))
+        let line = body.substring(with: NSRange(location: lineRange.location,
+                                                length: caret - lineRange.location))
+        guard let action = MarkdownListContinuation.action(for: line) else {
+            super.insertNewline(sender)
+            return
+        }
+        switch action {
+        case .insert(let prefix):
+            let inserted = "\n" + prefix
+            if shouldChangeText(in: selectedRange(), replacementString: inserted) {
+                replaceCharacters(in: selectedRange(), with: inserted)
+                didChangeText()
+            }
+        case .clearMarker:
+            // Replace the entire current line (just the marker) with empty,
+            // so Enter ends up as a fresh blank line — drops the user out
+            // of the list.
+            let lineToCaret = NSRange(location: lineRange.location,
+                                      length: caret - lineRange.location)
+            if shouldChangeText(in: lineToCaret, replacementString: "") {
+                replaceCharacters(in: lineToCaret, with: "")
+                didChangeText()
+            }
+        }
+    }
+
     public override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
         let pb = sender.draggingPasteboard
         guard let urls = pb.readObjects(forClasses: [NSURL.self], options: nil) as? [URL],

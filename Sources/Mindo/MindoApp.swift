@@ -297,6 +297,10 @@ final class AppSession {
     /// Cleared on next selection / new doc open.
     var lastSearchMatch: String?
 
+    /// ID of the workspace tree row currently in inline-rename mode.
+    /// `nil` means no row is being renamed. Cleared on commit/cancel.
+    var renamingNodeID: UUID?
+
     /// Per-document outline navigation request. Editor views observe this and
     /// scroll/center on change. Reset to nil after a brief debounce so the
     /// same target can fire again.

@@ -23,17 +23,23 @@ extension AppSession {
     // MARK: - Rename
 
     /// Prompt for a new name and rename the node on disk. Refreshes the
-    /// containing workspace tree on success.
+    /// containing workspace tree on success. Kicks the sidebar into
+    /// inline-rename mode for `node`; the row swaps its label for an
+    /// NSTextField. Use `renameNode(_:to:)` to commit a chosen name.
     @MainActor
     func renameNode(_ node: NodeData) {
         guard !node.isWorkspace else { return }   // workspaces use removeWorkspace, not rename
-        guard let newName = promptString(
-            title: L("sidebar.rename.title"),
-            message: L("sidebar.rename.message"),
-            initial: node.name
-        ), newName != node.name else { return }
+        renamingNodeID = node.id
+    }
 
-        let dest = node.url.deletingLastPathComponent().appendingPathComponent(newName)
+    /// Commit a rename to disk. Empty / unchanged names quietly cancel.
+    /// Always clears `renamingNodeID` so the inline editor closes.
+    @MainActor
+    func renameNode(_ node: NodeData, to newName: String) {
+        defer { renamingNodeID = nil }
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != node.name else { return }
+        let dest = node.url.deletingLastPathComponent().appendingPathComponent(trimmed)
         do {
             try FileManager.default.moveItem(at: node.url, to: dest)
             reloadWorkspace(containing: node)

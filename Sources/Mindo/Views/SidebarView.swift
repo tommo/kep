@@ -99,6 +99,33 @@ private struct FileTypeFilterBar: View {
     }
 }
 
+/// Inline TextField that replaces a workspace row's static label while
+/// the user renames. Commits on Return; cancels on Esc or empty submit.
+/// Auto-focuses on appear via @FocusState.
+private struct InlineRenameField: View {
+    let initial: String
+    let onCommit: (String) -> Void
+    let onCancel: () -> Void
+
+    @State private var name: String
+    @FocusState private var focused: Bool
+
+    init(initial: String, onCommit: @escaping (String) -> Void, onCancel: @escaping () -> Void) {
+        self.initial = initial
+        self.onCommit = onCommit
+        self.onCancel = onCancel
+        _name = State(initialValue: initial)
+    }
+
+    var body: some View {
+        TextField("", text: $name, onCommit: { onCommit(name) })
+            .textFieldStyle(.plain)
+            .focused($focused)
+            .onAppear { focused = true }
+            .onExitCommand { onCancel() }
+    }
+}
+
 /// Recursive disclosure row for a workspace / folder / file.
 struct NodeRow: View {
     let node: NodeData
@@ -114,7 +141,7 @@ struct NodeRow: View {
             } label: {
                 HStack {
                     Image(systemName: node.isWorkspace ? "shippingbox" : "folder")
-                    Text(node.name)
+                    label
                 }
                 .tag(node)
                 .contextMenu { menuItems }
@@ -123,10 +150,26 @@ struct NodeRow: View {
             HStack(spacing: 6) {
                 Image(systemName: icon(for: node))
                     .foregroundStyle(.secondary)
-                Text(node.name)
+                label
             }
             .tag(node)
             .contextMenu { menuItems }
+        }
+    }
+
+    /// Either the static row name, or — when this node is the inline-rename
+    /// target — an editable NSTextField that commits on Return / blur and
+    /// cancels on Esc.
+    @ViewBuilder
+    private var label: some View {
+        if session.renamingNodeID == node.id {
+            InlineRenameField(initial: node.name) { newName in
+                session.renameNode(node, to: newName)
+            } onCancel: {
+                session.renamingNodeID = nil
+            }
+        } else {
+            Text(node.name)
         }
     }
 

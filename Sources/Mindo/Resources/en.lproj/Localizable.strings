@@ -57,6 +57,11 @@
 "menu.window.hide_outline" = "Hide Outline";
 
 /* MARK: - Edit menu */
+"menu.edit.copy_mindmap_as" = "Copy Mind Map As";
+"menu.edit.copy_mindmap_as_markdown" = "Markdown";
+"menu.edit.copy_mindmap_as_text" = "Plain Text";
+"menu.edit.copy_mindmap_as_asciidoc" = "AsciiDoc";
+"menu.edit.copy_mindmap_as_orgmode" = "Org-Mode";
 "menu.edit.find" = "Find…";
 "menu.edit.insert_snippet" = "Insert Snippet…";
 "menu.edit.find_in_files" = "Find in Files…";

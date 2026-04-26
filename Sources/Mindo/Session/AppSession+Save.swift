@@ -176,6 +176,25 @@ extension AppSession {
         }
     }
 
+    // MARK: - Copy mindmap to pasteboard (mindolph parity — doExportToClipboard)
+
+    /// Run `convert` on the active mindmap and put the result on the
+    /// general pasteboard as a string. Silent no-op when the front
+    /// document isn't a mindmap so the menu items can stay enabled
+    /// without surprising the user with errors.
+    @MainActor
+    private func copyActiveMindmap(_ convert: (MindMap) -> String) {
+        guard let doc = activeDocument, case .mindMap(let map) = doc.kind else { return }
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(convert(map), forType: .string)
+    }
+
+    @MainActor func copyActiveMindmapAsMarkdown() { copyActiveMindmap(MindMapMarkdownExporter.export) }
+    @MainActor func copyActiveMindmapAsAsciiDoc() { copyActiveMindmap(AsciiDocExporter.export) }
+    @MainActor func copyActiveMindmapAsOrgMode()  { copyActiveMindmap(OrgModeExporter.export) }
+    @MainActor func copyActiveMindmapAsText()     { copyActiveMindmap(PlainTextExporter.export) }
+
     /// Export the active mindmap as a Mindmup `.mup` JSON document
     /// (mindolph parity — MindmupExporter).
     @MainActor

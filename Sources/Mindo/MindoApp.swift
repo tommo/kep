@@ -177,6 +177,13 @@ struct MindoApp: App {
                 }
             }
             CommandGroup(after: .pasteboard) {
+                Menu(L("menu.edit.copy_mindmap_as")) {
+                    Button(L("menu.edit.copy_mindmap_as_markdown")) { session.copyActiveMindmapAsMarkdown() }
+                    Button(L("menu.edit.copy_mindmap_as_text"))     { session.copyActiveMindmapAsText() }
+                    Button(L("menu.edit.copy_mindmap_as_asciidoc")) { session.copyActiveMindmapAsAsciiDoc() }
+                    Button(L("menu.edit.copy_mindmap_as_orgmode"))  { session.copyActiveMindmapAsOrgMode() }
+                }
+                .disabled(session.activeFileType != .mindMap)
                 Button(L("menu.edit.find")) { session.invokeFindInActiveDocument() }
                     .keyboardShortcut("f", modifiers: .command)
                     .disabled(session.activeDocument == nil)

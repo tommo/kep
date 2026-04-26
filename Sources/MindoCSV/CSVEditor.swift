@@ -30,10 +30,19 @@ public struct CSVEditor: NSViewRepresentable {
         table.target = context.coordinator
         scroll.documentView = table
 
+        // Status footer — rows × cols, mirrors the markdown / plantuml /
+        // mindmap editor footers.
+        let footer = NSTextField(labelWithString: "")
+        footer.font = .monospacedDigitSystemFont(ofSize: 10, weight: .regular)
+        footer.textColor = .secondaryLabelColor
+        footer.alignment = .right
+        footer.translatesAutoresizingMaskIntoConstraints = false
+
         toolbar.translatesAutoresizingMaskIntoConstraints = false
         scroll.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(toolbar)
         container.addSubview(scroll)
+        container.addSubview(footer)
         NSLayoutConstraint.activate([
             toolbar.topAnchor.constraint(equalTo: container.topAnchor),
             toolbar.leadingAnchor.constraint(equalTo: container.leadingAnchor),
@@ -42,13 +51,19 @@ public struct CSVEditor: NSViewRepresentable {
             scroll.topAnchor.constraint(equalTo: toolbar.bottomAnchor),
             scroll.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             scroll.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            scroll.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            scroll.bottomAnchor.constraint(equalTo: footer.topAnchor),
+            footer.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 8),
+            footer.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -8),
+            footer.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -2),
+            footer.heightAnchor.constraint(equalToConstant: 16),
         ])
 
         context.coordinator.tableView = table
         context.coordinator.parent = self
+        context.coordinator.statusFooter = footer
         context.coordinator.loadFromText()
         context.coordinator.rebuildColumns()
+        context.coordinator.refreshStatusFooter()
         return container
     }
 
@@ -92,6 +107,7 @@ public struct CSVEditor: NSViewRepresentable {
         var parent: CSVEditor?
         var tableView: NSTableView?
         var headerCheckbox: NSButton?
+        weak var statusFooter: NSTextField?
         private var doc = CSVDocument()
 
         // MARK: - Wiring
@@ -152,6 +168,15 @@ public struct CSVEditor: NSViewRepresentable {
             if rebuild { rebuildColumns() }
             tableView?.reloadData()
             notifyChange()
+            refreshStatusFooter()
+        }
+
+        /// Recompute the status footer text — body row count + column count.
+        /// Public-internal so makeNSView can fire it once after the initial
+        /// loadFromText, plus applyChange uses it on every edit.
+        func refreshStatusFooter() {
+            guard let footer = statusFooter else { return }
+            footer.stringValue = "\(doc.bodyRows.count) rows × \(doc.columnCount) cols"
         }
 
         // MARK: - DataSource

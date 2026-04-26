@@ -187,6 +187,10 @@
 "prefs.editor.split.side_by_side" = "Side by side";
 "prefs.editor.split.top_bottom" = "Top / bottom";
 "prefs.editor.split.note" = "Applies to editors opened after the change.";
+"prefs.editor.section.plantuml" = "PlantUML";
+"prefs.editor.plantuml.dotpath_placeholder" = "Path to dot (Graphviz)";
+"prefs.editor.plantuml.dotpath_pick" = "Choose…";
+"prefs.editor.plantuml.dotpath_note" = "Leave blank to let PlantUML find dot via $PATH. Custom paths are forwarded as GRAPHVIZ_DOT.";
 "prefs.editor.sync_scroll" = "Sync code area & preview scroll (Markdown)";
 "prefs.editor.autosave_on_blur" = "Autosave when window or tab loses focus";
 "prefs.mindmap.section.layout" = "Layout";

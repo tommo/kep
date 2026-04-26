@@ -1,4 +1,5 @@
 import Foundation
+import MindoCore
 
 /// Renders PlantUML source to SVG by spawning the `plantuml` CLI or `java -jar plantuml.jar`.
 ///
@@ -116,6 +117,16 @@ public final class PlantUMLRenderer {
         case .jar(let java, let jar):
             process.executableURL = java
             process.arguments = ["-jar", jar.path, "-pipe", "-tsvg"]
+        }
+
+        // Forward a custom Graphviz path when the user pinned one in
+        // Preferences. PlantUML respects GRAPHVIZ_DOT for sequence /
+        // class / state diagrams. We carry the parent environment
+        // forward so PATH + JAVA_HOME etc still work.
+        if let dotPath = PrefKeys.string(PrefKeys.plantumlGraphvizPath) {
+            var env = ProcessInfo.processInfo.environment
+            env["GRAPHVIZ_DOT"] = dotPath
+            process.environment = env
         }
 
         do { try process.run() }

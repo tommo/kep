@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import MindoBase
 import MindoCore
@@ -60,6 +61,7 @@ private struct EditorPrefs: View {
     @AppStorage(PrefKeys.autosaveOnBlur) private var autosaveOnBlur: Bool = true
     @AppStorage(PrefKeys.markdownSplitVertical) private var markdownSplitVertical: Bool = true
     @AppStorage(PrefKeys.plantumlSplitVertical) private var plantumlSplitVertical: Bool = true
+    @AppStorage(PrefKeys.plantumlGraphvizPath) private var graphvizPath: String = ""
 
     var body: some View {
         Form {
@@ -87,9 +89,31 @@ private struct EditorPrefs: View {
                 }
                 Text(L("prefs.editor.split.note")).font(.caption).foregroundStyle(.secondary)
             }
+            Section(L("prefs.editor.section.plantuml")) {
+                HStack {
+                    TextField(L("prefs.editor.plantuml.dotpath_placeholder"), text: $graphvizPath)
+                        .textFieldStyle(.roundedBorder)
+                    Button(L("prefs.editor.plantuml.dotpath_pick")) { pickGraphvizPath() }
+                }
+                Text(L("prefs.editor.plantuml.dotpath_note")).font(.caption).foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
         .padding()
+    }
+
+    /// Open a file picker to choose the dot binary. Reads back into the
+    /// pref via @AppStorage so the renderer picks it up on the next
+    /// preview refresh.
+    private func pickGraphvizPath() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.message = L("prefs.editor.plantuml.dotpath_pick")
+        if panel.runModal() == .OK, let url = panel.url {
+            graphvizPath = url.path
+        }
     }
 }
 

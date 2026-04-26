@@ -184,6 +184,10 @@
 "prefs.editor.split.side_by_side" = "左右并排";
 "prefs.editor.split.top_bottom" = "上下排列";
 "prefs.editor.split.note" = "更改将在下次打开编辑器时生效。";
+"prefs.editor.section.plantuml" = "PlantUML";
+"prefs.editor.plantuml.dotpath_placeholder" = "dot 路径（Graphviz）";
+"prefs.editor.plantuml.dotpath_pick" = "选择…";
+"prefs.editor.plantuml.dotpath_note" = "留空则由 PlantUML 自动通过 $PATH 查找 dot；自定义路径将通过 GRAPHVIZ_DOT 传入。";
 "prefs.editor.sync_scroll" = "Markdown 代码区与预览同步滚动";
 "prefs.editor.autosave_on_blur" = "窗口或标签失去焦点时自动保存";
 "prefs.mindmap.section.layout" = "布局";

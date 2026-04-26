@@ -64,6 +64,11 @@ public enum PrefKeys {
     /// Override for the topic rectangle corner radius (points). 0 or
     /// unset = use the theme's value. Mirrors `spnRoundRadius`.
     public static let mindmapCornerRadius = "mindo.prefs.mindmapCornerRadius"
+    /// Optional path to a `dot` binary (Graphviz). When set, mindo
+    /// passes it to PlantUML via the GRAPHVIZ_DOT env var so non-
+    /// standard Homebrew prefixes / Nix profiles / portable installs
+    /// still resolve. Mirrors mindolph's `plantuml.dotpath`.
+    public static let plantumlGraphvizPath = "mindo.prefs.plantumlGraphvizPath"
 
     /// Convenience: pulls a Double from UserDefaults, returning `fallback`
     /// when the key is unset or stored as a non-positive value.

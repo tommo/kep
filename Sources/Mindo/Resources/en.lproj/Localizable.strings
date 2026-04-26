@@ -24,6 +24,7 @@
 "menu.file.export_mindmap_svg" = "Mind Map to SVG…";
 "menu.file.export_mindmap_pdf" = "Mind Map to PDF…";
 "menu.file.export_mindmap_orgmode" = "Mind Map to Org-Mode…";
+"menu.file.export_mindmap_markdown" = "Mind Map to Markdown…";
 "menu.file.open_recent" = "Open Recent";
 "menu.file.open_recent.empty" = "(no recent files)";
 "menu.file.clear_recents" = "Clear Menu";

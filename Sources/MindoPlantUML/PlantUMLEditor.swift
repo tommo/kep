@@ -32,10 +32,19 @@ public struct PlantUMLEditor: NSViewRepresentable {
         split.addArrangedSubview(web)
         split.setHoldingPriority(NSLayoutConstraint.Priority(rawValue: 250), forSubviewAt: 0)
 
+        // Status footer mirrors the markdown editor — line count is the most
+        // useful quick stat for diagram source.
+        let footer = NSTextField(labelWithString: "")
+        footer.font = .monospacedDigitSystemFont(ofSize: 10, weight: .regular)
+        footer.textColor = .secondaryLabelColor
+        footer.alignment = .right
+        footer.translatesAutoresizingMaskIntoConstraints = false
+
         toolbar.translatesAutoresizingMaskIntoConstraints = false
         split.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(toolbar)
         container.addSubview(split)
+        container.addSubview(footer)
         NSLayoutConstraint.activate([
             toolbar.topAnchor.constraint(equalTo: container.topAnchor),
             toolbar.leadingAnchor.constraint(equalTo: container.leadingAnchor),
@@ -44,12 +53,18 @@ public struct PlantUMLEditor: NSViewRepresentable {
             split.topAnchor.constraint(equalTo: toolbar.bottomAnchor),
             split.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             split.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            split.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            split.bottomAnchor.constraint(equalTo: footer.topAnchor),
+            footer.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 8),
+            footer.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -8),
+            footer.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -2),
+            footer.heightAnchor.constraint(equalToConstant: 16),
         ])
 
         context.coordinator.textView = textView
         context.coordinator.webView = web
+        context.coordinator.statusFooter = footer
         context.coordinator.applyHighlighting()
+        context.coordinator.refreshStatusFooter()
         context.coordinator.scheduleRender(immediate: true)
         return container
     }
@@ -105,8 +120,10 @@ public struct PlantUMLEditor: NSViewRepresentable {
         var parent: PlantUMLEditor
         var textView: NSTextView?
         var webView: WKWebView?
+        weak var statusFooter: NSTextField?
         let highlighter = PlantUMLHighlighter()
         private let renderDebouncer = Debouncer()
+        private let statsDebouncer = Debouncer()
         /// Most recent successful SVG render. Cached so the toolbar's Copy
         /// SVG / Copy PNG buttons don't re-shell out to PlantUML each time.
         private var lastSVGData: Data?
@@ -118,6 +135,16 @@ public struct PlantUMLEditor: NSViewRepresentable {
             parent.text = tv.string
             applyHighlighting()
             scheduleRender(immediate: false)
+            statsDebouncer.schedule(after: 0.25) { [weak self] in self?.refreshStatusFooter() }
+        }
+
+        /// Recompute the line / char status footer for the current source.
+        /// Lines are split on \n (one entry per visible line including blanks);
+        /// chars are grapheme clusters so emoji + combining marks count once.
+        func refreshStatusFooter() {
+            guard let footer = statusFooter, let body = textView?.string else { return }
+            let lines = body.split(separator: "\n", omittingEmptySubsequences: false).count
+            footer.stringValue = "\(lines) lines · \(body.count) chars"
         }
 
         // MARK: - Toolbar actions

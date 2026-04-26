@@ -582,13 +582,14 @@ public final class MindMapView: NSView {
         // looked like overlapping topics (bug #55).
         commitInlineEdit()
 
-        let textField = NSTextField(frame: element.frame)
+        let textField = InlineEditField(frame: element.frame)
         textField.stringValue = element.topic.text
         textField.font = theme.font(forLevel: element.level)
         textField.alignment = .center
         textField.bezelStyle = .roundedBezel
         textField.target = self
         textField.action = #selector(commitInlineEdit)
+        textField.onCancel = { [weak self] in self?.cancelInlineEdit() }
         addSubview(textField)
         window?.makeFirstResponder(textField)
         inlineEditor = textField
@@ -605,6 +606,17 @@ public final class MindMapView: NSView {
         if let target = target {
             undoableSetText(target, to: newText)
         }
+        window?.makeFirstResponder(self)
+    }
+
+    /// Discard an in-flight inline edit — Esc handler. The text the user
+    /// typed in the editor is dropped; the topic's existing text is
+    /// untouched. No undo entry registered since nothing changed.
+    func cancelInlineEdit() {
+        guard let editor = inlineEditor else { return }
+        editor.removeFromSuperview()
+        inlineEditor = nil
+        inlineEditTarget = nil
         window?.makeFirstResponder(self)
     }
 

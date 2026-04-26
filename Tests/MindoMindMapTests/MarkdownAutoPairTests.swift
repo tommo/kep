@@ -23,8 +23,11 @@ final class MarkdownAutoPairTests: XCTestCase {
         XCTAssertEqual(MarkdownAutoPair.closer(for: "'"), "'")
     }
 
-    func testBacktickPairsToItself() {
-        XCTAssertEqual(MarkdownAutoPair.closer(for: "`"), "`")
+    func testBacktickNotPaired() {
+        // Auto-pair on backtick would mangle fenced code blocks: typing
+        // "```" with auto-pair turns into "``````" (6 backticks). Skipped
+        // on purpose — single inline code is easy to close manually.
+        XCTAssertNil(MarkdownAutoPair.closer(for: "`"))
     }
 
     func testAsteriskNotPaired() {

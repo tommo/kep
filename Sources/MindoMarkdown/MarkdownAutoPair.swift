@@ -10,13 +10,18 @@ public enum MarkdownAutoPair {
     /// Mapping of opener → closer. Lookup returns nil for any input that
     /// shouldn't trigger auto-pair (multi-char strings, unknown openers,
     /// the deliberately-skipped markdown emphasis chars).
+    ///
+    /// Backticks are intentionally absent: the auto-pair would mangle
+    /// fenced code-block typing — each ` keypress would insert two ` and
+    /// step the caret one forward, so "```" turns into "``````" (6
+    /// backticks, caret in the middle). Single inline code is easy to
+    /// close manually; fenced blocks need to type cleanly.
     static let pairs: [Character: Character] = [
         "(": ")",
         "[": "]",
         "{": "}",
         "\"": "\"",
         "'": "'",
-        "`": "`",
     ]
 
     /// Closer for `opener` if the input is exactly one recognized opener.

@@ -61,6 +61,9 @@ public enum PrefKeys {
     /// indented outline and graft the resulting subtree under the
     /// selection. Default on. Mirrors `ckbSmartTextPaste`.
     public static let mindmapSmartTextPaste = "mindo.prefs.mindmapSmartTextPaste"
+    /// Override for the topic rectangle corner radius (points). 0 or
+    /// unset = use the theme's value. Mirrors `spnRoundRadius`.
+    public static let mindmapCornerRadius = "mindo.prefs.mindmapCornerRadius"
 
     /// Convenience: pulls a Double from UserDefaults, returning `fallback`
     /// when the key is unset or stored as a non-positive value.

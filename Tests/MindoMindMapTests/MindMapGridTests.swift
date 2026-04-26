@@ -32,3 +32,29 @@ final class MindMapGridTests: XCTestCase {
         XCTAssertEqual(MindMapGrid.normalizedStep(.infinity), 0)
     }
 }
+
+final class MindMapCornerRadiusTests: XCTestCase {
+
+    func testZeroPrefFallsBackToTheme() {
+        XCTAssertEqual(MindMapCornerRadius.resolve(pref: 0, themeDefault: 8), 8)
+    }
+
+    func testNegativePrefFallsBackToTheme() {
+        // Negative or non-finite is treated as "unset" — same as 0,
+        // so a corrupt pref doesn't render circles or invert geometry.
+        XCTAssertEqual(MindMapCornerRadius.resolve(pref: -3, themeDefault: 12), 12)
+        XCTAssertEqual(MindMapCornerRadius.resolve(pref: .nan, themeDefault: 12), 12)
+        XCTAssertEqual(MindMapCornerRadius.resolve(pref: .infinity, themeDefault: 12), 12)
+    }
+
+    func testTypicalPrefWins() {
+        XCTAssertEqual(MindMapCornerRadius.resolve(pref: 16, themeDefault: 8), 16)
+    }
+
+    func testHugePrefClampsToMax() {
+        // Past 32pt the rect starts looking like a pill / circle on
+        // small topics — clamp so a runaway slider can't tank visual
+        // identity.
+        XCTAssertEqual(MindMapCornerRadius.resolve(pref: 9999, themeDefault: 8), MindMapCornerRadius.maxRadius)
+    }
+}

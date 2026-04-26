@@ -1,5 +1,23 @@
 import CoreGraphics
 
+/// Resolve the topic corner radius respecting the user override.
+/// Mindolph parity (`spnRoundRadius`): the user picks a value in
+/// Preferences; an unset/zero pref means "fall back to the theme's
+/// value". Clamped to `[0, 32]` so a runaway pref can't render
+/// circles.
+public enum MindMapCornerRadius {
+
+    public static let maxRadius: CGFloat = 32
+
+    /// `pref` is the raw `PrefKeys.mindmapCornerRadius` value (0 = unset);
+    /// `themeDefault` is the active theme's `cornerRadius`.
+    public static func resolve(pref: Double, themeDefault: CGFloat) -> CGFloat {
+        let v = CGFloat(pref)
+        guard v.isFinite, v > 0 else { return themeDefault }
+        return min(max(v, 0), maxRadius)
+    }
+}
+
 /// Pure-logic helpers for the optional canvas grid. Lives here so the
 /// step normalization is unit-testable without an NSView fixture.
 public enum MindMapGrid {

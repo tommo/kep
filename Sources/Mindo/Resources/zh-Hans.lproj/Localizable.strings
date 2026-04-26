@@ -170,6 +170,9 @@
 "quit.confirm.quit" = "退出";
 "quit.confirm.cancel" = "取消";
 "prefs.mindmap.section.grid" = "网格";
+"prefs.mindmap.section.shape" = "话题形状";
+"prefs.mindmap.corner_radius_value" = "圆角半径：%d pt";
+"prefs.mindmap.corner_radius_theme" = "圆角半径：主题默认";
 "prefs.mindmap.show_grid" = "显示背景网格";
 "prefs.mindmap.drop_shadow" = "话题方块投影";
 "prefs.mindmap.unfold_on_drop" = "拖拽落到折叠话题时自动展开";

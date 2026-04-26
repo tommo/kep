@@ -43,10 +43,14 @@ extension MindMapView {
     /// image (if any) + text + extras strip + collapse marker.
     func drawElement(_ el: MindMapElement, into ctx: CGContext) {
         let level = el.level
+        let radius = MindMapCornerRadius.resolve(
+            pref: PrefKeys.double(PrefKeys.mindmapCornerRadius, fallback: 0),
+            themeDefault: theme.cornerRadius
+        )
         let path = CGPath(
             roundedRect: el.frame,
-            cornerWidth: theme.cornerRadius,
-            cornerHeight: theme.cornerRadius,
+            cornerWidth: radius,
+            cornerHeight: radius,
             transform: nil
         )
 
@@ -233,7 +237,11 @@ extension MindMapView {
     /// Caller pre-sets `setStrokeColor` and `setLineWidth`.
     func strokeRoundedOutline(around frame: CGRect, inset: CGFloat, into ctx: CGContext) {
         let rect = frame.insetBy(dx: -inset, dy: -inset)
-        let radius = theme.cornerRadius + inset
+        let baseRadius = MindMapCornerRadius.resolve(
+            pref: PrefKeys.double(PrefKeys.mindmapCornerRadius, fallback: 0),
+            themeDefault: theme.cornerRadius
+        )
+        let radius = baseRadius + inset
         let path = CGPath(roundedRect: rect, cornerWidth: radius, cornerHeight: radius, transform: nil)
         ctx.addPath(path)
         ctx.strokePath()

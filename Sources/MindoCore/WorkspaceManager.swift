@@ -37,6 +37,14 @@ public final class WorkspaceManager {
         try? save()
     }
 
+    /// Replace the workspace ordering with `newOrder`, then persist. Used by
+    /// the sidebar drag-to-reorder. Caller is responsible for ensuring
+    /// `newOrder` is a permutation of the current list (no adds/removes).
+    public func reorder(_ newOrder: [WorkspaceMeta]) {
+        list.projects = newOrder
+        try? save()
+    }
+
     /// Build a `NodeData` workspace root for the given meta. Children load lazily.
     public func loadTree(for meta: WorkspaceMeta) -> NodeData {
         let node = NodeData(workspace: meta.name, url: meta.url)

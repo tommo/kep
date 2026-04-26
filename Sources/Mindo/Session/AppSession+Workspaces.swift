@@ -32,6 +32,22 @@ extension AppSession {
         stopWorkspaceWatcher(for: root.url)
     }
 
+    /// Move a workspace from `sourcePath` to `targetPath`'s slot in the
+    /// sidebar. Standard macOS reorder semantics — source lands at target's
+    /// original index, target shifts away in the drag direction. Persists
+    /// via WorkspaceManager.reorder.
+    func reorderWorkspace(from sourcePath: String, to targetPath: String) {
+        let paths = workspaceRoots.map { $0.url.path }
+        let reorderedPaths = TabReorder.move(paths, from: sourcePath, to: targetPath)
+        guard reorderedPaths != paths else { return }
+        let pathToRoot = Dictionary(uniqueKeysWithValues: workspaceRoots.map { ($0.url.path, $0) })
+        workspaceRoots = reorderedPaths.compactMap { pathToRoot[$0] }
+        let pathToMeta = Dictionary(uniqueKeysWithValues: workspaces.map { ($0.url.path, $0) })
+        let newOrder = reorderedPaths.compactMap { pathToMeta[$0] }
+        workspaces = newOrder
+        WorkspaceManager.shared.reorder(newOrder)
+    }
+
     /// Install the FSEvents watcher for a workspace's root tree. Called from
     /// init for the existing workspaces and from addWorkspace for new ones.
     func startWorkspaceWatcher(for node: NodeData) {

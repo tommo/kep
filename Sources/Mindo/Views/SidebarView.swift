@@ -50,6 +50,11 @@ struct SidebarView: View {
                                 .buttonStyle(.plain)
                                 .help(L("sidebar.tooltip.remove_workspace"))
                             }
+                            .onDrag { NSItemProvider(object: root.url.path as NSString) }
+                            .onDrop(of: [.text], delegate: WorkspaceDropDelegate(
+                                target: root.url.path,
+                                session: $session
+                            ))
                         }
                     }
                 }
@@ -96,6 +101,24 @@ private struct FileTypeFilterBar: View {
             }
             Spacer()
         }
+    }
+}
+
+/// Drop target for the workspace headers — pulls the dragged workspace's
+/// path out of the item provider and asks AppSession to swap them.
+private struct WorkspaceDropDelegate: DropDelegate {
+    let target: String
+    @Binding var session: AppSession
+
+    func performDrop(info: DropInfo) -> Bool {
+        guard let provider = info.itemProviders(for: [.text]).first else { return false }
+        provider.loadObject(ofClass: NSString.self) { obj, _ in
+            guard let source = obj as? String, source != target else { return }
+            DispatchQueue.main.async {
+                session.reorderWorkspace(from: source, to: target)
+            }
+        }
+        return true
     }
 }
 

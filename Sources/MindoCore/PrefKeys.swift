@@ -17,6 +17,10 @@ public enum PrefKeys {
     /// sidebar (e.g. `notes.mmd` → `notes`). Folders + workspaces are
     /// untouched. Mirrors mindolph's `GENERAL_HIDE_EXTENSION`.
     public static let hideFileExtensions = "mindo.prefs.hideFileExtensions"
+    /// Show a confirmation alert before quitting the app. Default off
+    /// (matches the macOS expectation). Mirrors mindolph's
+    /// `GENERAL_CONFIRM_BEFORE_QUITTING`.
+    public static let confirmBeforeQuit = "mindo.prefs.confirmBeforeQuit"
     /// Optional preferred monospaced font family for the markdown /
     /// plantuml editors. Empty = use the system default monospaced font.
     public static let editorFontFamily = "mindo.prefs.editorFontFamily"

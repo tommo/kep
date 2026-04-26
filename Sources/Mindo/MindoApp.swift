@@ -38,6 +38,21 @@ final class MindoAppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+
+    /// Prompt before quitting when the user opted in via Preferences.
+    /// Default off (macOS expectation is `Cmd-Q quits`); the alert
+    /// targets the "I keep accidentally quitting" workflow that
+    /// mindolph's GENERAL_CONFIRM_BEFORE_QUITTING serves.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard PrefKeys.bool(PrefKeys.confirmBeforeQuit, fallback: false) else { return .terminateNow }
+        let alert = NSAlert()
+        alert.messageText = L("quit.confirm.title")
+        alert.informativeText = L("quit.confirm.message")
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: L("quit.confirm.quit"))
+        alert.addButton(withTitle: L("quit.confirm.cancel"))
+        return alert.runModal() == .alertFirstButtonReturn ? .terminateNow : .terminateCancel
+    }
 }
 
 @main

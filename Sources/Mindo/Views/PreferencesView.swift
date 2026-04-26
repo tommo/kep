@@ -26,6 +26,7 @@ private struct GeneralPrefs: View {
     @AppStorage(PrefKeys.outlineOpenByDefault) private var outlineOpen: Bool = true
     @AppStorage(PrefKeys.showHiddenFiles) private var showHiddenFiles: Bool = false
     @AppStorage(PrefKeys.hideFileExtensions) private var hideFileExtensions: Bool = false
+    @AppStorage(PrefKeys.confirmBeforeQuit) private var confirmBeforeQuit: Bool = false
     @Environment(AppSession.self) private var session
 
     var body: some View {
@@ -42,6 +43,9 @@ private struct GeneralPrefs: View {
                 Toggle(L("prefs.general.show_hidden_files"), isOn: $showHiddenFiles)
                     .onChange(of: showHiddenFiles) { _, _ in session.reloadAllWorkspaces() }
                 Toggle(L("prefs.general.hide_file_extensions"), isOn: $hideFileExtensions)
+            }
+            Section(L("prefs.general.section.behavior")) {
+                Toggle(L("prefs.general.confirm_before_quit"), isOn: $confirmBeforeQuit)
             }
         }
         .formStyle(.grouped)

@@ -166,6 +166,12 @@
 "prefs.general.section.workspace" = "Workspace sidebar";
 "prefs.general.show_hidden_files" = "Show hidden files (dotfiles)";
 "prefs.general.hide_file_extensions" = "Hide file extensions in sidebar";
+"prefs.general.section.behavior" = "Quit behavior";
+"prefs.general.confirm_before_quit" = "Confirm before quitting";
+"quit.confirm.title" = "Quit Mindo?";
+"quit.confirm.message" = "Any unsaved changes in open tabs may be lost.";
+"quit.confirm.quit" = "Quit";
+"quit.confirm.cancel" = "Cancel";
 "prefs.editor.section.split" = "Editor split orientation";
 "prefs.editor.split.markdown" = "Markdown editor";
 "prefs.editor.split.plantuml" = "PlantUML editor";

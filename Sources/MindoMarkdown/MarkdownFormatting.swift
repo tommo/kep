@@ -193,6 +193,39 @@ public enum MarkdownFormatting {
         return (joined, newRange)
     }
 
+    /// Insert a horizontal-rule (`---`) on its own paragraph at the
+    /// current cursor location. Mirrors mindolph's `btnSeparator` action,
+    /// but pads with the surrounding blank lines markdown needs to
+    /// actually render the rule (a `---` line directly below text is
+    /// parsed as a setext H2 underline, not a separator).
+    ///
+    /// Drops any existing selection — separators don't pair with content
+    /// so the natural behavior is to replace + reposition the caret on
+    /// the line below the rule.
+    public static func horizontalRule(_ text: String, range: NSRange) -> (String, NSRange) {
+        let nsText = text as NSString
+        guard NSMaxRange(range) <= nsText.length else { return (text, range) }
+        let head = nsText.substring(to: range.location)
+        let tail = nsText.substring(from: NSMaxRange(range))
+        // Need a blank line BEFORE: head must end with "\n\n" (or be empty).
+        let leading: String
+        if head.isEmpty || head.hasSuffix("\n\n") { leading = "" }
+        else if head.hasSuffix("\n") { leading = "\n" }
+        else { leading = "\n\n" }
+        // Need a blank line AFTER: tail must start with "\n" (rule's own
+        // newline) plus another "\n" before any text.
+        let trailing: String
+        if tail.isEmpty || tail.hasPrefix("\n\n") { trailing = "\n" }
+        else if tail.hasPrefix("\n") { trailing = "\n" }
+        else { trailing = "\n\n" }
+        let block = leading + "---" + trailing
+        let joined = head + block + tail
+        // Caret on the line right after the rule — the user's most likely
+        // next move is to keep typing under the separator.
+        let cursor = (head as NSString).length + (block as NSString).length
+        return (joined, NSRange(location: cursor, length: 0))
+    }
+
     /// Column alignment markers for the GFM table separator row. `.none`
     /// emits the classic `---` sentinel; the others wrap with colons.
     public enum TableAlignment: Sendable {

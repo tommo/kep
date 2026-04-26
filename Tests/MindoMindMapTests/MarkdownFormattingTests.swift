@@ -124,4 +124,48 @@ final class MarkdownFormattingTests: XCTestCase {
         let (b, _) = MarkdownFormatting.table("", range: nsRange(0, 0), rows: 1, cols: 2, alignment: .none)
         XCTAssertEqual(a, b)
     }
+
+    // MARK: - horizontalRule
+
+    func testHorizontalRuleAtStartOfDocument() {
+        // Empty leading text — no leading newlines needed; only trailing
+        // newline so the rule isn't glued to whatever follows.
+        let (out, sel) = MarkdownFormatting.horizontalRule("", range: nsRange(0, 0))
+        XCTAssertEqual(out, "---\n")
+        XCTAssertEqual(sel, nsRange(4, 0))
+    }
+
+    func testHorizontalRulePadsBlankLineBeforePlainText() {
+        // Cursor right after "abc" (no trailing newline) — must add the
+        // double newline before so markdown parses `---` as a rule
+        // rather than a setext H2 underline. Empty tail = single
+        // trailing newline (no point padding the EOF).
+        let body = "abc"
+        let (out, sel) = MarkdownFormatting.horizontalRule(body, range: nsRange(3, 0))
+        XCTAssertEqual(out, "abc\n\n---\n")
+        // Caret lands after the trailing pad so the user can keep typing.
+        XCTAssertEqual(sel, nsRange((out as NSString).length, 0))
+    }
+
+    func testHorizontalRuleCollapsesExistingBlankLineBefore() {
+        let body = "abc\n\n"
+        let (out, _) = MarkdownFormatting.horizontalRule(body, range: nsRange(5, 0))
+        XCTAssertEqual(out, "abc\n\n---\n")
+    }
+
+    func testHorizontalRuleAddsBlankAfterIfTextFollows() {
+        // Tail starts with "next" — needs `\n\n` between rule + text.
+        let body = "next"
+        let (out, _) = MarkdownFormatting.horizontalRule(body, range: nsRange(0, 0))
+        XCTAssertEqual(out, "---\n\nnext")
+    }
+
+    func testHorizontalRuleReplacesSelection() {
+        let body = "before [SEL] after"
+        let range = nsRange(7, 5)  // "[SEL]"
+        let (out, _) = MarkdownFormatting.horizontalRule(body, range: range)
+        // Selection replaced by the padded rule; "[SEL]" gone.
+        XCTAssertFalse(out.contains("[SEL]"))
+        XCTAssertTrue(out.contains("\n\n---\n\n"))
+    }
 }

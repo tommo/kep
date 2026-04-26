@@ -139,6 +139,7 @@ public struct MarkdownEditor: NSViewRepresentable {
         stack.addArrangedSubview(iconButton(symbol: "strikethrough", tooltip: "Strikethrough", action: #selector(Coordinator.toolbarStrikethrough)))
         stack.addArrangedSubview(iconButton(symbol: "tablecells", tooltip: "Table", action: #selector(Coordinator.toolbarTable)))
         stack.addArrangedSubview(iconButton(symbol: "captions.bubble", tooltip: "HTML comment", action: #selector(Coordinator.toolbarComment)))
+        stack.addArrangedSubview(iconButton(symbol: "minus", tooltip: "Horizontal rule", action: #selector(Coordinator.toolbarHorizontalRule)))
         stack.addArrangedSubview(NSView())  // spacer
         return stack
     }
@@ -190,6 +191,7 @@ public struct MarkdownEditor: NSViewRepresentable {
         }
         @objc func toolbarStrikethrough() { applyTransform(MarkdownFormatting.strikethrough) }
         @objc func toolbarComment()       { applyTransform(MarkdownFormatting.comment) }
+        @objc func toolbarHorizontalRule() { applyTransform(MarkdownFormatting.horizontalRule) }
         @objc func toolbarTable() {
             // Picker dialog with rows + cols steppers + alignment segmented
             // control. Mirrors mindolph's TableDialog at the input level.

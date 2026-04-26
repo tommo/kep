@@ -6,6 +6,7 @@
 "menu.file.open_file" = "打开文件…";
 "menu.file.save" = "保存";
 "menu.file.save_as" = "另存为…";
+"menu.file.save_all" = "全部保存";
 "menu.file.close_tab" = "关闭标签页";
 "menu.file.print" = "打印…";
 "menu.file.import" = "导入";

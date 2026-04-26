@@ -34,6 +34,13 @@ extension AppSession {
     /// True when the active document is a markdown text doc (powers Export menu enabling).
     var activeIsMarkdown: Bool { activeFileType == .markdown }
 
+    /// True when at least one open document is dirty AND has a file URL
+    /// (so Save All has something it can actually flush; untitled docs
+    /// are skipped by saveAllDirty for UX reasons — see that method).
+    var hasDirtyOpenDocuments: Bool {
+        openDocuments.contains { $0.isDirty && $0.fileURL != nil }
+    }
+
     var activeFileType: SupportedFileType? {
         guard let doc = activeDocument else { return nil }
         switch doc.kind {

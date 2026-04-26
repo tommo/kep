@@ -127,6 +127,9 @@ struct MindoApp: App {
                     .keyboardShortcut("s", modifiers: .command)
                 Button(L("menu.file.save_as")) { session.saveActiveAs() }
                     .keyboardShortcut("s", modifiers: [.command, .shift])
+                Button(L("menu.file.save_all")) { session.saveAllDirty() }
+                    .keyboardShortcut("s", modifiers: [.command, .option])
+                    .disabled(!session.hasDirtyOpenDocuments)
                 Button(L("menu.file.close_tab")) { session.closeActive() }
                     .keyboardShortcut("w", modifiers: .command)
                     .disabled(session.activeDocument == nil)

@@ -38,6 +38,31 @@ extension AppSession {
         }
     }
 
+    /// Explicit Save All — saves every dirty doc that already has a
+    /// file URL. Untitled docs are skipped (would otherwise pop a
+    /// modal Save panel for each one, which is hostile UX); the user
+    /// can save those individually with ⌘S. Surfaces the *first*
+    /// failure via lastError but keeps trying the rest so a single
+    /// permission glitch doesn't abandon the others.
+    @MainActor
+    func saveAllDirty() {
+        var firstError: String?
+        for idx in openDocuments.indices {
+            let doc = openDocuments[idx]
+            guard doc.isDirty, let url = doc.fileURL else { continue }
+            do {
+                try doc.save(to: url)
+                openDocuments[idx].isDirty = false
+                openDocuments[idx].hasExternalChanges = false
+            } catch {
+                if firstError == nil {
+                    firstError = String(format: L("error.save_failed"), error.localizedDescription)
+                }
+            }
+        }
+        if let firstError { lastError = firstError }
+    }
+
     func saveActive() {
         guard let id = activeDocumentID,
               let idx = openDocuments.firstIndex(where: { $0.id == id }) else { return }

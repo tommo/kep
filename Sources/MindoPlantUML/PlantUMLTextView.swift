@@ -26,6 +26,24 @@ public final class PlantUMLTextView: NSTextView {
         applyLineTransform(EditorIndent.outdent)
     }
 
+    /// Toggle `' ` line comments on the line block under the selection.
+    /// Mirrors what the toolbar Comment button does so ⌘/ and the
+    /// button stay in sync.
+    @objc public func toggleLineComment() {
+        applyLineTransform(PlantUMLCommentToggle.toggle)
+    }
+
+    public override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if event.modifierFlags.contains(.command),
+           !event.modifierFlags.contains(.shift),
+           !event.modifierFlags.contains(.option),
+           event.charactersIgnoringModifiers == "/" {
+            toggleLineComment()
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+
     /// Same scaffolding as the markdown editor's — expand the selection
     /// to whole lines, run `transform` over the block, commit through
     /// shouldChangeText / didChangeText so the edit lands as one undo

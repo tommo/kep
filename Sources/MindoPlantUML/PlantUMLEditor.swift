@@ -96,6 +96,13 @@ public struct PlantUMLEditor: NSViewRepresentable {
         stack.addArrangedSubview(skeletonButton("State",    tooltip: "Insert state diagram skeleton",   action: #selector(Coordinator.insertState)))
         stack.addArrangedSubview(skeletonButton("Use Case", tooltip: "Insert use case diagram skeleton", action: #selector(Coordinator.insertUseCase)))
         stack.addArrangedSubview(skeletonButton("Mind Map", tooltip: "Insert mind map skeleton",        action: #selector(Coordinator.insertMindMap)))
+        let commentDivider = NSBox(); commentDivider.boxType = .separator
+        commentDivider.translatesAutoresizingMaskIntoConstraints = false
+        commentDivider.widthAnchor.constraint(equalToConstant: 1).isActive = true
+        commentDivider.heightAnchor.constraint(equalToConstant: 18).isActive = true
+        stack.addArrangedSubview(commentDivider)
+        stack.addArrangedSubview(skeletonButton("Comment",  tooltip: "Toggle line comment (⌘/)",       action: #selector(Coordinator.toggleLineComment)))
+        stack.addArrangedSubview(skeletonButton("Block",    tooltip: "Insert block comment /' '/",    action: #selector(Coordinator.insertBlockComment)))
         // Spacer between insert + copy clusters.
         let divider = NSBox(); divider.boxType = .separator
         divider.translatesAutoresizingMaskIntoConstraints = false
@@ -159,6 +166,33 @@ public struct PlantUMLEditor: NSViewRepresentable {
         @objc func insertState()    { insertSkeleton(PlantUMLSkeletons.state) }
         @objc func insertUseCase()  { insertSkeleton(PlantUMLSkeletons.useCase) }
         @objc func insertMindMap()  { insertSkeleton(PlantUMLSkeletons.mindMap) }
+
+        /// Forward toolbar Comment to the textview so the same code path
+        /// that handles ⌘/ runs (one undo entry, selection re-applied).
+        @objc func toggleLineComment() {
+            (textView as? PlantUMLTextView)?.toggleLineComment()
+        }
+
+        /// Insert an empty `/' '/` block at the cursor and place the
+        /// caret on the inner blank line so the user can type immediately.
+        @objc func insertBlockComment() {
+            guard let tv = textView else { return }
+            let range = tv.selectedRange()
+            let nsText = tv.string as NSString
+            let head = nsText.substring(to: range.location)
+            let tail = nsText.substring(from: NSMaxRange(range))
+            let leading = head.isEmpty || head.hasSuffix("\n") ? "" : "\n"
+            let trailing = tail.hasPrefix("\n") || tail.isEmpty ? "" : "\n"
+            let block = leading + "/'\n\n'/" + trailing
+            let combined = head + block + tail
+            tv.string = combined
+            // Caret on the empty middle line: head + leading + "/'\n".
+            let cursor = (head as NSString).length + (leading as NSString).length + 3
+            tv.setSelectedRange(NSRange(location: cursor, length: 0))
+            parent.text = combined
+            applyHighlighting()
+            scheduleRender(immediate: true)
+        }
 
         /// Replace the current selection (or insert at the cursor) with
         /// `skeleton`, surrounded by the necessary blank lines so the

@@ -1,4 +1,5 @@
 import AppKit
+import MindoCore
 import MindoModel
 
 extension MindMapView {
@@ -45,6 +46,17 @@ extension MindMapView {
             undoableSetAttribute(topic, key: TopicAttribute.image, value: base64)
             return
         }
+        // Mindolph parity (ckbSmartTextPaste): plain-text paste parses
+        // the clipboard as an indented outline. Tried last so the
+        // mindo-native subtree + image branches still win when both
+        // shapes are on the pasteboard.
+        if PrefKeys.bool(PrefKeys.mindmapSmartTextPaste, fallback: true),
+           let text = pb.string(forType: .string),
+           let subtree = MindMapPasteHelper.smartTextSubtree(text) {
+            topic.append(subtree)
+            undoableReparent(subtree, to: topic, at: topic.children.count - 1)
+            return
+        }
     }
 
     /// Enable the system Edit > Copy / Cut / Paste menu items based on
@@ -61,7 +73,16 @@ extension MindMapView {
             guard selectedElement != nil else { return false }
             let pb = NSPasteboard.general
             if pb.data(forType: NSPasteboard.PasteboardType(TopicSubtreeCodec.pasteboardType)) != nil { return true }
-            return MindMapPasteHelper.imageBase64(from: pb) != nil
+            if MindMapPasteHelper.imageBase64(from: pb) != nil { return true }
+            // Smart text paste — only enable Paste when the toggle is on
+            // AND there's actual text on the pasteboard; keeps the menu
+            // honest when the pref is flipped off.
+            if PrefKeys.bool(PrefKeys.mindmapSmartTextPaste, fallback: true),
+               let text = pb.string(forType: .string),
+               !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return true
+            }
+            return false
         default:
             return true
         }
@@ -77,6 +98,22 @@ public enum MindMapPasteHelper {
     /// representable image. Returns nil when the pasteboard has no image.
     /// PNG is the format `mmd.image` already round-trips through
     /// (FreeMind imports + context-menu Set Image both store PNG base64).
+    /// Parse `text` as an indented outline (via TextOutlineImporter)
+    /// and return the resulting root topic — ready to graft as a new
+    /// child of the paste target. Returns nil for whitespace-only or
+    /// empty input. Single-line input still returns a one-topic tree.
+    /// Pure-logic: no NSPasteboard / NSView dependencies so the
+    /// behavior is unit-testable.
+    public static func smartTextSubtree(_ text: String) -> Topic? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        guard let map = try? TextOutlineImporter.parse(text), let root = map.root else { return nil }
+        // Detach from the temporary map so the caller can graft cleanly.
+        // clone(deep:) produces an unowned subtree (parent / map nil) —
+        // matches what undoableReparent expects for new children.
+        return root.clone(deep: true)
+    }
+
     public static func imageBase64(from pasteboard: NSPasteboard) -> String? {
         // Direct PNG data is the cheapest path — skip image decode round-trip.
         if let pngData = pasteboard.data(forType: .png) {

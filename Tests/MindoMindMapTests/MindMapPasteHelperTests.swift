@@ -57,4 +57,49 @@ final class MindMapPasteHelperTests: XCTestCase {
         pb.setString("hello", forType: .string)
         XCTAssertNil(MindMapPasteHelper.imageBase64(from: pb))
     }
+
+    // MARK: - smartTextSubtree
+
+    func testSmartTextSingleLineYieldsOneTopic() {
+        let topic = MindMapPasteHelper.smartTextSubtree("Hello")
+        XCTAssertEqual(topic?.text, "Hello")
+        XCTAssertEqual(topic?.children.count, 0)
+    }
+
+    func testSmartTextMultilineBuildsHierarchy() {
+        let text = """
+        Section
+          A
+          B
+        """
+        let topic = MindMapPasteHelper.smartTextSubtree(text)
+        XCTAssertEqual(topic?.text, "Section")
+        XCTAssertEqual(topic?.children.map(\.text), ["A", "B"])
+    }
+
+    func testSmartTextStripsBulletMarkers() {
+        // - / * / • / + are accepted bullet markers (TextOutlineImporter
+        // contract) — verify the smart-paste path forwards that.
+        let text = """
+        Top
+          - first
+          * second
+        """
+        let topic = MindMapPasteHelper.smartTextSubtree(text)
+        XCTAssertEqual(topic?.children.map(\.text), ["first", "second"])
+    }
+
+    func testSmartTextEmptyOrWhitespaceReturnsNil() {
+        XCTAssertNil(MindMapPasteHelper.smartTextSubtree(""))
+        XCTAssertNil(MindMapPasteHelper.smartTextSubtree("   "))
+        XCTAssertNil(MindMapPasteHelper.smartTextSubtree("\n\n  \n"))
+    }
+
+    func testSmartTextSubtreeIsDetached() {
+        // The returned subtree must be ungrafted (parent / map nil) so
+        // undoableReparent can plug it into the live mindmap cleanly.
+        let topic = MindMapPasteHelper.smartTextSubtree("Standalone")
+        XCTAssertNil(topic?.parent)
+        XCTAssertNil(topic?.map)
+    }
 }

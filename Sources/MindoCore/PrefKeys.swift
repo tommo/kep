@@ -57,6 +57,10 @@ public enum PrefKeys {
     /// the parent's `collapsed` attribute so the dropped subtree is
     /// visible. Default on. Mirrors `ckbUnfoldCollapsedDropTarget`.
     public static let mindmapUnfoldCollapsedDropTarget = "mindo.prefs.mindmapUnfoldCollapsedDropTarget"
+    /// On canvas paste, parse the pasteboard's plain text as an
+    /// indented outline and graft the resulting subtree under the
+    /// selection. Default on. Mirrors `ckbSmartTextPaste`.
+    public static let mindmapSmartTextPaste = "mindo.prefs.mindmapSmartTextPaste"
 
     /// Convenience: pulls a Double from UserDefaults, returning `fallback`
     /// when the key is unset or stored as a non-positive value.

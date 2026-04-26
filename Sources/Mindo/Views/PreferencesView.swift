@@ -104,6 +104,7 @@ private struct MindMapPrefs: View {
     @AppStorage(PrefKeys.mindmapGridStep) private var gridStep: Double = 16
     @AppStorage(PrefKeys.mindmapDropShadow) private var dropShadow: Bool = true
     @AppStorage(PrefKeys.mindmapUnfoldCollapsedDropTarget) private var unfoldOnDrop: Bool = true
+    @AppStorage(PrefKeys.mindmapSmartTextPaste) private var smartTextPaste: Bool = true
 
     var body: some View {
         Form {
@@ -129,6 +130,7 @@ private struct MindMapPrefs: View {
                 Toggle(L("prefs.mindmap.trim_topic_text"), isOn: $trimTopicText)
                 Toggle(L("prefs.mindmap.drop_shadow"), isOn: $dropShadow)
                 Toggle(L("prefs.mindmap.unfold_on_drop"), isOn: $unfoldOnDrop)
+                Toggle(L("prefs.mindmap.smart_text_paste"), isOn: $smartTextPaste)
             }
             Section(L("prefs.mindmap.section.grid")) {
                 Toggle(L("prefs.mindmap.show_grid"), isOn: $showGrid)

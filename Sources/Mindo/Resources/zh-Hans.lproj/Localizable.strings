@@ -173,6 +173,7 @@
 "prefs.mindmap.show_grid" = "显示背景网格";
 "prefs.mindmap.drop_shadow" = "话题方块投影";
 "prefs.mindmap.unfold_on_drop" = "拖拽落到折叠话题时自动展开";
+"prefs.mindmap.smart_text_paste" = "纯文本粘贴为话题大纲";
 "prefs.mindmap.grid_step" = "网格间距：%d pt";
 "prefs.editor.section.split" = "编辑器分屏方向";
 "prefs.editor.split.markdown" = "Markdown 编辑器";

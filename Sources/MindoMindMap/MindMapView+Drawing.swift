@@ -1,4 +1,5 @@
 import AppKit
+import MindoCore
 import MindoModel
 
 /// Drawing helpers for `MindMapView`. Lifted out of the main file to keep
@@ -220,7 +221,8 @@ extension MindMapView {
         return CGPoint(x: point.x + nx * t, y: point.y + ny * t)
     }
 
-    /// Draw a single parent→child cubic bezier connector.
+    /// Draw a single parent→child connector. Style and line width come from
+    /// PrefKeys so the user can swap bezier ↔ polyline at runtime.
     func drawConnector(from parent: MindMapElement, to child: MindMapElement, into ctx: CGContext) {
         // Start at the parent edge facing the child; end at the child edge facing the parent.
         let pStart: CGPoint
@@ -232,14 +234,28 @@ extension MindMapView {
             pStart = CGPoint(x: parent.frame.maxX, y: parent.frame.midY)
             pEnd = CGPoint(x: child.frame.minX, y: child.frame.midY)
         }
-        let midX = (pStart.x + pEnd.x) / 2
-        let c1 = CGPoint(x: midX, y: pStart.y)
-        let c2 = CGPoint(x: midX, y: pEnd.y)
+        let style = ConnectorStyle.from(rawString: UserDefaults.standard.string(forKey: PrefKeys.mindmapConnectorStyle))
+        let width = CGFloat(PrefKeys.double(PrefKeys.mindmapConnectorWidth, fallback: Double(theme.connectorWidth)))
 
         ctx.beginPath()
         ctx.move(to: pStart)
-        ctx.addCurve(to: pEnd, control1: c1, control2: c2)
+        switch style {
+        case .bezier:
+            let midX = (pStart.x + pEnd.x) / 2
+            let c1 = CGPoint(x: midX, y: pStart.y)
+            let c2 = CGPoint(x: midX, y: pEnd.y)
+            ctx.addCurve(to: pEnd, control1: c1, control2: c2)
+        case .polyline:
+            // Two-segment elbow: horizontal halfway, then vertical to target,
+            // then horizontal into the child edge. Keeps the visual depth
+            // hierarchy of bezier without the curvature.
+            let midX = (pStart.x + pEnd.x) / 2
+            ctx.addLine(to: CGPoint(x: midX, y: pStart.y))
+            ctx.addLine(to: CGPoint(x: midX, y: pEnd.y))
+            ctx.addLine(to: pEnd)
+        }
         ctx.setStrokeColor(theme.connectorColor.cgColor)
+        ctx.setLineWidth(width)
         ctx.strokePath()
     }
 }

@@ -133,6 +133,11 @@
 "prefs.mindmap.section.layout" = "布局";
 "prefs.mindmap.vertical_gap" = "同级间距：%d pt";
 "prefs.mindmap.horizontal_gap" = "层级间距：%d pt";
+"prefs.mindmap.section.connectors" = "连接线";
+"prefs.mindmap.connector_style" = "样式";
+"prefs.mindmap.connector_style.bezier" = "贝塞尔曲线";
+"prefs.mindmap.connector_style.polyline" = "折线";
+"prefs.mindmap.connector_width" = "粗细：%.1f pt";
 "prefs.ai.section.behavior" = "行为";
 "prefs.ai.streaming" = "流式输出（推荐）";
 

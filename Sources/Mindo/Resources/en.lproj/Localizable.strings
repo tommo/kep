@@ -136,6 +136,11 @@
 "prefs.mindmap.section.layout" = "Layout";
 "prefs.mindmap.vertical_gap" = "Vertical gap between siblings: %d pt";
 "prefs.mindmap.horizontal_gap" = "Horizontal gap between levels: %d pt";
+"prefs.mindmap.section.connectors" = "Connectors";
+"prefs.mindmap.connector_style" = "Style";
+"prefs.mindmap.connector_style.bezier" = "Bezier curve";
+"prefs.mindmap.connector_style.polyline" = "Polyline (elbow)";
+"prefs.mindmap.connector_width" = "Width: %.1f pt";
 "prefs.ai.section.behavior" = "Behavior";
 "prefs.ai.streaming" = "Stream responses (recommended)";
 

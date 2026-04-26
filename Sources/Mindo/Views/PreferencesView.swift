@@ -63,6 +63,8 @@ private struct EditorPrefs: View {
 private struct MindMapPrefs: View {
     @AppStorage(PrefKeys.mindmapVerticalGap) private var verticalGap: Double = 14
     @AppStorage(PrefKeys.mindmapHorizontalGap) private var horizontalGap: Double = 60
+    @AppStorage(PrefKeys.mindmapConnectorStyle) private var connectorStyle: String = "bezier"
+    @AppStorage(PrefKeys.mindmapConnectorWidth) private var connectorWidth: Double = 1.5
 
     var body: some View {
         Form {
@@ -72,6 +74,15 @@ private struct MindMapPrefs: View {
                 }
                 Stepper(value: $horizontalGap, in: 20...160, step: 4) {
                     Text(String(format: L("prefs.mindmap.horizontal_gap"), Int(horizontalGap)))
+                }
+            }
+            Section(L("prefs.mindmap.section.connectors")) {
+                Picker(L("prefs.mindmap.connector_style"), selection: $connectorStyle) {
+                    Text(L("prefs.mindmap.connector_style.bezier")).tag("bezier")
+                    Text(L("prefs.mindmap.connector_style.polyline")).tag("polyline")
+                }
+                Stepper(value: $connectorWidth, in: 0.5...4.0, step: 0.5) {
+                    Text(String(format: L("prefs.mindmap.connector_width"), connectorWidth))
                 }
             }
         }

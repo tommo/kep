@@ -25,6 +25,7 @@ private struct GeneralPrefs: View {
     @AppStorage(PrefKeys.theme) private var theme: String = ThemeChoice.light.rawValue
     @AppStorage(PrefKeys.outlineOpenByDefault) private var outlineOpen: Bool = true
     @AppStorage(PrefKeys.showHiddenFiles) private var showHiddenFiles: Bool = false
+    @AppStorage(PrefKeys.hideFileExtensions) private var hideFileExtensions: Bool = false
     @Environment(AppSession.self) private var session
 
     var body: some View {
@@ -40,6 +41,7 @@ private struct GeneralPrefs: View {
             Section(L("prefs.general.section.workspace")) {
                 Toggle(L("prefs.general.show_hidden_files"), isOn: $showHiddenFiles)
                     .onChange(of: showHiddenFiles) { _, _ in session.reloadAllWorkspaces() }
+                Toggle(L("prefs.general.hide_file_extensions"), isOn: $hideFileExtensions)
             }
         }
         .formStyle(.grouped)

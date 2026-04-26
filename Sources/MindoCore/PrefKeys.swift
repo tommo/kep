@@ -13,6 +13,10 @@ public enum PrefKeys {
     /// Default false — matches Finder. Mirrors mindolph's
     /// `GENERAL_SHOW_HIDDEN_FILES`.
     public static let showHiddenFiles = "mindo.prefs.showHiddenFiles"
+    /// Strip the trailing extension from file rows in the workspace
+    /// sidebar (e.g. `notes.mmd` → `notes`). Folders + workspaces are
+    /// untouched. Mirrors mindolph's `GENERAL_HIDE_EXTENSION`.
+    public static let hideFileExtensions = "mindo.prefs.hideFileExtensions"
     /// Optional preferred monospaced font family for the markdown /
     /// plantuml editors. Empty = use the system default monospaced font.
     public static let editorFontFamily = "mindo.prefs.editorFontFamily"

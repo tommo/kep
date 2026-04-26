@@ -162,6 +162,7 @@
 "prefs.editor.font_family.system" = "系统默认（等宽）";
 "prefs.general.section.workspace" = "工作区侧边栏";
 "prefs.general.show_hidden_files" = "显示隐藏文件（点开头）";
+"prefs.general.hide_file_extensions" = "侧边栏隐藏文件扩展名";
 "prefs.editor.section.split" = "编辑器分屏方向";
 "prefs.editor.split.markdown" = "Markdown 编辑器";
 "prefs.editor.split.plantuml" = "PlantUML 编辑器";

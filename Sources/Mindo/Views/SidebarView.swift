@@ -154,6 +154,7 @@ struct NodeRow: View {
     let node: NodeData
     @Binding var session: AppSession
     @Binding var selection: NodeData?
+    @AppStorage(PrefKeys.hideFileExtensions) private var hideFileExtensions: Bool = false
 
     var body: some View {
         if node.isExpandable {
@@ -209,7 +210,12 @@ struct NodeRow: View {
                 session.renamingNodeID = nil
             }
         } else {
-            Text(node.name)
+            // Folders + workspaces always show their full name. Only file
+            // rows are subject to the Hide Extensions toggle so directories
+            // like `notes.archive` keep their identifying suffix.
+            Text(node.isFile
+                 ? SidebarLabel.displayName(node.name, hideExtensions: hideFileExtensions)
+                 : node.name)
         }
     }
 

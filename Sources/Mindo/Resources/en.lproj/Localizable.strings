@@ -165,6 +165,7 @@
 "prefs.editor.font_family.system" = "System default (mono)";
 "prefs.general.section.workspace" = "Workspace sidebar";
 "prefs.general.show_hidden_files" = "Show hidden files (dotfiles)";
+"prefs.general.hide_file_extensions" = "Hide file extensions in sidebar";
 "prefs.editor.section.split" = "Editor split orientation";
 "prefs.editor.split.markdown" = "Markdown editor";
 "prefs.editor.split.plantuml" = "PlantUML editor";

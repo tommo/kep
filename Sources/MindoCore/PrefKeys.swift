@@ -64,6 +64,9 @@ public enum PrefKeys {
     /// Override for the topic rectangle corner radius (points). 0 or
     /// unset = use the theme's value. Mirrors `spnRoundRadius`.
     public static let mindmapCornerRadius = "mindo.prefs.mindmapCornerRadius"
+    /// Topic border stroke width in points. Default 1.0pt (matches
+    /// previous behavior). Mirrors `spnBorderWidth`.
+    public static let mindmapBorderWidth = "mindo.prefs.mindmapBorderWidth"
     /// Optional path to a `dot` binary (Graphviz). When set, mindo
     /// passes it to PlantUML via the GRAPHVIZ_DOT env var so non-
     /// standard Homebrew prefixes / Nix profiles / portable installs

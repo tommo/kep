@@ -235,6 +235,9 @@ struct NodeRow: View {
             Divider()
         }
         Button(L("sidebar.menu.reveal_in_finder")) { session.revealInFinder(node) }
+        if node.isFile {
+            Button(L("sidebar.menu.open_in_default_app")) { session.openInDefaultApp(node) }
+        }
         Button(L("sidebar.menu.open_terminal"))    { session.openTerminal(at: node) }
         Divider()
         if !node.isWorkspace {

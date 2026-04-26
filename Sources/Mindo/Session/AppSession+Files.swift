@@ -10,6 +10,14 @@ extension AppSession {
         NSWorkspace.shared.activateFileViewerSelecting([node.url])
     }
 
+    /// Hand the file off to whatever app the user has set as the
+    /// default for that UTI. Useful for images / PDFs / unknown file
+    /// types that Mindo can't open in-app. Folders + workspaces just
+    /// open in Finder (NSWorkspace's documented behavior).
+    func openInDefaultApp(_ node: NodeData) {
+        NSWorkspace.shared.open(node.url)
+    }
+
     /// Open Terminal.app rooted at the node's directory (or its parent if
     /// the node is a file). Mirrors Mindolph's "Open Terminal Here".
     func openTerminal(at node: NodeData) {

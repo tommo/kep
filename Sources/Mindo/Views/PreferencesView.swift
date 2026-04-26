@@ -130,6 +130,7 @@ private struct MindMapPrefs: View {
     @AppStorage(PrefKeys.mindmapUnfoldCollapsedDropTarget) private var unfoldOnDrop: Bool = true
     @AppStorage(PrefKeys.mindmapSmartTextPaste) private var smartTextPaste: Bool = true
     @AppStorage(PrefKeys.mindmapCornerRadius) private var cornerRadius: Double = 0
+    @AppStorage(PrefKeys.mindmapBorderWidth) private var borderWidth: Double = 0
 
     var body: some View {
         Form {
@@ -156,6 +157,13 @@ private struct MindMapPrefs: View {
                         Text(String(format: L("prefs.mindmap.corner_radius_value"), Int(cornerRadius)))
                     } else {
                         Text(L("prefs.mindmap.corner_radius_theme"))
+                    }
+                }
+                Stepper(value: $borderWidth, in: 0...8, step: 0.5) {
+                    if borderWidth > 0 {
+                        Text(String(format: L("prefs.mindmap.border_width_value"), borderWidth))
+                    } else {
+                        Text(L("prefs.mindmap.border_width_default"))
                     }
                 }
             }

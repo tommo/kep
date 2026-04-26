@@ -100,6 +100,7 @@
 "sidebar.menu.new_file" = "新建文件…";
 "sidebar.menu.new_folder" = "新建文件夹…";
 "sidebar.menu.reveal_in_finder" = "在 Finder 中显示";
+"sidebar.menu.open_in_default_app" = "在默认应用中打开";
 "sidebar.menu.open_terminal" = "在终端中打开";
 "sidebar.menu.rename" = "重命名…";
 "sidebar.menu.duplicate" = "复制副本";
@@ -173,6 +174,8 @@
 "prefs.mindmap.section.shape" = "话题形状";
 "prefs.mindmap.corner_radius_value" = "圆角半径：%d pt";
 "prefs.mindmap.corner_radius_theme" = "圆角半径：主题默认";
+"prefs.mindmap.border_width_value" = "边框宽度：%.1f pt";
+"prefs.mindmap.border_width_default" = "边框宽度：1 pt（默认）";
 "prefs.mindmap.show_grid" = "显示背景网格";
 "prefs.mindmap.drop_shadow" = "话题方块投影";
 "prefs.mindmap.unfold_on_drop" = "拖拽落到折叠话题时自动展开";

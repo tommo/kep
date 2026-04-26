@@ -1,5 +1,23 @@
 import CoreGraphics
 
+/// Topic border stroke width — same shape as the corner-radius
+/// resolver. Pure-logic clamp so the unit-test suite can pin the
+/// behavior independent of the draw path.
+public enum MindMapBorderWidth {
+
+    public static let defaultWidth: CGFloat = 1.0
+    public static let maxWidth: CGFloat = 8.0
+
+    /// `pref` is the raw `PrefKeys.mindmapBorderWidth` value (0 = unset).
+    /// Returns `defaultWidth` for 0 / negative / non-finite input;
+    /// otherwise clamps positive values into `(0, maxWidth]`.
+    public static func resolve(pref: Double) -> CGFloat {
+        let v = CGFloat(pref)
+        guard v.isFinite, v > 0 else { return defaultWidth }
+        return min(v, maxWidth)
+    }
+}
+
 /// Resolve the topic corner radius respecting the user override.
 /// Mindolph parity (`spnRoundRadius`): the user picks a value in
 /// Preferences; an unset/zero pref means "fall back to the theme's

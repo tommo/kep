@@ -58,3 +58,24 @@ final class MindMapCornerRadiusTests: XCTestCase {
         XCTAssertEqual(MindMapCornerRadius.resolve(pref: 9999, themeDefault: 8), MindMapCornerRadius.maxRadius)
     }
 }
+
+final class MindMapBorderWidthTests: XCTestCase {
+
+    func testZeroPrefFallsBackToDefault() {
+        XCTAssertEqual(MindMapBorderWidth.resolve(pref: 0), MindMapBorderWidth.defaultWidth)
+    }
+
+    func testNegativeOrNonFiniteFallsBackToDefault() {
+        XCTAssertEqual(MindMapBorderWidth.resolve(pref: -3), MindMapBorderWidth.defaultWidth)
+        XCTAssertEqual(MindMapBorderWidth.resolve(pref: .nan), MindMapBorderWidth.defaultWidth)
+        XCTAssertEqual(MindMapBorderWidth.resolve(pref: .infinity), MindMapBorderWidth.defaultWidth)
+    }
+
+    func testTypicalPrefWins() {
+        XCTAssertEqual(MindMapBorderWidth.resolve(pref: 2.5), 2.5)
+    }
+
+    func testHugePrefClampsToMax() {
+        XCTAssertEqual(MindMapBorderWidth.resolve(pref: 1000), MindMapBorderWidth.maxWidth)
+    }
+}

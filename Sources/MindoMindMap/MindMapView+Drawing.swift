@@ -70,7 +70,9 @@ extension MindMapView {
         // Border.
         ctx.addPath(path)
         ctx.setStrokeColor((el.customBorderColor ?? theme.borderColor(forLevel: level)).cgColor)
-        ctx.setLineWidth(1.0)
+        ctx.setLineWidth(MindMapBorderWidth.resolve(
+            pref: PrefKeys.double(PrefKeys.mindmapBorderWidth, fallback: 0)
+        ))
         ctx.strokePath()
 
         // Embedded image (above the text).

@@ -103,6 +103,7 @@
 "sidebar.menu.new_file" = "New File…";
 "sidebar.menu.new_folder" = "New Folder…";
 "sidebar.menu.reveal_in_finder" = "Reveal in Finder";
+"sidebar.menu.open_in_default_app" = "Open in Default App";
 "sidebar.menu.open_terminal" = "Open Terminal Here";
 "sidebar.menu.rename" = "Rename…";
 "sidebar.menu.duplicate" = "Duplicate";
@@ -176,6 +177,8 @@
 "prefs.mindmap.section.shape" = "Topic shape";
 "prefs.mindmap.corner_radius_value" = "Corner radius: %d pt";
 "prefs.mindmap.corner_radius_theme" = "Corner radius: theme default";
+"prefs.mindmap.border_width_value" = "Border width: %.1f pt";
+"prefs.mindmap.border_width_default" = "Border width: 1 pt (default)";
 "prefs.mindmap.show_grid" = "Show background grid";
 "prefs.mindmap.drop_shadow" = "Drop shadow under topics";
 "prefs.mindmap.unfold_on_drop" = "Unfold collapsed topic when something is dropped on it";

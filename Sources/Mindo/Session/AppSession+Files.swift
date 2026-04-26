@@ -56,6 +56,28 @@ extension AppSession {
         }
     }
 
+    /// Permanently delete a file or folder — bypasses the trash. Surfaces
+    /// a confirmation alert because the action can't be undone via
+    /// FileManager. Use the regular `deleteNode` for the safe Move-to-Trash
+    /// behavior.
+    @MainActor
+    func deleteNodePermanently(_ node: NodeData) {
+        guard !node.isWorkspace else { removeWorkspace(node); return }
+        let alert = NSAlert()
+        alert.messageText = String(format: L("sidebar.delete_permanently.title"), node.url.lastPathComponent)
+        alert.informativeText = L("sidebar.delete_permanently.message")
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: L("button.delete"))
+        alert.addButton(withTitle: L("button.cancel"))
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        do {
+            try FileManager.default.removeItem(at: node.url)
+            reloadWorkspace(containing: node)
+        } catch {
+            lastError = String(format: L("error.delete_failed"), error.localizedDescription)
+        }
+    }
+
     /// Duplicate a file or folder in place, picking a unique " copy" name.
     /// Shadows Mindolph's `WorkspaceViewEditable.copyFile()` behaviour.
     @MainActor

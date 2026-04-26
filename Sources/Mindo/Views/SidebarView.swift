@@ -98,6 +98,7 @@ struct NodeRow: View {
             Button(L("sidebar.menu.duplicate")) { session.duplicateNode(node) }
             Button(L("sidebar.menu.rename")) { session.renameNode(node) }
             Button(L("sidebar.menu.delete"), role: .destructive) { session.deleteNode(node) }
+            Button(L("sidebar.menu.delete_permanently"), role: .destructive) { session.deleteNodePermanently(node) }
         } else {
             Button(L("sidebar.menu.remove_workspace"), role: .destructive) { session.removeWorkspace(node) }
         }

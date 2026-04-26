@@ -95,6 +95,10 @@
 "sidebar.menu.open_terminal" = "在终端中打开";
 "sidebar.menu.rename" = "重命名…";
 "sidebar.menu.duplicate" = "复制副本";
+"sidebar.menu.delete_permanently" = "永久删除…";
+"sidebar.delete_permanently.title" = "永久删除 %@ ？";
+"sidebar.delete_permanently.message" = "该文件或文件夹将被立即移除。此操作不可撤销。";
+"button.delete" = "删除";
 "sidebar.menu.delete" = "移到废纸篓";
 "sidebar.menu.remove_workspace" = "移除工作区";
 "sidebar.rename.title" = "重命名";

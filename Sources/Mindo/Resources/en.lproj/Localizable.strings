@@ -98,6 +98,10 @@
 "sidebar.menu.open_terminal" = "Open Terminal Here";
 "sidebar.menu.rename" = "Rename…";
 "sidebar.menu.duplicate" = "Duplicate";
+"sidebar.menu.delete_permanently" = "Delete Permanently…";
+"sidebar.delete_permanently.title" = "Permanently delete %@?";
+"sidebar.delete_permanently.message" = "This file or folder will be removed immediately. You can't undo this action.";
+"button.delete" = "Delete";
 "sidebar.menu.delete" = "Move to Trash";
 "sidebar.menu.remove_workspace" = "Remove Workspace";
 "sidebar.rename.title" = "Rename";

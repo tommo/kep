@@ -176,7 +176,15 @@ struct NodeRow: View {
     @ViewBuilder
     private var menuItems: some View {
         if node.isExpandable {
-            Button(L("sidebar.menu.new_file"))   { session.createFile(in: node) }
+            // New File submenu — pre-pick extension so users don't get an
+            // .md file when they meant .mmd, etc.
+            Menu(L("sidebar.menu.new_file")) {
+                Button(L("sidebar.menu.new_file.mindmap"))  { session.createFile(in: node, extension: "mmd") }
+                Button(L("sidebar.menu.new_file.markdown")) { session.createFile(in: node, extension: "md") }
+                Button(L("sidebar.menu.new_file.plantuml")) { session.createFile(in: node, extension: "puml") }
+                Button(L("sidebar.menu.new_file.csv"))      { session.createFile(in: node, extension: "csv") }
+                Button(L("sidebar.menu.new_file.text"))     { session.createFile(in: node, extension: "txt") }
+            }
             Button(L("sidebar.menu.new_folder")) { session.createFolder(in: node) }
             Divider()
         }

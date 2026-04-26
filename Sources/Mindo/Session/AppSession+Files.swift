@@ -107,13 +107,15 @@ extension AppSession {
     // MARK: - Create
 
     /// Prompt for a filename and create an empty file inside `node`'s folder.
+    /// `extension` (default "md") drives the prefilled name and the file's
+    /// resulting extension; matches the sidebar's per-type New File submenu.
     @MainActor
-    func createFile(in node: NodeData) {
+    func createFile(in node: NodeData, extension ext: String = "md") {
         guard node.isExpandable else { return }
         guard let name = promptString(
             title: L("sidebar.new_file.title"),
             message: L("sidebar.new_file.message"),
-            initial: "Untitled.md"
+            initial: "Untitled.\(ext)"
         ), !name.isEmpty else { return }
         let url = node.url.appendingPathComponent(name)
         do {

@@ -62,6 +62,11 @@ extension AppSession {
         if let ext = doc.kind.preferredExtension {
             panel.allowedContentTypes = [UTType.init(filenameExtension: ext) ?? .data]
         }
+        // Default to the active doc's parent dir when it has one — saves the
+        // user from re-navigating to the workspace on every Save As.
+        if let url = doc.fileURL {
+            panel.directoryURL = url.deletingLastPathComponent()
+        }
         panel.nameFieldStringValue = doc.title.isEmpty ? L("picker.untitled_mindmap") : doc.title
         if panel.runModal() == .OK, let url = panel.url {
             do {
@@ -148,6 +153,7 @@ extension AppSession {
         guard let doc = activeDocument, case .mindMap(let map) = doc.kind else { return }
         let panel = NSSavePanel()
         panel.allowedContentTypes = [UTType.init(filenameExtension: ext) ?? .data]
+        if let url = doc.fileURL { panel.directoryURL = url.deletingLastPathComponent() }
         panel.nameFieldStringValue = (doc.fileURL?.deletingPathExtension().lastPathComponent ?? "Untitled") + "." + ext
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do { try write(map, url) }
@@ -160,6 +166,7 @@ extension AppSession {
         guard let doc = activeDocument, case .mindMap(let map) = doc.kind else { return }
         let panel = NSSavePanel()
         panel.allowedContentTypes = [UTType.init(filenameExtension: "org") ?? .data]
+        if let url = doc.fileURL { panel.directoryURL = url.deletingLastPathComponent() }
         panel.nameFieldStringValue = (doc.fileURL?.deletingPathExtension().lastPathComponent ?? "Untitled") + ".org"
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {

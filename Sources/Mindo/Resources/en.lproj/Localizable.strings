@@ -98,6 +98,11 @@
 "sidebar.menu.open_terminal" = "Open Terminal Here";
 "sidebar.menu.rename" = "Rename…";
 "sidebar.menu.duplicate" = "Duplicate";
+"sidebar.menu.new_file.mindmap" = "Mind Map (.mmd)";
+"sidebar.menu.new_file.markdown" = "Markdown (.md)";
+"sidebar.menu.new_file.plantuml" = "PlantUML (.puml)";
+"sidebar.menu.new_file.csv" = "CSV (.csv)";
+"sidebar.menu.new_file.text" = "Plain Text (.txt)";
 "sidebar.filter.clear" = "Clear filter";
 "sidebar.menu.delete_permanently" = "Delete Permanently…";
 "sidebar.delete_permanently.title" = "Permanently delete %@?";

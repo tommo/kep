@@ -95,6 +95,11 @@
 "sidebar.menu.open_terminal" = "在终端中打开";
 "sidebar.menu.rename" = "重命名…";
 "sidebar.menu.duplicate" = "复制副本";
+"sidebar.menu.new_file.mindmap" = "思维导图 (.mmd)";
+"sidebar.menu.new_file.markdown" = "Markdown (.md)";
+"sidebar.menu.new_file.plantuml" = "PlantUML (.puml)";
+"sidebar.menu.new_file.csv" = "CSV (.csv)";
+"sidebar.menu.new_file.text" = "纯文本 (.txt)";
 "sidebar.filter.clear" = "清除筛选";
 "sidebar.menu.delete_permanently" = "永久删除…";
 "sidebar.delete_permanently.title" = "永久删除 %@ ？";

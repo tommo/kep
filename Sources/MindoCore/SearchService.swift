@@ -14,6 +14,16 @@ public struct SearchHit: Hashable, Sendable {
     }
 }
 
+extension SearchHit {
+    /// The substring of `line` that this hit covers. Used by the mindmap
+    /// canvas highlight path — Find-in-Files only knows the NSRange.
+    public var matchedSubstring: String? {
+        guard let range = Range(matchRange, in: line) else { return nil }
+        let text = String(line[range])
+        return text.isEmpty ? nil : text
+    }
+}
+
 /// A file with at least one search hit. Mirrors `FoundFile`.
 public struct FoundFile: Identifiable, Hashable, Sendable {
     public var id: URL { url }

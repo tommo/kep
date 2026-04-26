@@ -72,7 +72,10 @@ struct MindoApp: App {
                 }
                 .sheet(isPresented: $session.findInFilesOpen) {
                     NavigationStack {
-                        FindInFilesPanel(workspaceRoots: session.workspaceRoots.map(\.url)) { url, _ in
+                        FindInFilesPanel(workspaceRoots: session.workspaceRoots.map(\.url)) { url, hit in
+                            // Extract the actual matched substring from the
+                            // hit so the canvas can tint topics carrying it.
+                            session.lastSearchMatch = hit.matchedSubstring
                             session.open(url: url)
                             session.findInFilesOpen = false
                         }
@@ -287,6 +290,12 @@ final class AppSession {
     /// files visible). Folders always show regardless so the user can
     /// navigate. Mirrors Mindolph's `FileFilterButtonGroup`.
     var sidebarTypeFilter: Set<SupportedFileType> = []
+
+    /// Most recent text matched by a Find-in-Files hit. The mindmap canvas
+    /// reads this and tints any topic whose title contains the query, so
+    /// the user immediately sees which topic produced the result.
+    /// Cleared on next selection / new doc open.
+    var lastSearchMatch: String?
 
     /// Per-document outline navigation request. Editor views observe this and
     /// scroll/center on change. Reset to nil after a brief debounce so the

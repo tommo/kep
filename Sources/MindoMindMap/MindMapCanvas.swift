@@ -11,19 +11,24 @@ public struct MindMapCanvas: NSViewRepresentable {
     public var onExtraFileTap: ((URL) -> Void)?
     /// External nav target — when this changes, navigate the canvas.
     public var navigationTarget: String?
+    /// Substring to highlight on every topic whose text contains it
+    /// (case-insensitive). Drives the post-Find-in-Files visual marker.
+    public var searchHighlight: String?
 
     public init(
         map: MindMap,
         theme: MindMapTheme = .light,
         onChange: @escaping (MindMap) -> Void = { _ in },
         onExtraFileTap: ((URL) -> Void)? = nil,
-        navigationTarget: String? = nil
+        navigationTarget: String? = nil,
+        searchHighlight: String? = nil
     ) {
         self.map = map
         self.theme = theme
         self.onChange = onChange
         self.onExtraFileTap = onExtraFileTap
         self.navigationTarget = navigationTarget
+        self.searchHighlight = searchHighlight
     }
 
     public func makeNSView(context: Context) -> NSScrollView {
@@ -66,6 +71,10 @@ public struct MindMapCanvas: NSViewRepresentable {
         guard let view = scroll.documentView as? MindMapView else { return }
         view.theme = theme
         view.onExtraFileTap = onExtraFileTap
+        if view.searchHighlight != searchHighlight {
+            view.searchHighlight = searchHighlight
+            view.needsDisplay = true
+        }
         if view.mindMap !== map {
             view.display(map: map)
         }

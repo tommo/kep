@@ -90,4 +90,35 @@ final class SearchServiceTests: XCTestCase {
         let names = results.map { $0.url.lastPathComponent }.sorted()
         XCTAssertEqual(names, ["a.md", "c.md"])
     }
+
+    // MARK: - SearchHit.matchedSubstring (powers canvas highlight)
+
+    func testMatchedSubstringExtractsTheRange() {
+        let hit = SearchHit(lineNumber: 1, line: "the quick brown fox",
+                            matchRange: NSRange(location: 4, length: 5))
+        XCTAssertEqual(hit.matchedSubstring, "quick")
+    }
+
+    func testMatchedSubstringHandlesMultiByteCharacters() {
+        // The NSRange must be measured in UTF-16 code units; the helper
+        // converts back to String.Index correctly. Verifies CJK / non-ASCII
+        // in the line doesn't desync the range.
+        let line = "α β γ"
+        // "γ" starts at UTF-16 offset 4 (α=1 + space=1 + β=1 + space=1).
+        let hit = SearchHit(lineNumber: 1, line: line,
+                            matchRange: NSRange(location: 4, length: 1))
+        XCTAssertEqual(hit.matchedSubstring, "γ")
+    }
+
+    func testMatchedSubstringReturnsNilForOutOfBoundsRange() {
+        let hit = SearchHit(lineNumber: 1, line: "abc",
+                            matchRange: NSRange(location: 10, length: 3))
+        XCTAssertNil(hit.matchedSubstring)
+    }
+
+    func testMatchedSubstringReturnsNilForEmptyMatch() {
+        let hit = SearchHit(lineNumber: 1, line: "abc",
+                            matchRange: NSRange(location: 0, length: 0))
+        XCTAssertNil(hit.matchedSubstring)
+    }
 }

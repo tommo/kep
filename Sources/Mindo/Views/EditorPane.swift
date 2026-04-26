@@ -44,7 +44,8 @@ struct EditorPane: View {
                     theme: theme,
                     onChange: { _ in markDirty(documentID) },
                     onExtraFileTap: { url in session.open(url: url) },
-                    navigationTarget: session.sanitizedNavigationTarget
+                    navigationTarget: session.sanitizedNavigationTarget,
+                    searchHighlight: session.lastSearchMatch
                 )
             }
             .onChange(of: session.zoomCommandTick) { _, _ in

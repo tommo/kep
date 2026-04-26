@@ -66,6 +66,12 @@ public final class MindMapView: NSView {
     var dragInsertionTarget: (parent: MindMapElement, index: Int, lineY: CGFloat, lineMinX: CGFloat, lineMaxX: CGFloat)?
     let dragThreshold: CGFloat = 4
 
+    /// Substring (case-insensitive) to highlight on every topic whose
+    /// `text` contains it. Drives the post-Find-in-Files visual marker —
+    /// `nil` clears the highlight. Settable from the SwiftUI bridge so
+    /// route flows can light up matching topics.
+    public var searchHighlight: String?
+
     /// Pan state — entered when the user holds space and drags. Distinct from
     /// the topic-drag-to-reparent state above so a paused space-drag doesn't
     /// accidentally pick up a topic.
@@ -314,6 +320,19 @@ public final class MindMapView: NSView {
         // visible above shadow + fill. PrefKey toggle lets users hide them.
         if PrefKeys.bool(PrefKeys.showJumpArrows, fallback: true) {
             drawJumpArrows(rootElement: root, into: ctx)
+        }
+
+        // Search-result highlight: tint every topic whose text contains
+        // the active search query. Painted *under* the selection overlay
+        // so the active topic still stands out.
+        if let query = searchHighlight, !query.isEmpty {
+            ctx.setFillColor(NSColor.systemYellow.withAlphaComponent(0.30).cgColor)
+            root.traverse { el in
+                guard el.topic.text.range(of: query, options: .caseInsensitive) != nil else { return }
+                let path = CGPath(roundedRect: el.frame, cornerWidth: theme.cornerRadius, cornerHeight: theme.cornerRadius, transform: nil)
+                ctx.addPath(path)
+                ctx.fillPath()
+            }
         }
 
         // Selection overlay on top — secondary members of the multi-selection

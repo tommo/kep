@@ -78,6 +78,24 @@ public final class MarkdownDropTextView: NSTextView {
     /// the caret between them. Multi-char inserts (IME composition,
     /// pasted runs) and non-opener chars fall through unchanged.
     public override func insertText(_ string: Any, replacementRange: NSRange) {
+        // Step-over: typing a closer that's already at the caret advances
+        // past it instead of inserting a duplicate. Pairs with #126's
+        // auto-pair so `()` + typing `)` inside leaves cursor *after* the
+        // existing `)`. Mirror pairs (`"`, `'`) are excluded — the same
+        // char is opener and closer so stepping past would prevent
+        // typing the quoted body.
+        if let str = string as? String,
+           replacementRange.length == 0,
+           selectedRange().length == 0,
+           MarkdownAutoPair.isSteppableCloser(str) {
+            let body = self.string as NSString
+            let caret = selectedRange().location
+            if caret < body.length,
+               body.substring(with: NSRange(location: caret, length: 1)) == str {
+                setSelectedRange(NSRange(location: caret + 1, length: 0))
+                return
+            }
+        }
         if let str = string as? String,
            replacementRange.length == 0,
            let closer = MarkdownAutoPair.closer(for: str) {

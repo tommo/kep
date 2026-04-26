@@ -54,4 +54,31 @@ final class MarkdownAutoPairTests: XCTestCase {
     func testRandomCharNotPaired() {
         XCTAssertNil(MarkdownAutoPair.closer(for: "x"))
     }
+
+    // MARK: - isSteppableCloser (powers the type-closer-to-step-over rule)
+
+    func testSteppableClosersAreOnlyAsymmetricBrackets() {
+        XCTAssertTrue(MarkdownAutoPair.isSteppableCloser(")"))
+        XCTAssertTrue(MarkdownAutoPair.isSteppableCloser("]"))
+        XCTAssertTrue(MarkdownAutoPair.isSteppableCloser("}"))
+    }
+
+    func testMirrorPairCharsNotSteppable() {
+        // " and ' are both opener and closer — stepping past them after
+        // the auto-paired empty pair would prevent typing the body.
+        XCTAssertFalse(MarkdownAutoPair.isSteppableCloser("\""))
+        XCTAssertFalse(MarkdownAutoPair.isSteppableCloser("'"))
+    }
+
+    func testSteppableCloserRejectsOpener() {
+        // Openers should never be steppable — they always insert.
+        XCTAssertFalse(MarkdownAutoPair.isSteppableCloser("("))
+        XCTAssertFalse(MarkdownAutoPair.isSteppableCloser("["))
+    }
+
+    func testSteppableCloserRejectsMultiCharAndEmpty() {
+        XCTAssertFalse(MarkdownAutoPair.isSteppableCloser(""))
+        XCTAssertFalse(MarkdownAutoPair.isSteppableCloser("))"))
+        XCTAssertFalse(MarkdownAutoPair.isSteppableCloser("xy"))
+    }
 }

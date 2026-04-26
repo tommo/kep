@@ -31,4 +31,15 @@ public enum MarkdownAutoPair {
         guard opener.count == 1, let ch = opener.first else { return nil }
         return pairs[ch]
     }
+
+    /// True when `input` is a single recognized closer character — drives
+    /// the "step over the closer instead of typing it twice" behavior on
+    /// the markdown editor. Mirror-pairs (`"`/`'`) are deliberately
+    /// excluded from this set because the same char is both opener and
+    /// closer; stepping past `"` after `""` would prevent ever typing the
+    /// quoted body.
+    public static func isSteppableCloser(_ input: String) -> Bool {
+        guard input.count == 1, let ch = input.first else { return false }
+        return ch == ")" || ch == "]" || ch == "}"
+    }
 }

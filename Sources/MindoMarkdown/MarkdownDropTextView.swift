@@ -73,6 +73,31 @@ public final class MarkdownDropTextView: NSTextView {
         }
     }
 
+    /// ⌘B / ⌘I / ⌘E / ⌘K → bold / italic / inline-code / link. Shortcuts
+    /// route through the delegate (the SwiftUI Coordinator) which already
+    /// has @objc handlers wired to MarkdownFormatting.
+    public override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        let chars = event.charactersIgnoringModifiers ?? ""
+        let onlyCommand = event.modifierFlags
+            .intersection([.command, .option, .control, .shift]) == [.command]
+        if onlyCommand, let action = Self.formattingShortcuts[chars] {
+            if let target = delegate, target.responds(to: action) {
+                _ = target.perform(action)
+                return true
+            }
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+
+    /// Map of single ASCII chars (cmd-modified) → Coordinator selector.
+    /// Exposed for unit tests.
+    static let formattingShortcuts: [String: Selector] = [
+        "b": Selector(("toolbarBold")),
+        "i": Selector(("toolbarItalic")),
+        "e": Selector(("toolbarInlineCode")),
+        "k": Selector(("toolbarLink")),
+    ]
+
     /// Tab indents the line(s) covered by the current selection — one
     /// "  " (2-space) level per press. Multi-line selections get every
     /// line indented in a single undoable step. Caret stays inside the

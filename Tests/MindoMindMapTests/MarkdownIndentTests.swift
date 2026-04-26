@@ -46,4 +46,19 @@ final class MarkdownIndentTests: XCTestCase {
         let original = "first\n  second\n    third"
         XCTAssertEqual(MarkdownIndent.outdent(MarkdownIndent.indent(original)), original)
     }
+
+    // MARK: - MarkdownDropTextView.formattingShortcuts (cmd-key map)
+
+    func testFormattingShortcutsCoverFourEntries() {
+        let shortcuts = MarkdownDropTextView.formattingShortcuts
+        XCTAssertEqual(Set(shortcuts.keys), ["b", "i", "e", "k"])
+    }
+
+    func testFormattingShortcutSelectorsMatchToolbarActions() {
+        let shortcuts = MarkdownDropTextView.formattingShortcuts
+        XCTAssertEqual(shortcuts["b"]?.description, "toolbarBold")
+        XCTAssertEqual(shortcuts["i"]?.description, "toolbarItalic")
+        XCTAssertEqual(shortcuts["e"]?.description, "toolbarInlineCode")
+        XCTAssertEqual(shortcuts["k"]?.description, "toolbarLink")
+    }
 }

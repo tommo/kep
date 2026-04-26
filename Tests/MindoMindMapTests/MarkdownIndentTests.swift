@@ -1,4 +1,5 @@
 import XCTest
+import MindoBase
 @testable import MindoMarkdown
 
 final class MarkdownIndentTests: XCTestCase {
@@ -45,6 +46,16 @@ final class MarkdownIndentTests: XCTestCase {
     func testRoundTripIndentOutdent() {
         let original = "first\n  second\n    third"
         XCTAssertEqual(MarkdownIndent.outdent(MarkdownIndent.indent(original)), original)
+    }
+
+    // MARK: - EditorIndent (the shared underlying helper)
+
+    func testEditorIndentMatchesMarkdownIndent() {
+        // Confirm the shim parity — same behavior on a representative input.
+        let original = "alpha\n  beta\n\tgamma"
+        XCTAssertEqual(MindoBase.EditorIndent.indent(original), MarkdownIndent.indent(original))
+        XCTAssertEqual(MindoBase.EditorIndent.outdent(original), MarkdownIndent.outdent(original))
+        XCTAssertEqual(MindoBase.EditorIndent.unit, MarkdownIndent.unit)
     }
 
     // MARK: - MarkdownDropTextView.formattingShortcuts (cmd-key map)

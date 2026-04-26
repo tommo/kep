@@ -23,7 +23,11 @@ public struct PlantUMLEditor: NSViewRepresentable {
         split.isVertical = true
         split.dividerStyle = .thin
 
-        let (scroll, textView) = CodeArea.makeMonospaced(text: text, delegate: context.coordinator)
+        let (scroll, textView) = CodeArea.makeMonospaced(
+            text: text,
+            delegate: context.coordinator,
+            textViewFactory: { PlantUMLTextView(frame: .zero) }
+        )
 
         let web = WKWebView()
         web.setValue(false, forKey: "drawsBackground")

@@ -27,6 +27,16 @@ struct ContentView: View {
                 session.open(url: node.url)
             }
         }
+        // Reverse direction: when the active doc changes (tab click, ⌃⇥
+        // cycle, etc.), reflect that selection in the sidebar so the user
+        // can see where the doc lives. Skipped when sidebarSelection is
+        // already correct to avoid the open→select→open feedback loop.
+        .onChange(of: session.activeDocumentID) { _, _ in
+            guard let url = session.activeDocument?.fileURL,
+                  let node = sidebarNode(for: url),
+                  sidebarSelection?.url != node.url else { return }
+            sidebarSelection = node
+        }
         .alert(L("error.alert_title"), isPresented: Binding(
             get: { session.lastError != nil },
             set: { if !$0 { session.lastError = nil } }
@@ -36,4 +46,25 @@ struct ContentView: View {
             Text(session.lastError ?? "")
         }
     }
+
+    /// Walk every workspace tree looking for the node whose URL matches.
+    /// Used for sidebar reveal-on-tab. Loaded children only — files
+    /// inside collapsed folders won't be found, but that's the right
+    /// trade-off (auto-expanding folders to reveal a tab would be loud).
+    private func sidebarNode(for url: URL) -> NodeData? {
+        for root in session.workspaceRoots {
+            if let hit = findNode(in: root, matching: url) { return hit }
+        }
+        return nil
+    }
+
+    private func findNode(in node: NodeData, matching url: URL) -> NodeData? {
+        if node.url.standardizedFileURL == url.standardizedFileURL { return node }
+        guard node.isExpandable else { return nil }
+        for child in node.children() {
+            if let hit = findNode(in: child, matching: url) { return hit }
+        }
+        return nil
+    }
 }
+

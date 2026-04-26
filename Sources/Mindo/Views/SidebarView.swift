@@ -151,10 +151,27 @@ struct NodeRow: View {
                 Image(systemName: icon(for: node))
                     .foregroundStyle(.secondary)
                 label
+                Spacer(minLength: 0)
+                if isRecent {
+                    // Subtle accent dot for recently-opened files —
+                    // helps the user spot what they were last editing.
+                    Circle()
+                        .fill(Color.accentColor.opacity(0.7))
+                        .frame(width: 5, height: 5)
+                        .help(L("sidebar.recently_opened"))
+                }
             }
             .tag(node)
             .contextMenu { menuItems }
         }
+    }
+
+    /// True when this node's URL is in the workspace's recents list.
+    /// Folders never qualify (they're not "opened" in the doc sense).
+    private var isRecent: Bool {
+        guard node.isFile else { return false }
+        let recentPaths = Set(CollectionStore.shared.recents.map { $0.path })
+        return recentPaths.contains(node.url.path)
     }
 
     /// Either the static row name, or — when this node is the inline-rename

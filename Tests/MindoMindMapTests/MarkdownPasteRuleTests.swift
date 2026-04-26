@@ -55,4 +55,27 @@ final class MarkdownPasteRuleTests: XCTestCase {
         pb.setString("https://example.com", forType: .string)
         XCTAssertEqual(MarkdownPasteRule.urlFromPasteboard(pb), "https://example.com")
     }
+
+    // MARK: - MarkdownDropTextView.imageBase64 (powers paste-as-image)
+
+    func testImagePasteboardYieldsBase64PNG() {
+        let pb = NSPasteboard(name: NSPasteboard.Name("MarkdownPasteRuleTests-Img-\(UUID())"))
+        pb.clearContents()
+        let bitmap = NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: 1, pixelsHigh: 1,
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
+            isPlanar: false, colorSpaceName: .deviceRGB,
+            bytesPerRow: 0, bitsPerPixel: 32
+        )!
+        let png = bitmap.representation(using: .png, properties: [:])!
+        pb.setData(png, forType: .png)
+        let result = MarkdownDropTextView.imageBase64(from: pb)
+        XCTAssertEqual(result, png.base64EncodedString())
+    }
+
+    func testEmptyPasteboardYieldsNilForImage() {
+        let pb = NSPasteboard(name: NSPasteboard.Name("MarkdownPasteRuleTests-Empty-\(UUID())"))
+        pb.clearContents()
+        XCTAssertNil(MarkdownDropTextView.imageBase64(from: pb))
+    }
 }

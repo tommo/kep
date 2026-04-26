@@ -112,28 +112,54 @@ public final class MarkdownDropTextView: NSTextView {
         super.insertText(string, replacementRange: replacementRange)
     }
 
-    /// Smart paste — when text is selected AND the pasteboard contains a
-    /// URL, wrap the selection as `[selected](URL)` instead of replacing
-    /// with the raw URL. Standard editor convention; matches what Bear /
-    /// Obsidian / iA Writer do. Falls through to super for every other
-    /// pasteboard shape so the existing image-paste / file-drop / plain-
-    /// text paths stay intact.
+    /// Smart paste — handles two convention overrides before falling
+    /// through to standard text paste:
+    ///   1. Selection + URL on pasteboard → wrap as `[selected](URL)`.
+    ///   2. Image on pasteboard → insert `![pasted](data:image/png;base64,…)`
+    ///      so the casual screenshot-into-doc case doesn't need a sidecar
+    ///      file write. Sibling to #70 (drop image file → ![](path)).
     public override func paste(_ sender: Any?) {
+        let pb = NSPasteboard.general
         let selection = selectedRange()
         if selection.length > 0,
-           let url = MarkdownPasteRule.urlFromPasteboard(NSPasteboard.general) {
+           let url = MarkdownPasteRule.urlFromPasteboard(pb) {
             let body = string as NSString
             let selectedText = body.substring(with: selection)
             let replacement = "[\(selectedText)](\(url))"
             if shouldChangeText(in: selection, replacementString: replacement) {
                 replaceCharacters(in: selection, with: replacement)
                 didChangeText()
-                // Place the caret at the end of the inserted link.
                 setSelectedRange(NSRange(location: selection.location + (replacement as NSString).length, length: 0))
             }
             return
         }
+        if let base64 = Self.imageBase64(from: pb) {
+            let snippet = "![pasted](data:image/png;base64,\(base64))"
+            if shouldChangeText(in: selection, replacementString: snippet) {
+                replaceCharacters(in: selection, with: snippet)
+                didChangeText()
+                setSelectedRange(NSRange(location: selection.location + (snippet as NSString).length, length: 0))
+            }
+            return
+        }
         super.paste(sender)
+    }
+
+    /// Read PNG bytes from the pasteboard (direct .png type, falling back
+    /// to NSImage decode + PNG re-encode for TIFF/JPEG/PDF) and return
+    /// base64. Mirrors the `MindMapPasteHelper.imageBase64(from:)` logic
+    /// in MindoMindMap; inlined here to avoid pulling MindoMindMap into
+    /// MindoMarkdown's dep graph for ~10 lines of helper.
+    static func imageBase64(from pasteboard: NSPasteboard) -> String? {
+        if let pngData = pasteboard.data(forType: .png) {
+            return pngData.base64EncodedString()
+        }
+        guard let image = NSImage(pasteboard: pasteboard),
+              let tiff = image.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiff),
+              let png = bitmap.representation(using: .png, properties: [:])
+        else { return nil }
+        return png.base64EncodedString()
     }
 
     /// ⌘B / ⌘I / ⌘E / ⌘K → bold / italic / inline-code / link. Shortcuts

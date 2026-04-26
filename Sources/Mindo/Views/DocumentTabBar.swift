@@ -83,6 +83,20 @@ struct DocumentTabBar: View {
                 }
             }
             .padding(.horizontal, 8)
+            .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+                // Drop a file from Finder onto the strip → open as new tab.
+                // Per-tab .onDrop above handles intra-strip reorder via .text;
+                // file URLs go straight here.
+                var anyHandled = false
+                for provider in providers {
+                    _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                        guard let url else { return }
+                        DispatchQueue.main.async { session.open(url: url) }
+                    }
+                    anyHandled = true
+                }
+                return anyHandled
+            }
         }
     }
 

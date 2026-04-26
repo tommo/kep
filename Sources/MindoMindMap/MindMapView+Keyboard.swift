@@ -58,6 +58,14 @@ extension MindMapView {
             return
         }
 
+        // F2 = inline-edit selected topic. macOS function-key inputs
+        // arrive as the special unichar NSF2FunctionKey (0xF705).
+        if chars.unicodeScalars.first?.value == 0xF705,
+           let sel = selectedElement {
+            beginInlineEdit(on: sel)
+            return
+        }
+
         switch chars {
         case "\t": addChild()
         case "\r":

@@ -3,27 +3,68 @@ import MindoModel
 
 extension MindMapView {
 
-    /// Standard `paste(_:)` responder action — fires on ⌘V when the canvas
-    /// is first responder. When the pasteboard has an image and a topic is
-    /// selected, embed the image as base64 PNG in `mmd.image`. NSView
-    /// itself doesn't implement `paste(_:)` — we add it informally via
-    /// `NSStandardKeyBindingResponding`, so no `override`.
-    @objc public func paste(_ sender: Any?) {
+    /// ⌘C — serialize the selected topic's subtree to JSON and put it on
+    /// the pasteboard under the custom mindo type. Falls through silently
+    /// when no topic is selected.
+    @objc public func copy(_ sender: Any?) {
         guard let topic = selectedElement?.topic,
-              let base64 = MindMapPasteHelper.imageBase64(from: NSPasteboard.general)
-        else { return }
-        undoableSetAttribute(topic, key: TopicAttribute.image, value: base64)
+              let data = try? TopicSubtreeCodec.encode(topic.clone(deep: true)) else { return }
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setData(data, forType: NSPasteboard.PasteboardType(TopicSubtreeCodec.pasteboardType))
+        // Mirror the visible label as plain text so paste into a markdown
+        // editor / external app gets something useful.
+        pb.setString(topic.text, forType: .string)
     }
 
-    /// Enable the system Edit > Paste menu item when we can actually
-    /// consume the pasteboard. Without this, the menu would be perma-grey
-    /// because NSView's default has no paste action installed.
-    @objc public func validateMenuItem(_ item: NSMenuItem) -> Bool {
-        if item.action == #selector(paste(_:)) {
-            return selectedElement != nil
-                && MindMapPasteHelper.imageBase64(from: NSPasteboard.general) != nil
+    /// ⌘X — copy then delete the selected topic. Goes through the existing
+    /// undoable delete so undo restores it.
+    @objc public func cut(_ sender: Any?) {
+        guard let topic = selectedElement?.topic, topic.parent != nil else { return }
+        copy(sender)
+        undoableRemove(topic)
+    }
+
+    /// Standard `paste(_:)` responder action — fires on ⌘V when the canvas
+    /// is first responder. Priority order:
+    ///  1. mindo topic-subtree → reparent the decoded subtree under the
+    ///     selected topic (single undoable step).
+    ///  2. image → embed as base64 PNG into `mmd.image`.
+    /// NSView itself doesn't implement `paste(_:)` — informal action via
+    /// `NSStandardKeyBindingResponding`, so no `override`.
+    @objc public func paste(_ sender: Any?) {
+        guard let topic = selectedElement?.topic else { return }
+        let pb = NSPasteboard.general
+        if let data = pb.data(forType: NSPasteboard.PasteboardType(TopicSubtreeCodec.pasteboardType)),
+           let subtree = try? TopicSubtreeCodec.decode(data) {
+            topic.append(subtree)
+            undoableReparent(subtree, to: topic, at: topic.children.count - 1)
+            return
         }
-        return true
+        if let base64 = MindMapPasteHelper.imageBase64(from: pb) {
+            undoableSetAttribute(topic, key: TopicAttribute.image, value: base64)
+            return
+        }
+    }
+
+    /// Enable the system Edit > Copy / Cut / Paste menu items based on
+    /// what's actually possible right now. Without this, the menu would
+    /// stay perma-grey because NSView has no built-in actions.
+    @objc public func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        guard let action = item.action else { return true }
+        switch action {
+        case #selector(copy(_:)):
+            return selectedElement != nil
+        case #selector(cut(_:)):
+            return selectedElement?.topic.parent != nil  // can't cut root
+        case #selector(paste(_:)):
+            guard selectedElement != nil else { return false }
+            let pb = NSPasteboard.general
+            if pb.data(forType: NSPasteboard.PasteboardType(TopicSubtreeCodec.pasteboardType)) != nil { return true }
+            return MindMapPasteHelper.imageBase64(from: pb) != nil
+        default:
+            return true
+        }
     }
 }
 

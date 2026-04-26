@@ -133,12 +133,18 @@ extension MindMapView {
     }
 
     public func undoableSetText(_ topic: Topic, to newText: String) {
+        // Optionally trim leading/trailing whitespace on commit. Mindolph
+        // pref `PREF_KEY_MMD_TRIM_TOPIC_TEXT`; default off so existing
+        // intentional indentation isn't silently rewritten.
+        let trimmed: String = PrefKeys.bool(PrefKeys.mindmapTrimTopicText, fallback: false)
+            ? newText.trimmingCharacters(in: .whitespacesAndNewlines)
+            : newText
         let oldText = topic.text
-        guard oldText != newText else { return }
-        topic.text = newText
+        guard oldText != trimmed else { return }
+        topic.text = trimmed
         registerUndo(
             name: "Edit Topic",
-            forward: { topic.text = newText },
+            forward: { topic.text = trimmed },
             inverse: { topic.text = oldText }
         )
         refreshAndNotify()

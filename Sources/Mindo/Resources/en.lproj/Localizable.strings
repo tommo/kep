@@ -159,6 +159,7 @@
 "prefs.mindmap.connector_width" = "Width: %.1f pt";
 "prefs.mindmap.section.behavior" = "Behavior";
 "prefs.mindmap.inherit_fill_color" = "New child topics inherit parent fill color";
+"prefs.mindmap.trim_topic_text" = "Trim whitespace around topic text on edit";
 "prefs.ai.section.behavior" = "Behavior";
 "prefs.ai.streaming" = "Stream responses (recommended)";
 

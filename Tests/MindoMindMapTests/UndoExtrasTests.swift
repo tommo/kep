@@ -189,6 +189,42 @@ final class UndoExtrasTests: XCTestCase {
         XCTAssertNil(view.undoableCloneTopic(root, deep: false))
     }
 
+    // MARK: - Trim topic text on commit (PrefKey-gated)
+
+    func testSetTextTrimsWhenPrefIsOn() {
+        let defaults = UserDefaults.standard
+        let key = "mindo.prefs.mindmapTrimTopicText"
+        let prior = defaults.object(forKey: key)
+        defer {
+            if let v = prior { defaults.set(v, forKey: key) } else { defaults.removeObject(forKey: key) }
+        }
+        defaults.set(true, forKey: key)
+        let map = MindMap()
+        let root = Topic(text: "Root")
+        map.root = root
+        let t = root.addChild(text: "before")
+        let (view, _) = makeHeadlessMindMapWithUndo(map: map)
+        view.undoableSetText(t, to: "  spaced  \n")
+        XCTAssertEqual(t.text, "spaced")
+    }
+
+    func testSetTextPreservesWhitespaceWhenPrefIsOff() {
+        let defaults = UserDefaults.standard
+        let key = "mindo.prefs.mindmapTrimTopicText"
+        let prior = defaults.object(forKey: key)
+        defer {
+            if let v = prior { defaults.set(v, forKey: key) } else { defaults.removeObject(forKey: key) }
+        }
+        defaults.set(false, forKey: key)
+        let map = MindMap()
+        let root = Topic(text: "Root")
+        map.root = root
+        let t = root.addChild(text: "before")
+        let (view, _) = makeHeadlessMindMapWithUndo(map: map)
+        view.undoableSetText(t, to: "  spaced  ")
+        XCTAssertEqual(t.text, "  spaced  ", "default-off behavior preserves intentional indentation")
+    }
+
     // MARK: - Inherit fill color from parent (PrefKey-gated)
 
     func testNewChildInheritsParentFillColorWhenPrefIsOn() {

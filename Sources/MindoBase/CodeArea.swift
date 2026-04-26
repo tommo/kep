@@ -32,6 +32,18 @@ public enum CodeArea {
         textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         textView.isVerticallyResizable = true
         textView.textContainer?.widthTracksTextView = true
+        // Disable destructive auto-substitutions: smart quotes turn "foo"
+        // into "foo" (breaking markdown links + code), em-dashes mangle
+        // CLI flags, automatic-text-replacement rewrites recognized words.
+        // Spell-check stays at NSTextView's default (on, visual-only) so
+        // markdown prose still gets red-squiggle marks. The user can right-
+        // click → Spelling to flip individual checks per their taste.
+        textView.isAutomaticQuoteSubstitutionEnabled = false
+        textView.isAutomaticDashSubstitutionEnabled = false
+        textView.isAutomaticTextReplacementEnabled = false
+        textView.isAutomaticSpellingCorrectionEnabled = false
+        textView.isAutomaticDataDetectionEnabled = false
+        textView.isAutomaticLinkDetectionEnabled = false
 
         scroll.documentView = textView
         return (scroll, textView)

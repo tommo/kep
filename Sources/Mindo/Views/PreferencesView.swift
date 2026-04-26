@@ -66,6 +66,7 @@ private struct MindMapPrefs: View {
     @AppStorage(PrefKeys.mindmapConnectorStyle) private var connectorStyle: String = "bezier"
     @AppStorage(PrefKeys.mindmapConnectorWidth) private var connectorWidth: Double = 1.5
     @AppStorage(PrefKeys.mindmapInheritFillColor) private var inheritFillColor: Bool = false
+    @AppStorage(PrefKeys.mindmapTrimTopicText) private var trimTopicText: Bool = false
 
     var body: some View {
         Form {
@@ -88,6 +89,7 @@ private struct MindMapPrefs: View {
             }
             Section(L("prefs.mindmap.section.behavior")) {
                 Toggle(L("prefs.mindmap.inherit_fill_color"), isOn: $inheritFillColor)
+                Toggle(L("prefs.mindmap.trim_topic_text"), isOn: $trimTopicText)
             }
         }
         .formStyle(.grouped)

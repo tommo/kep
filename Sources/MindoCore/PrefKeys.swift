@@ -18,6 +18,7 @@ public enum PrefKeys {
     public static let mindmapConnectorStyle = "mindo.prefs.mindmapConnectorStyle"
     public static let mindmapConnectorWidth = "mindo.prefs.mindmapConnectorWidth"
     public static let mindmapInheritFillColor = "mindo.prefs.mindmapInheritFillColor"
+    public static let mindmapTrimTopicText = "mindo.prefs.mindmapTrimTopicText"
 
     /// Convenience: pulls a Double from UserDefaults, returning `fallback`
     /// when the key is unset or stored as a non-positive value.

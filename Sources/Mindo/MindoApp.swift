@@ -119,6 +119,7 @@ struct MindoApp: App {
                 Menu(L("menu.file.import")) {
                     Button(L("menu.file.import_freemind")) { session.importFreemind() }
                     Button(L("menu.file.import_text_outline")) { session.importTextOutline() }
+                    Button(L("menu.file.import_mindmup")) { session.importMindmup() }
                 }
                 Divider()
                 Menu(L("menu.file.open_recent")) {

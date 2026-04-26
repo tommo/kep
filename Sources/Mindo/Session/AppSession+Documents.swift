@@ -88,6 +88,14 @@ extension AppSession {
         }
     }
 
+    /// Import a Mindmup `.mup` JSON document.
+    func importMindmup() {
+        importMindMap(extension: "mup") { url in
+            let text = try String(contentsOf: url, encoding: .utf8)
+            return try MindmupImporter.parse(text)
+        }
+    }
+
     /// Shared scaffolding for any mindmap importer: open panel scoped to one
     /// extension, parse via the supplied closure, present as an untitled
     /// .mmd doc. Errors route to lastError.

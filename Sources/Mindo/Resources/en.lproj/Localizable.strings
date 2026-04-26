@@ -14,6 +14,7 @@
 "menu.file.import" = "Import";
 "menu.file.import_freemind" = "FreeMind (.mm)…";
 "menu.file.import_text_outline" = "Text Outline (.txt)…";
+"menu.file.import_mindmup" = "Mindmup (.mup)…";
 "menu.file.export" = "Export";
 "menu.file.export_markdown_html" = "Markdown to HTML…";
 "menu.file.export_markdown_pdf" = "Markdown to PDF…";

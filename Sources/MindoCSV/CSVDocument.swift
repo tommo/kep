@@ -60,6 +60,31 @@ public final class CSVDocument {
         }
     }
 
+    /// Insert a blank row at `index`. Out-of-bounds indices are clamped:
+    /// negative → 0, past-end → append. Mirrors mindolph's csv.menu
+    /// "Insert Before / After" entries.
+    public func insertRow(at index: Int) {
+        let blank = Array(repeating: "", count: columnCount)
+        let clamped = max(0, min(index, rows.count))
+        rows.insert(blank, at: clamped)
+    }
+
+    /// Insert a blank column at `index`. Out-of-bounds indices clamp the
+    /// same way as `insertRow`. Every row grows by one cell so the
+    /// column count stays consistent across the table.
+    public func insertColumn(at index: Int) {
+        let cols = columnCount
+        let clamped = max(0, min(index, cols))
+        for i in rows.indices {
+            // Pad short rows out to the current column count first so the
+            // new column lands at the same logical position in every row.
+            if rows[i].count < cols {
+                rows[i].append(contentsOf: Array(repeating: "", count: cols - rows[i].count))
+            }
+            rows[i].insert("", at: min(clamped, rows[i].count))
+        }
+    }
+
     public func removeRow(at index: Int) {
         guard rows.count > 1, index >= 0, index < rows.count else { return }
         rows.remove(at: index)

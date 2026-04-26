@@ -140,4 +140,63 @@ final class CSVDocumentTests: XCTestCase {
         doc.rows = snapshot
         XCTAssertEqual(doc.rows, snapshot)
     }
+
+    // MARK: - Insert at index
+
+    func testInsertRowAtMiddle() {
+        let doc = CSVDocument(rows: [["A"], ["B"], ["C"]], hasHeader: false)
+        doc.insertRow(at: 1)
+        XCTAssertEqual(doc.rows.map { $0.first ?? "" }, ["A", "", "B", "C"])
+    }
+
+    func testInsertRowAtZeroPrependsBeforeAllRows() {
+        let doc = CSVDocument(rows: [["A"], ["B"]], hasHeader: false)
+        doc.insertRow(at: 0)
+        XCTAssertEqual(doc.rows.map { $0.first ?? "" }, ["", "A", "B"])
+    }
+
+    func testInsertRowPastEndAppends() {
+        let doc = CSVDocument(rows: [["A"]], hasHeader: false)
+        doc.insertRow(at: 999)
+        XCTAssertEqual(doc.rows.count, 2)
+        XCTAssertEqual(doc.rows.last?.first, "")
+    }
+
+    func testInsertRowAtNegativeClampsToZero() {
+        let doc = CSVDocument(rows: [["A"]], hasHeader: false)
+        doc.insertRow(at: -5)
+        XCTAssertEqual(doc.rows.map { $0.first ?? "" }, ["", "A"])
+    }
+
+    func testInsertRowMatchesColumnCount() {
+        // New row must have one cell per column so the table view sees
+        // a clean rectangle without normalize().
+        let doc = CSVDocument(rows: [["a", "b", "c"]], hasHeader: false)
+        doc.insertRow(at: 1)
+        XCTAssertEqual(doc.rows[1].count, 3)
+        XCTAssertTrue(doc.rows[1].allSatisfy { $0.isEmpty })
+    }
+
+    func testInsertColumnAtMiddle() {
+        let doc = CSVDocument(rows: [["A", "B", "C"], ["1", "2", "3"]], hasHeader: false)
+        doc.insertColumn(at: 1)
+        XCTAssertEqual(doc.rows[0], ["A", "", "B", "C"])
+        XCTAssertEqual(doc.rows[1], ["1", "", "2", "3"])
+    }
+
+    func testInsertColumnPastEndAppends() {
+        let doc = CSVDocument(rows: [["A", "B"]], hasHeader: false)
+        doc.insertColumn(at: 999)
+        XCTAssertEqual(doc.rows[0], ["A", "B", ""])
+    }
+
+    func testInsertColumnPadsShortRowsFirst() {
+        // Rows of uneven length must end up rectangular after insert,
+        // matching the documented invariant in CSVDocument.normalize.
+        let doc = CSVDocument(rows: [["A", "B"], ["X"]], hasHeader: false)
+        doc.insertColumn(at: 1)
+        XCTAssertEqual(doc.rows[0].count, 3)
+        XCTAssertEqual(doc.rows[1].count, 3)
+        XCTAssertEqual(doc.rows[1], ["X", "", ""])
+    }
 }

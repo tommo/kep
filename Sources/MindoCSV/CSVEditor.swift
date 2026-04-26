@@ -92,8 +92,12 @@ public struct CSVEditor: NSViewRepresentable {
         }
 
         stack.addArrangedSubview(button("+ Row", "Append a new row", #selector(Coordinator.addRow)))
+        stack.addArrangedSubview(button("↑ Row", "Insert row above selection", #selector(Coordinator.insertRowBefore)))
+        stack.addArrangedSubview(button("↓ Row", "Insert row below selection", #selector(Coordinator.insertRowAfter)))
         stack.addArrangedSubview(button("− Row", "Remove the selected row", #selector(Coordinator.removeRow)))
         stack.addArrangedSubview(button("+ Column", "Append a new column", #selector(Coordinator.addColumn)))
+        stack.addArrangedSubview(button("← Col", "Insert column left of selection", #selector(Coordinator.insertColumnBefore)))
+        stack.addArrangedSubview(button("→ Col", "Insert column right of selection", #selector(Coordinator.insertColumnAfter)))
         stack.addArrangedSubview(button("− Column", "Remove the selected column", #selector(Coordinator.removeColumn)))
         stack.addArrangedSubview(NSView())
         let header = NSButton(checkboxWithTitle: "First row is header", target: coordinator, action: #selector(Coordinator.toggleHeader))
@@ -237,6 +241,48 @@ public struct CSVEditor: NSViewRepresentable {
         @objc func addRow() {
             performUndoable(actionName: "Add Row") {
                 doc.appendRow()
+            }
+        }
+
+        /// Insert a blank row above the first selected row (header
+        /// excluded — selection indices are body-relative). With no
+        /// selection, falls back to appending at the end so the button
+        /// is never a dead-end.
+        @objc func insertRowBefore() {
+            let selected = tableView?.selectedRowIndexes.first
+            performUndoable(actionName: "Insert Row Before") {
+                if let i = selected {
+                    let docIndex = doc.hasHeader ? i + 1 : i
+                    doc.insertRow(at: docIndex)
+                } else {
+                    doc.appendRow()
+                }
+            }
+        }
+
+        @objc func insertRowAfter() {
+            let selected = tableView?.selectedRowIndexes.last
+            performUndoable(actionName: "Insert Row After") {
+                if let i = selected {
+                    let docIndex = doc.hasHeader ? i + 2 : i + 1
+                    doc.insertRow(at: docIndex)
+                } else {
+                    doc.appendRow()
+                }
+            }
+        }
+
+        @objc func insertColumnBefore() {
+            let selected = tableView?.selectedColumnIndexes.first
+            performUndoable(actionName: "Insert Column Before", rebuildColumns: true) {
+                doc.insertColumn(at: selected ?? doc.columnCount)
+            }
+        }
+
+        @objc func insertColumnAfter() {
+            let selected = tableView?.selectedColumnIndexes.last
+            performUndoable(actionName: "Insert Column After", rebuildColumns: true) {
+                doc.insertColumn(at: (selected ?? doc.columnCount - 1) + 1)
             }
         }
 

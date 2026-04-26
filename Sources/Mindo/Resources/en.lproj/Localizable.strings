@@ -130,6 +130,10 @@
 /* MARK: - Tab bar */
 "tab.tooltip.modified_externally" = "Modified outside Mindo — content reloaded";
 "tab.tooltip.unsaved_changes" = "Unsaved changes";
+"tab.menu.close" = "Close Tab";
+"tab.menu.close_others" = "Close Other Tabs";
+"tab.menu.close_all" = "Close All Tabs";
+"tab.menu.reveal_in_finder" = "Reveal in Finder";
 
 /* MARK: - External-change conflict */
 "conflict.title" = "“%@” changed on disk";

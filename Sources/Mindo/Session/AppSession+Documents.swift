@@ -54,6 +54,30 @@ extension AppSession {
         persistOpenTabs()
     }
 
+    /// Close a single tab by id. Switches active to the next available
+    /// when the closed tab was active.
+    func closeTab(_ id: OpenDocument.ID) {
+        guard let idx = openDocuments.firstIndex(where: { $0.id == id }) else { return }
+        stopFileWatcher(for: id)
+        openDocuments.remove(at: idx)
+        tabManager.remove(id)
+        if activeDocumentID == id {
+            activeDocumentID = tabManager.activeID ?? openDocuments.last?.id
+        }
+        persistOpenTabs()
+    }
+
+    /// Close every tab except the one with `keep`.
+    func closeOtherTabs(keep id: OpenDocument.ID) {
+        let toClose = openDocuments.map(\.id).filter { $0 != id }
+        for tabID in toClose { closeTab(tabID) }
+    }
+
+    /// Close every open tab.
+    func closeAllTabs() {
+        for tabID in openDocuments.map(\.id) { closeTab(tabID) }
+    }
+
     func cycleNextTab() {
         guard let current = activeDocumentID else { return }
         if let next = tabManager.nextMRU(after: current) {

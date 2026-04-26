@@ -67,6 +67,17 @@ struct DocumentTabBar: View {
                             draggingID: $draggingID
                         )
                     )
+                    .contextMenu {
+                        Button(L("tab.menu.close")) { session.closeTab(doc.id) }
+                        Button(L("tab.menu.close_others")) { session.closeOtherTabs(keep: doc.id) }
+                            .disabled(session.openDocuments.count < 2)
+                        Button(L("tab.menu.close_all")) { session.closeAllTabs() }
+                        Divider()
+                        Button(L("tab.menu.reveal_in_finder")) {
+                            if let url = doc.fileURL { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+                        }
+                        .disabled(doc.fileURL == nil)
+                    }
                 }
             }
             .padding(.horizontal, 8)

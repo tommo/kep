@@ -95,6 +95,7 @@ struct NodeRow: View {
         Button(L("sidebar.menu.open_terminal"))    { session.openTerminal(at: node) }
         Divider()
         if !node.isWorkspace {
+            Button(L("sidebar.menu.duplicate")) { session.duplicateNode(node) }
             Button(L("sidebar.menu.rename")) { session.renameNode(node) }
             Button(L("sidebar.menu.delete"), role: .destructive) { session.deleteNode(node) }
         } else {

@@ -24,6 +24,14 @@ extension MindMapView {
     public override func keyDown(with event: NSEvent) {
         guard let chars = event.charactersIgnoringModifiers else { super.keyDown(with: event); return }
         let isShift = event.modifierFlags.contains(.shift)
+        let isOption = event.modifierFlags.contains(.option)
+
+        // ⌥Space = jump-to-root. Must come before the bare-space pan gate
+        // below or the modifier would never get a look-in.
+        if chars == " ", isOption {
+            if let root = rootElement { selectElement(root) }
+            return
+        }
 
         if chars == " " {
             if !isSpaceDown {

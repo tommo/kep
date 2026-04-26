@@ -56,6 +56,26 @@ extension AppSession {
         }
     }
 
+    /// Duplicate a file or folder in place, picking a unique " copy" name.
+    /// Shadows Mindolph's `WorkspaceViewEditable.copyFile()` behaviour.
+    @MainActor
+    func duplicateNode(_ node: NodeData) {
+        guard !node.isWorkspace else { return }
+        let parent = node.url.deletingLastPathComponent()
+        let stem = node.url.deletingPathExtension().lastPathComponent
+        let ext = node.url.pathExtension
+        let target = DuplicateName.uniqueURL(
+            in: parent, stem: stem, ext: ext,
+            exists: { FileManager.default.fileExists(atPath: $0.path) }
+        )
+        do {
+            try FileManager.default.copyItem(at: node.url, to: target)
+            reloadWorkspace(containing: node)
+        } catch {
+            lastError = String(format: L("error.create_failed"), error.localizedDescription)
+        }
+    }
+
     // MARK: - Create
 
     /// Prompt for a filename and create an empty file inside `node`'s folder.

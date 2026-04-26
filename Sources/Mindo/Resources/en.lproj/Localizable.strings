@@ -97,6 +97,7 @@
 "sidebar.menu.reveal_in_finder" = "Reveal in Finder";
 "sidebar.menu.open_terminal" = "Open Terminal Here";
 "sidebar.menu.rename" = "Rename…";
+"sidebar.menu.duplicate" = "Duplicate";
 "sidebar.menu.delete" = "Move to Trash";
 "sidebar.menu.remove_workspace" = "Remove Workspace";
 "sidebar.rename.title" = "Rename";

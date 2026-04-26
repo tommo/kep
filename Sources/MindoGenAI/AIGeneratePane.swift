@@ -46,6 +46,7 @@ public struct AIGeneratePane: View {
     /// other call sites that read activeSelection().
     @State private var selectedModel: String = ""
     @State private var availableModels: [String] = []
+    @FocusState private var promptFocused: Bool
 
     public init(
         title: String = "AI Generate",
@@ -70,7 +71,15 @@ public struct AIGeneratePane: View {
             footer
         }
         .frame(width: 600, height: 540)
-        .onAppear { refreshActiveProviderLabel() }
+        .onAppear {
+            refreshActiveProviderLabel()
+            // Focus the prompt editor on appear so the user can start
+            // typing without clicking. Tiny delay sidesteps SwiftUI's
+            // initial-focus race during sheet present.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                promptFocused = true
+            }
+        }
         .onDisappear { cancel() }
     }
 
@@ -127,6 +136,7 @@ public struct AIGeneratePane: View {
                 .frame(minHeight: 80)
                 .padding(4)
                 .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.secondary.opacity(0.3)))
+                .focused($promptFocused)
             if !context.selectedText.isEmpty {
                 Text("Context (selected): \(context.selectedText.prefix(160))…")
                     .font(.caption).foregroundStyle(.secondary)

@@ -50,6 +50,9 @@ public struct MindMapCanvas: NSViewRepresentable {
             context.coordinator.refreshFooter()
         }
         view.onExtraFileTap = onExtraFileTap
+        view.onSelectionChange = { [weak coordinator = context.coordinator] in
+            coordinator?.refreshFooter()
+        }
         view.display(map: map)
         scroll.documentView = view
 
@@ -138,13 +141,21 @@ public struct MindMapCanvas: NSViewRepresentable {
         weak var footer: NSTextField?
         var lastNavigated: String?
 
-        /// Recompute the canvas footer text — topic count + zoom percent.
-        /// Called after document load, mutations, and zoom changes.
+        /// Recompute the canvas footer text — topic count, optional
+        /// selection count, zoom percent. Called after document load,
+        /// mutations, selection changes, and zoom changes.
         func refreshFooter() {
             guard let footer = footer else { return }
             let topicCount = view?.rootElement?.topic.subtreeCount() ?? 0
             let zoomPct = Int(round((scroll?.magnification ?? 1) * 100))
-            footer.stringValue = "\(topicCount) topics · \(zoomPct)%"
+            let selCount = view?.selectedTopics.count ?? 0
+            // Only mention selection when ≥2 — single-select is implied by
+            // the rendered selection ring and would just clutter the bar.
+            if selCount >= 2 {
+                footer.stringValue = "\(topicCount) topics · \(selCount) selected · \(zoomPct)%"
+            } else {
+                footer.stringValue = "\(topicCount) topics · \(zoomPct)%"
+            }
         }
     }
 }

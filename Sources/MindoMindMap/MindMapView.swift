@@ -37,6 +37,10 @@ public final class MindMapView: NSView {
     /// Called when the user clicks an `ExtraTopic` jump-link icon — receives
     /// the target topic UID. The app may center the canvas on the destination.
     public var onExtraTopicTap: ((String) -> Void)?
+    /// Fires whenever `selectedTopics` changes — single-select, multi-
+    /// select, deselect, or `selectAll`. Subscribers (e.g. the SwiftUI
+    /// bridge's status footer) can read `selectedTopics.count` to react.
+    public var onSelectionChange: (() -> Void)?
 
     /// Optional override for note display (NSAlert by default).
     public var onExtraNoteTap: ((Topic, String) -> Void)?
@@ -424,6 +428,7 @@ public final class MindMapView: NSView {
             selectedTopics.removeAll()
         }
         needsDisplay = true
+        onSelectionChange?()
     }
 
     /// Cmd-click — toggle membership without disturbing the primary selection.
@@ -442,6 +447,7 @@ public final class MindMapView: NSView {
             selectedElement = el
         }
         needsDisplay = true
+        onSelectionChange?()
     }
 
     /// Shift+arrow — extend the selection by adding the topic in `direction`
@@ -454,6 +460,7 @@ public final class MindMapView: NSView {
         selectedElement = target
         scrollToVisible(target.frame.insetBy(dx: -32, dy: -32))
         needsDisplay = true
+        onSelectionChange?()
     }
 
     private func anyOtherSelectedElement(excluding ignored: MindMapElement) -> MindMapElement? {

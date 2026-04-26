@@ -153,6 +153,19 @@ extension MindMapView {
     /// undo restores the exact prior fold state. No-op if nothing changes.
     public func undoableSetAllCollapsed(_ collapsed: Bool) {
         guard let root = mindMap?.root else { return }
+        applyCollapse(rootedAt: root, collapsed: collapsed,
+                      undoName: collapsed ? "Fold All" : "Unfold All")
+    }
+
+    /// Recursive fold/unfold for one subtree (root included). Same single-
+    /// undo-step semantics as `undoableSetAllCollapsed`. Used by the
+    /// per-topic context-menu Fold/Unfold Subtree commands.
+    public func undoableSetSubtreeCollapsed(rootedAt topic: Topic, collapsed: Bool) {
+        applyCollapse(rootedAt: topic, collapsed: collapsed,
+                      undoName: collapsed ? "Fold Subtree" : "Unfold Subtree")
+    }
+
+    private func applyCollapse(rootedAt root: Topic, collapsed: Bool, undoName: String) {
         let value: String? = collapsed ? "true" : nil
         var changes: [(Topic, String?)] = []
         var stack: [Topic] = [root]
@@ -166,7 +179,7 @@ extension MindMapView {
         guard !changes.isEmpty else { return }
         for (topic, _) in changes { topic.setAttribute(TopicAttribute.collapsed, value) }
         registerUndo(
-            name: collapsed ? "Fold All" : "Unfold All",
+            name: undoName,
             forward: { for (topic, _) in changes { topic.setAttribute(TopicAttribute.collapsed, value) } },
             inverse: { for (topic, old) in changes { topic.setAttribute(TopicAttribute.collapsed, old) } }
         )

@@ -189,6 +189,42 @@ final class UndoExtrasTests: XCTestCase {
         XCTAssertNil(view.undoableCloneTopic(root, deep: false))
     }
 
+    func testFoldSubtreeOnlyAffectsTheNamedBranch() {
+        let map = MindMap()
+        let root = Topic(text: "Root")
+        map.root = root
+        let a = root.addChild(text: "A")
+        _ = a.addChild(text: "A1")
+        let b = root.addChild(text: "B")
+        _ = b.addChild(text: "B1")
+        let (view, mgr) = makeHeadlessMindMapWithUndo(map: map)
+
+        view.undoableSetSubtreeCollapsed(rootedAt: a, collapsed: true)
+        XCTAssertEqual(a.attribute(TopicAttribute.collapsed), "true")
+        // Sibling branch B and root must be untouched.
+        XCTAssertNil(b.attribute(TopicAttribute.collapsed))
+        XCTAssertNil(root.attribute(TopicAttribute.collapsed))
+
+        mgr.undo()
+        XCTAssertNil(a.attribute(TopicAttribute.collapsed))
+    }
+
+    func testUnfoldSubtreeRecursesIntoNestedFolds() {
+        let map = MindMap()
+        let root = Topic(text: "Root")
+        map.root = root
+        let a = root.addChild(text: "A")
+        let a1 = a.addChild(text: "A1")
+        _ = a1.addChild(text: "A1a")
+        a.setAttribute(TopicAttribute.collapsed, "true")
+        a1.setAttribute(TopicAttribute.collapsed, "true")
+        let (view, _) = makeHeadlessMindMapWithUndo(map: map)
+
+        view.undoableSetSubtreeCollapsed(rootedAt: a, collapsed: false)
+        XCTAssertNil(a.attribute(TopicAttribute.collapsed))
+        XCTAssertNil(a1.attribute(TopicAttribute.collapsed))
+    }
+
     func testFoldAllIsNoOpWhenAlreadyFullyFolded() {
         let map = MindMap()
         let root = Topic(text: "Root")

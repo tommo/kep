@@ -54,6 +54,15 @@ extension MindMapView {
         if ConvertMultiline.split(element.topic.text).count >= 2 {
             menu.addItem(makeContextItem(title: "Convert to Subtree", action: #selector(contextConvertToSubtree(_:)), payload: element))
         }
+        // Edit Text — shortcut for double-click / F2 inline-edit, parity with
+        // Mindolph's RMB menu.
+        menu.addItem(makeContextItem(title: "Edit Text", action: #selector(contextEditText(_:)), payload: element))
+        // Per-subtree fold / unfold (separate from the global Fold All in
+        // the View menu). Only meaningful when this topic has descendants.
+        if !element.topic.children.isEmpty {
+            menu.addItem(makeContextItem(title: "Fold Subtree", action: #selector(contextFoldSubtree(_:)), payload: element))
+            menu.addItem(makeContextItem(title: "Unfold Subtree", action: #selector(contextUnfoldSubtree(_:)), payload: element))
+        }
         // Export Branch As → submenu. Only meaningful when there's something
         // to export beyond the topic's own headline.
         let exportParent = NSMenuItem(title: "Export Branch As…", action: nil, keyEquivalent: "")
@@ -106,6 +115,22 @@ extension MindMapView {
     @objc func contextConvertToSubtree(_ sender: NSMenuItem) {
         guard let element = sender.representedObject as? MindMapElement else { return }
         undoableConvertMultilineToChildren(element.topic)
+    }
+
+    @objc func contextEditText(_ sender: NSMenuItem) {
+        guard let element = sender.representedObject as? MindMapElement else { return }
+        selectElement(element)
+        beginInlineEdit(on: element)
+    }
+
+    @objc func contextFoldSubtree(_ sender: NSMenuItem) {
+        guard let element = sender.representedObject as? MindMapElement else { return }
+        undoableSetSubtreeCollapsed(rootedAt: element.topic, collapsed: true)
+    }
+
+    @objc func contextUnfoldSubtree(_ sender: NSMenuItem) {
+        guard let element = sender.representedObject as? MindMapElement else { return }
+        undoableSetSubtreeCollapsed(rootedAt: element.topic, collapsed: false)
     }
 
     @objc func contextExportBranch(_ sender: NSMenuItem) {

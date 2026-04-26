@@ -27,10 +27,19 @@ public struct MarkdownEditor: NSViewRepresentable {
         split.isVertical = true
         split.dividerStyle = .thin
 
+        // Status footer — words / chars / cursor position. Right-aligned so it
+        // doesn't compete with the toolbar buttons visually.
+        let footer = NSTextField(labelWithString: "")
+        footer.font = .monospacedDigitSystemFont(ofSize: 10, weight: .regular)
+        footer.textColor = .secondaryLabelColor
+        footer.alignment = .right
+        footer.translatesAutoresizingMaskIntoConstraints = false
+
         toolbar.translatesAutoresizingMaskIntoConstraints = false
         split.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(toolbar)
         container.addSubview(split)
+        container.addSubview(footer)
         NSLayoutConstraint.activate([
             toolbar.topAnchor.constraint(equalTo: container.topAnchor),
             toolbar.leadingAnchor.constraint(equalTo: container.leadingAnchor),
@@ -39,8 +48,13 @@ public struct MarkdownEditor: NSViewRepresentable {
             split.topAnchor.constraint(equalTo: toolbar.bottomAnchor),
             split.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             split.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            split.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            split.bottomAnchor.constraint(equalTo: footer.topAnchor),
+            footer.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 8),
+            footer.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -8),
+            footer.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -2),
+            footer.heightAnchor.constraint(equalToConstant: 16),
         ])
+        context.coordinator.statusFooter = footer
 
         // Left: code editor — drop-aware subclass turns dropped image / text
         // files into the appropriate markdown snippet.
@@ -79,6 +93,7 @@ public struct MarkdownEditor: NSViewRepresentable {
         context.coordinator.textView = textView
         context.coordinator.webView = web
         context.coordinator.applyHighlighting()
+        context.coordinator.refreshStatusFooter()
         context.coordinator.refreshPreview()
         return container
     }
@@ -148,9 +163,11 @@ public struct MarkdownEditor: NSViewRepresentable {
         var parent: MarkdownEditor
         var textView: NSTextView?
         var webView: WKWebView?
+        weak var statusFooter: NSTextField?
         var lastNavigated: String?
         let highlighter = MarkdownHighlighter()
         private let previewDebouncer = Debouncer()
+        private let statsDebouncer = Debouncer()
         /// Suppress reciprocal scroll mirroring while we're programmatically
         /// driving one side. Counted both ways to avoid feedback loops.
         private var ignoreTextScroll = false
@@ -345,6 +362,17 @@ public struct MarkdownEditor: NSViewRepresentable {
             applyHighlighting()
             // Debounce preview re-rendering — typing should feel snappy.
             previewDebouncer.schedule(after: 0.15) { [weak self] in self?.refreshPreview() }
+            // Word/char count: 250ms throttle so the footer doesn't churn on
+            // every keystroke for large documents.
+            statsDebouncer.schedule(after: 0.25) { [weak self] in self?.refreshStatusFooter() }
+        }
+
+        /// Recompute the words / chars footer for the current text view body.
+        /// Public-internal so initial display + the change handler can both fire it.
+        func refreshStatusFooter() {
+            guard let footer = statusFooter, let body = textView?.string else { return }
+            let stats = MarkdownStats.compute(body)
+            footer.stringValue = "\(stats.words) words · \(stats.characters) chars"
         }
 
         func applyHighlighting() {

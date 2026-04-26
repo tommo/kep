@@ -73,6 +73,8 @@ struct DocumentTabBar: View {
                             .disabled(session.openDocuments.count < 2)
                         Button(L("tab.menu.close_all")) { session.closeAllTabs() }
                         Divider()
+                        Button(L("tab.menu.reload")) { session.reloadTab(doc.id) }
+                            .disabled(!doc.hasExternalChanges)
                         Button(L("tab.menu.reveal_in_finder")) {
                             if let url = doc.fileURL { NSWorkspace.shared.activateFileViewerSelecting([url]) }
                         }

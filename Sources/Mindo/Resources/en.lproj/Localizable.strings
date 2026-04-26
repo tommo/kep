@@ -134,6 +134,7 @@
 "tab.menu.close_others" = "Close Other Tabs";
 "tab.menu.close_all" = "Close All Tabs";
 "tab.menu.reveal_in_finder" = "Reveal in Finder";
+"tab.menu.reload" = "Reload from Disk";
 
 /* MARK: - External-change conflict */
 "conflict.title" = "“%@” changed on disk";

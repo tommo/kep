@@ -131,6 +131,7 @@
 "tab.menu.close_others" = "关闭其他标签页";
 "tab.menu.close_all" = "关闭所有标签页";
 "tab.menu.reveal_in_finder" = "在 Finder 中显示";
+"tab.menu.reload" = "从磁盘重新加载";
 
 /* MARK: - 外部修改冲突 */
 "conflict.title" = "“%@” 已在磁盘上发生改变";

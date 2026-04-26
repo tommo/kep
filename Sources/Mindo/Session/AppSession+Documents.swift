@@ -187,6 +187,13 @@ extension AppSession {
         openDocuments[idx].hasExternalChanges = false
     }
 
+    /// Public entry point for the tab right-click "Reload from Disk" menu
+    /// item. Looks up by id then delegates to `reloadFromDisk(at:)`.
+    func reloadTab(_ id: OpenDocument.ID) {
+        guard let idx = openDocuments.firstIndex(where: { $0.id == id }) else { return }
+        reloadFromDisk(at: idx)
+    }
+
     /// Three-way prompt when the on-disk file changed under us *and* there
     /// are unsaved local edits. Mirrors what mindolph-fx's MainController
     /// does for the same situation. Caller must be on the main thread —

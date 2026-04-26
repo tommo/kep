@@ -12,6 +12,14 @@ public enum PrefKeys {
     /// Optional preferred monospaced font family for the markdown /
     /// plantuml editors. Empty = use the system default monospaced font.
     public static let editorFontFamily = "mindo.prefs.editorFontFamily"
+    /// Markdown editor split orientation. true (default) = source on
+    /// the left, preview on the right; false = source on top, preview
+    /// below. Mirrors mindolph's per-editor Orientation pref.
+    public static let markdownSplitVertical = "mindo.prefs.markdownSplitVertical"
+    /// PlantUML editor split orientation — same semantics as
+    /// `markdownSplitVertical` but for the puml editor's source/preview
+    /// pane.
+    public static let plantumlSplitVertical = "mindo.prefs.plantumlSplitVertical"
     public static let markdownPreviewSyncScroll = "mindo.prefs.markdownPreviewSyncScroll"
     public static let mindmapVerticalGap = "mindo.prefs.mindmapVerticalGap"
     public static let mindmapHorizontalGap = "mindo.prefs.mindmapHorizontalGap"

@@ -46,6 +46,8 @@ private struct EditorPrefs: View {
     @AppStorage(PrefKeys.editorFontFamily) private var fontFamily: String = ""
     @AppStorage(PrefKeys.markdownPreviewSyncScroll) private var syncScroll: Bool = true
     @AppStorage(PrefKeys.autosaveOnBlur) private var autosaveOnBlur: Bool = true
+    @AppStorage(PrefKeys.markdownSplitVertical) private var markdownSplitVertical: Bool = true
+    @AppStorage(PrefKeys.plantumlSplitVertical) private var plantumlSplitVertical: Bool = true
 
     var body: some View {
         Form {
@@ -61,6 +63,17 @@ private struct EditorPrefs: View {
                 }
                 Toggle(L("prefs.editor.sync_scroll"), isOn: $syncScroll)
                 Toggle(L("prefs.editor.autosave_on_blur"), isOn: $autosaveOnBlur)
+            }
+            Section(L("prefs.editor.section.split")) {
+                Picker(L("prefs.editor.split.markdown"), selection: $markdownSplitVertical) {
+                    Text(L("prefs.editor.split.side_by_side")).tag(true)
+                    Text(L("prefs.editor.split.top_bottom")).tag(false)
+                }
+                Picker(L("prefs.editor.split.plantuml"), selection: $plantumlSplitVertical) {
+                    Text(L("prefs.editor.split.side_by_side")).tag(true)
+                    Text(L("prefs.editor.split.top_bottom")).tag(false)
+                }
+                Text(L("prefs.editor.split.note")).font(.caption).foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)

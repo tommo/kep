@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 import WebKit
 import MindoBase
+import MindoCore
 
 /// Split editor for `.puml` files: NSTextView source on the left, WKWebView
 /// preview of the rendered SVG on the right. Renders by shelling out to the
@@ -20,7 +21,7 @@ public struct PlantUMLEditor: NSViewRepresentable {
         let toolbar = makeToolbar(coordinator: context.coordinator)
 
         let split = NSSplitView()
-        split.isVertical = true
+        split.isVertical = PrefKeys.bool(PrefKeys.plantumlSplitVertical, fallback: true)
         split.dividerStyle = .thin
 
         let (scroll, textView) = CodeArea.makeMonospaced(

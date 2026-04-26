@@ -49,11 +49,12 @@ let package = Package(
             name: "MindoMarkdown",
             dependencies: [
                 "MindoBase",
+                "MindoCore",
                 .product(name: "Markdown", package: "swift-markdown"),
                 "SwiftSoup",
             ]
         ),
-        .target(name: "MindoPlantUML", dependencies: ["MindoBase"]),
+        .target(name: "MindoPlantUML", dependencies: ["MindoBase", "MindoCore"]),
         .target(name: "MindoCSV", dependencies: ["MindoBase"]),
         .target(name: "MindoGenAI", dependencies: ["MindoBase", "MindoCore"]),
         .executableTarget(

@@ -3,6 +3,7 @@ import SwiftUI
 import WebKit
 import Combine
 import MindoBase
+import MindoCore
 
 /// Split editor view: NSTextView (left) + WKWebView preview (right). Mirrors the
 /// `MarkdownEditor` layout in `mindolph-markdown`.
@@ -24,7 +25,7 @@ public struct MarkdownEditor: NSViewRepresentable {
         let toolbar = makeToolbar(coordinator: context.coordinator)
 
         let split = NSSplitView()
-        split.isVertical = true
+        split.isVertical = PrefKeys.bool(PrefKeys.markdownSplitVertical, fallback: true)
         split.dividerStyle = .thin
 
         // Status footer — words / chars / cursor position. Right-aligned so it

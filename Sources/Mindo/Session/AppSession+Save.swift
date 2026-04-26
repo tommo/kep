@@ -183,6 +183,7 @@ extension AppSession {
         guard let doc = activeDocument, case .mindMap(let map) = doc.kind else { return }
         let panel = NSSavePanel()
         panel.allowedContentTypes = [UTType.init(filenameExtension: "mm") ?? .data]
+        if let url = doc.fileURL { panel.directoryURL = url.deletingLastPathComponent() }
         panel.nameFieldStringValue = (doc.fileURL?.deletingPathExtension().lastPathComponent ?? "Untitled") + ".mm"
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
@@ -203,6 +204,7 @@ extension AppSession {
         guard let doc = activeDocument, case .text(let body, .markdown) = doc.kind else { return }
         let panel = NSSavePanel()
         panel.allowedContentTypes = [UTType.init(filenameExtension: ext) ?? .data]
+        if let url = doc.fileURL { panel.directoryURL = url.deletingLastPathComponent() }
         panel.nameFieldStringValue = (doc.fileURL?.deletingPathExtension().lastPathComponent ?? "Untitled") + "." + ext
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {

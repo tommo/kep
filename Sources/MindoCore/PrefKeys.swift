@@ -9,6 +9,9 @@ public enum PrefKeys {
     public static let theme = "mindo.prefs.theme"
     public static let outlineOpenByDefault = "mindo.prefs.outlineOpenByDefault"
     public static let editorFontSize = "mindo.prefs.editorFontSize"
+    /// Optional preferred monospaced font family for the markdown /
+    /// plantuml editors. Empty = use the system default monospaced font.
+    public static let editorFontFamily = "mindo.prefs.editorFontFamily"
     public static let markdownPreviewSyncScroll = "mindo.prefs.markdownPreviewSyncScroll"
     public static let mindmapVerticalGap = "mindo.prefs.mindmapVerticalGap"
     public static let mindmapHorizontalGap = "mindo.prefs.mindmapHorizontalGap"
@@ -32,5 +35,14 @@ public enum PrefKeys {
     public static func bool(_ key: String, fallback: Bool) -> Bool {
         if UserDefaults.standard.object(forKey: key) == nil { return fallback }
         return UserDefaults.standard.bool(forKey: key)
+    }
+
+    /// Pulls a String, returning nil when the key is unset or stored as
+    /// an empty string. Useful for "system default" semantics where
+    /// any value at all means override.
+    public static func string(_ key: String) -> String? {
+        guard let raw = UserDefaults.standard.string(forKey: key) else { return nil }
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }

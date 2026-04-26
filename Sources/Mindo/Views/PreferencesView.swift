@@ -1,4 +1,5 @@
 import SwiftUI
+import MindoBase
 import MindoCore
 
 /// Tabbed preferences sheet wired into SwiftUI's Settings scene (⌘,).
@@ -42,12 +43,19 @@ private struct GeneralPrefs: View {
 
 private struct EditorPrefs: View {
     @AppStorage(PrefKeys.editorFontSize) private var fontSize: Double = 13
+    @AppStorage(PrefKeys.editorFontFamily) private var fontFamily: String = ""
     @AppStorage(PrefKeys.markdownPreviewSyncScroll) private var syncScroll: Bool = true
     @AppStorage(PrefKeys.autosaveOnBlur) private var autosaveOnBlur: Bool = true
 
     var body: some View {
         Form {
             Section(L("prefs.editor.section.text")) {
+                Picker(L("prefs.editor.font_family"), selection: $fontFamily) {
+                    Text(L("prefs.editor.font_family.system")).tag("")
+                    ForEach(EditorFont.pickerFamilies, id: \.self) { name in
+                        Text(name).tag(name)
+                    }
+                }
                 Stepper(value: $fontSize, in: 9...24, step: 1) {
                     Text(String(format: L("prefs.editor.font_size_value"), Int(fontSize)))
                 }

@@ -25,7 +25,7 @@ public enum CodeArea {
         textView.isRichText = false
         textView.allowsUndo = true
         textView.usesFindBar = true
-        textView.font = .monospacedSystemFont(ofSize: fontSize, weight: .regular)
+        textView.font = EditorFont.resolve(family: PrefKeys.string(PrefKeys.editorFontFamily), size: fontSize)
         textView.string = text
         textView.delegate = delegate
         textView.minSize = NSSize(width: 0, height: 0)

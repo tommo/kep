@@ -161,6 +161,8 @@
 "prefs.general.outline_default_open" = "Show outline panel by default";
 "prefs.editor.section.text" = "Text";
 "prefs.editor.font_size_value" = "Editor font size: %d pt";
+"prefs.editor.font_family" = "Editor font family";
+"prefs.editor.font_family.system" = "System default (mono)";
 "prefs.editor.sync_scroll" = "Sync code area & preview scroll (Markdown)";
 "prefs.editor.autosave_on_blur" = "Autosave when window or tab loses focus";
 "prefs.mindmap.section.layout" = "Layout";

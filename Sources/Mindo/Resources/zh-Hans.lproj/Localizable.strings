@@ -158,6 +158,8 @@
 "prefs.general.outline_default_open" = "默认显示大纲面板";
 "prefs.editor.section.text" = "文本";
 "prefs.editor.font_size_value" = "编辑器字号：%d pt";
+"prefs.editor.font_family" = "编辑器字体";
+"prefs.editor.font_family.system" = "系统默认（等宽）";
 "prefs.editor.sync_scroll" = "Markdown 代码区与预览同步滚动";
 "prefs.editor.autosave_on_blur" = "窗口或标签失去焦点时自动保存";
 "prefs.mindmap.section.layout" = "布局";

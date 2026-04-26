@@ -259,17 +259,47 @@ extension MindMapView {
         if let existing = element.topic.extra(type) {
             menu.addItem(makeContextItem(title: "Edit \(label)…", action: #selector(contextEditExtra(_:)), payload: payload))
             menu.addItem(makeContextItem(title: "Remove \(label)", action: #selector(contextRemoveExtra(_:)), payload: payload))
-            // Note-specific encrypt / decrypt entries.
+            // Note-specific encrypt / decrypt + import/export entries.
             if type == .note {
                 if NoteEncryption.looksEncrypted(existing.value) {
                     menu.addItem(makeContextItem(title: "Decrypt Note…", action: #selector(contextDecryptNote(_:)), payload: payload))
                 } else {
                     menu.addItem(makeContextItem(title: "Encrypt Note…", action: #selector(contextEncryptNote(_:)), payload: payload))
+                    menu.addItem(makeContextItem(title: "Import Note from File…", action: #selector(contextImportNote(_:)), payload: payload))
+                    menu.addItem(makeContextItem(title: "Export Note to File…", action: #selector(contextExportNote(_:)), payload: payload))
                 }
             }
         } else {
             menu.addItem(makeContextItem(title: "Add \(label)…", action: #selector(contextEditExtra(_:)), payload: payload))
+            // Allow Import even when no note exists yet — creates one from file.
+            if type == .note {
+                menu.addItem(makeContextItem(title: "Import Note from File…", action: #selector(contextImportNote(_:)), payload: payload))
+            }
         }
+    }
+
+    @objc func contextImportNote(_ sender: NSMenuItem) {
+        guard let payload = sender.representedObject as? ExtraMenuPayload else { return }
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = [.plainText, .text, UTType(filenameExtension: "md") ?? .text]
+        guard panel.runModal() == .OK, let url = panel.url,
+              let body = try? String(contentsOf: url, encoding: .utf8) else { return }
+        undoableSetExtra(payload.element.topic, .note, value: ExtraNote(text: body))
+    }
+
+    @objc func contextExportNote(_ sender: NSMenuItem) {
+        guard let payload = sender.representedObject as? ExtraMenuPayload,
+              let note = payload.element.topic.extra(.note) as? ExtraNote,
+              !NoteEncryption.looksEncrypted(note.text) else { return }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.plainText]
+        let stem = payload.element.topic.text.split(separator: "\n").first.map(String.init) ?? "Note"
+        let safeStem = stem.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: "/", with: "-")
+        panel.nameFieldStringValue = "\(safeStem.isEmpty ? "Note" : safeStem).txt"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        try? note.text.write(to: url, atomically: true, encoding: .utf8)
     }
 
     @objc func contextEncryptNote(_ sender: NSMenuItem) {

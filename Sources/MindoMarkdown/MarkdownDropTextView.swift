@@ -73,6 +73,30 @@ public final class MarkdownDropTextView: NSTextView {
         }
     }
 
+    /// Smart paste — when text is selected AND the pasteboard contains a
+    /// URL, wrap the selection as `[selected](URL)` instead of replacing
+    /// with the raw URL. Standard editor convention; matches what Bear /
+    /// Obsidian / iA Writer do. Falls through to super for every other
+    /// pasteboard shape so the existing image-paste / file-drop / plain-
+    /// text paths stay intact.
+    public override func paste(_ sender: Any?) {
+        let selection = selectedRange()
+        if selection.length > 0,
+           let url = MarkdownPasteRule.urlFromPasteboard(NSPasteboard.general) {
+            let body = string as NSString
+            let selectedText = body.substring(with: selection)
+            let replacement = "[\(selectedText)](\(url))"
+            if shouldChangeText(in: selection, replacementString: replacement) {
+                replaceCharacters(in: selection, with: replacement)
+                didChangeText()
+                // Place the caret at the end of the inserted link.
+                setSelectedRange(NSRange(location: selection.location + (replacement as NSString).length, length: 0))
+            }
+            return
+        }
+        super.paste(sender)
+    }
+
     /// ⌘B / ⌘I / ⌘E / ⌘K → bold / italic / inline-code / link. Shortcuts
     /// route through the delegate (the SwiftUI Coordinator) which already
     /// has @objc handlers wired to MarkdownFormatting.

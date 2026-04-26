@@ -31,7 +31,9 @@ public struct MindMapCanvas: NSViewRepresentable {
         self.searchHighlight = searchHighlight
     }
 
-    public func makeNSView(context: Context) -> NSScrollView {
+    public func makeNSView(context: Context) -> NSView {
+        let container = NSView()
+
         let scroll = NSScrollView()
         scroll.hasHorizontalScroller = true
         scroll.hasVerticalScroller = true
@@ -42,12 +44,50 @@ public struct MindMapCanvas: NSViewRepresentable {
 
         let view = MindMapView(frame: .zero)
         view.theme = theme
-        view.onChange = onChange
+        view.onChange = { newMap in
+            onChange(newMap)
+            // Bubble change → update footer's topic count.
+            context.coordinator.refreshFooter()
+        }
         view.onExtraFileTap = onExtraFileTap
         view.display(map: map)
         scroll.documentView = view
+
+        // Status footer below the scroll view — topic count + zoom percent.
+        let footer = NSTextField(labelWithString: "")
+        footer.font = .monospacedDigitSystemFont(ofSize: 10, weight: .regular)
+        footer.textColor = .secondaryLabelColor
+        footer.alignment = .right
+        footer.translatesAutoresizingMaskIntoConstraints = false
+
+        scroll.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(scroll)
+        container.addSubview(footer)
+        NSLayoutConstraint.activate([
+            scroll.topAnchor.constraint(equalTo: container.topAnchor),
+            scroll.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            scroll.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            scroll.bottomAnchor.constraint(equalTo: footer.topAnchor),
+            footer.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 8),
+            footer.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -8),
+            footer.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -2),
+            footer.heightAnchor.constraint(equalToConstant: 16),
+        ])
+
+        // Track magnification changes so the footer's zoom-percent stays
+        // current. NSScrollView.willStartLiveMagnify isn't enough — we want
+        // the value after every change, not just at gesture start.
+        NotificationCenter.default.addObserver(
+            forName: NSScrollView.didEndLiveMagnifyNotification,
+            object: scroll,
+            queue: .main
+        ) { _ in context.coordinator.refreshFooter() }
+
         context.coordinator.view = view
-        return scroll
+        context.coordinator.scroll = scroll
+        context.coordinator.footer = footer
+        context.coordinator.refreshFooter()
+        return container
     }
 
     /// Bounce the active zoom action up to the underlying view. Used by App
@@ -67,8 +107,8 @@ public struct MindMapCanvas: NSViewRepresentable {
         view.zoomToFit()
     }
 
-    public func updateNSView(_ scroll: NSScrollView, context: Context) {
-        guard let view = scroll.documentView as? MindMapView else { return }
+    public func updateNSView(_ container: NSView, context: Context) {
+        guard let view = context.coordinator.view else { return }
         view.theme = theme
         view.onExtraFileTap = onExtraFileTap
         if view.searchHighlight != searchHighlight {
@@ -77,6 +117,7 @@ public struct MindMapCanvas: NSViewRepresentable {
         }
         if view.mindMap !== map {
             view.display(map: map)
+            context.coordinator.refreshFooter()
         }
         // If the target changed since last update, run navigation now.
         if let target = navigationTarget, target != context.coordinator.lastNavigated {
@@ -93,6 +134,17 @@ public struct MindMapCanvas: NSViewRepresentable {
 
     public final class Coordinator {
         weak var view: MindMapView?
+        weak var scroll: NSScrollView?
+        weak var footer: NSTextField?
         var lastNavigated: String?
+
+        /// Recompute the canvas footer text — topic count + zoom percent.
+        /// Called after document load, mutations, and zoom changes.
+        func refreshFooter() {
+            guard let footer = footer else { return }
+            let topicCount = view?.rootElement?.topic.subtreeCount() ?? 0
+            let zoomPct = Int(round((scroll?.magnification ?? 1) * 100))
+            footer.stringValue = "\(topicCount) topics · \(zoomPct)%"
+        }
     }
 }

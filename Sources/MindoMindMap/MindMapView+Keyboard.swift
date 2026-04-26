@@ -18,6 +18,18 @@ extension MindMapView {
             self.keyDown(with: event)
             return true
         }
+        // ⌘D duplicates the selected topic with full subtree (mirror of the
+        // context-menu Clone with Subtree). Convention from Finder.
+        if window?.firstResponder === self,
+           chars == "d", event.modifierFlags.contains(.command),
+           !event.modifierFlags.contains(.option) {
+            if let sel = selectedElement, sel.topic.parent != nil,
+               let clone = undoableCloneTopic(sel.topic, deep: true),
+               let cloneEl = self.element(forTopic: clone) {
+                selectElement(cloneEl)
+            }
+            return true
+        }
         return super.performKeyEquivalent(with: event)
     }
 

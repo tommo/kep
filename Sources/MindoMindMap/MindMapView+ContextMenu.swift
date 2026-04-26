@@ -27,6 +27,17 @@ extension MindMapView {
             action: #selector(contextSetImage(_:)),
             payload: element
         ))
+        // Mindolph parity (AddImageChooseDialog): pull an image straight
+        // from the pasteboard (e.g. macOS screenshot, copied browser
+        // image). Hidden when the pasteboard has nothing usable so the
+        // menu doesn't sprout a perma-disabled entry.
+        if MindMapPasteHelper.imageBase64(from: NSPasteboard.general) != nil {
+            menu.addItem(makeContextItem(
+                title: hasImage ? "Replace Image from Clipboard" : "Add Image from Clipboard",
+                action: #selector(contextSetImageFromClipboard(_:)),
+                payload: element
+            ))
+        }
         if hasImage {
             menu.addItem(makeContextItem(title: "Remove Image", action: #selector(contextRemoveImage(_:)), payload: element))
         }
@@ -186,6 +197,17 @@ extension MindMapView {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         guard let data = try? Data(contentsOf: url) else { return }
         let base64 = data.base64EncodedString()
+        undoableSetAttribute(element.topic, key: TopicAttribute.image, value: base64)
+    }
+
+    /// Pull a base64-encoded PNG from `NSPasteboard.general` (the same
+    /// pipeline ⌘V uses for image paste) and stash it on the topic's
+    /// `mmd.image` attribute. No-op when the pasteboard has nothing
+    /// usable — the menu item is gated so we won't usually land here
+    /// in that state, but the guard keeps the action robust.
+    @objc func contextSetImageFromClipboard(_ sender: NSMenuItem) {
+        guard let element = sender.representedObject as? MindMapElement,
+              let base64 = MindMapPasteHelper.imageBase64(from: NSPasteboard.general) else { return }
         undoableSetAttribute(element.topic, key: TopicAttribute.image, value: base64)
     }
 

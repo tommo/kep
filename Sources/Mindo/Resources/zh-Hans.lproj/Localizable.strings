@@ -22,6 +22,7 @@
 "menu.file.export_mindmap_pdf" = "思维导图导出为 PDF…";
 "menu.file.export_mindmap_orgmode" = "思维导图导出为 Org-Mode…";
 "menu.file.export_mindmap_markdown" = "思维导图导出为 Markdown…";
+"menu.file.export_mindmap_asciidoc" = "思维导图导出为 AsciiDoc…";
 "menu.file.open_recent" = "最近打开";
 "menu.file.open_recent.empty" = "（无最近文件）";
 "menu.file.clear_recents" = "清除菜单";

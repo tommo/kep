@@ -20,6 +20,28 @@ extension MindMapView {
         return results
     }
 
+    /// Replace every occurrence of `query` in `element`'s text with
+    /// `replacement` and return whether anything changed. Single-step
+    /// undoable. Used by the find bar's per-match Replace button so the
+    /// user can review each substitution before committing the rest.
+    /// Mindolph parity: their replace bar offers both Replace and
+    /// Replace All; ours used to skip straight to the bulk operation.
+    @discardableResult
+    public func replaceCurrent(_ element: MindMapElement, query: String, with replacement: String, caseSensitive: Bool = false) -> Bool {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        let opts: NSString.CompareOptions = caseSensitive ? [] : [.caseInsensitive]
+        let next = (element.topic.text as NSString).replacingOccurrences(
+            of: trimmed,
+            with: replacement,
+            options: opts,
+            range: NSRange(location: 0, length: (element.topic.text as NSString).length)
+        )
+        guard next != element.topic.text else { return false }
+        undoableSetText(element.topic, to: next)
+        return true
+    }
+
     /// Replace every occurrence of `query` in topic titles with `replacement`.
     /// Returns the number of replacements (one per matched topic — multiple
     /// occurrences within a single title all swap in one go). Each topic

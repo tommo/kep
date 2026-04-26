@@ -52,4 +52,35 @@ final class MindMapFindTests: XCTestCase {
         let (view, _, _, _, _) = makeFixture()
         XCTAssertEqual(view.replaceAll(query: "definitely-not-here", with: "x"), 0)
     }
+
+    // MARK: - replaceCurrent (single-step parity with Replace All)
+
+    func testReplaceCurrentEditsOnlyTheGivenElement() {
+        let (view, _, _, b, b2) = makeFixture()
+        let target = view.findMatches(query: "beta").first!
+        let didEdit = view.replaceCurrent(target, query: "beta", with: "Gamma")
+        XCTAssertTrue(didEdit)
+        // Just the first match swapped — sub-task left alone.
+        XCTAssertEqual(b.text, "Gamma milestone")
+        XCTAssertEqual(b2.text, "Beta sub-task")
+        XCTAssertEqual(view.findMatches(query: "beta").count, 1)
+    }
+
+    func testReplaceCurrentReturnsFalseWhenNoSubstitution() {
+        // The element doesn't actually contain `query` — replaceCurrent
+        // should be a no-op and report false so the caller doesn't
+        // advance / undo unnecessarily.
+        let (view, _, alpha, _, _) = makeFixture()
+        let alphaEl = view.findMatches(query: "alpha").first!
+        XCTAssertFalse(view.replaceCurrent(alphaEl, query: "zzz", with: "Y"))
+        XCTAssertEqual(alpha.text, "Alpha goal")
+    }
+
+    func testReplaceCurrentRespectsCaseSensitivity() {
+        let (view, _, _, b, _) = makeFixture()
+        let target = view.findMatches(query: "beta").first!
+        let didEdit = view.replaceCurrent(target, query: "BETA", with: "X", caseSensitive: true)
+        XCTAssertFalse(didEdit)
+        XCTAssertEqual(b.text, "Beta milestone")
+    }
 }

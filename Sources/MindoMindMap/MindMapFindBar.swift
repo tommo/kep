@@ -50,6 +50,10 @@ public struct MindMapFindBar: View {
             TextField("Replace with…", text: $replacement)
                 .textFieldStyle(.roundedBorder)
                 .frame(minWidth: 140)
+            Button("Replace") { replaceCurrent() }
+                .buttonStyle(.bordered)
+                .disabled(matches.isEmpty)
+                .help("Replace this match and advance to the next")
             Button("Replace All") { replaceAll() }
                 .buttonStyle(.bordered)
                 .disabled(matches.isEmpty)
@@ -89,6 +93,31 @@ public struct MindMapFindBar: View {
     private func select(matchIndex i: Int) {
         guard matches.indices.contains(i) else { return }
         view.selectElement(matches[i])
+    }
+
+    /// Replace the currently-highlighted match, then advance the
+    /// pointer + refresh `matches` so subsequent Replace presses keep
+    /// progressing. Refreshing the list is needed because a successful
+    /// edit may now match (substring of replacement) or no longer
+    /// match — easier to recompute than to maintain incrementally.
+    private func replaceCurrent() {
+        guard matches.indices.contains(index) else { return }
+        let target = matches[index]
+        let didEdit = view.replaceCurrent(target, query: query, with: replacement, caseSensitive: caseSensitive)
+        guard didEdit else { return }
+        // Recompute matches against the new text. Try to keep the user
+        // anchored at the same logical spot by re-finding the topic;
+        // when it no longer matches, fall back to whatever's at the
+        // same index.
+        matches = view.findMatches(query: query, caseSensitive: caseSensitive)
+        if matches.isEmpty {
+            index = 0
+        } else if let i = matches.firstIndex(where: { $0 === target }) {
+            index = (i + 1) % matches.count
+        } else {
+            index = min(index, matches.count - 1)
+        }
+        select(matchIndex: index)
     }
 
     private func replaceAll() {

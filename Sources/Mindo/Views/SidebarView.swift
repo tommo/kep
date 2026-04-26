@@ -19,6 +19,12 @@ struct SidebarView: View {
             .padding(.top, 8)
             .padding(.bottom, 4)
 
+            if !session.workspaceRoots.isEmpty {
+                FileTypeFilterBar(filter: $session.sidebarTypeFilter)
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 4)
+            }
+
             if session.workspaceRoots.isEmpty {
                 ContentUnavailableView(
                     L("sidebar.empty.title"),
@@ -53,6 +59,46 @@ struct SidebarView: View {
     }
 }
 
+/// Toggle bar that drives the file-type filter. Empty selection means
+/// no filter (all files visible). Folders are always shown so the user
+/// can navigate.
+private struct FileTypeFilterBar: View {
+    @Binding var filter: Set<SupportedFileType>
+
+    private static let displayed: [SupportedFileType] = [
+        .mindMap, .markdown, .plantUML, .csv, .plainText
+    ]
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(Self.displayed, id: \.self) { type in
+                Button {
+                    if filter.contains(type) { filter.remove(type) }
+                    else { filter.insert(type) }
+                } label: {
+                    Image(systemName: type.sfSymbolName)
+                        .frame(width: 18, height: 18)
+                        .padding(4)
+                        .background(
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(filter.contains(type) ? Color.accentColor.opacity(0.25) : Color.clear)
+                        )
+                }
+                .buttonStyle(.plain)
+                .help(type.rawValue.uppercased())
+            }
+            if !filter.isEmpty {
+                Button { filter.removeAll() } label: {
+                    Image(systemName: "xmark.circle")
+                }
+                .buttonStyle(.plain)
+                .help(L("sidebar.filter.clear"))
+            }
+            Spacer()
+        }
+    }
+}
+
 /// Recursive disclosure row for a workspace / folder / file.
 struct NodeRow: View {
     let node: NodeData
@@ -62,7 +108,7 @@ struct NodeRow: View {
     var body: some View {
         if node.isExpandable {
             DisclosureGroup {
-                ForEach(node.children(), id: \.self) { child in
+                ForEach(filteredChildren(), id: \.self) { child in
                     NodeRow(node: child, session: $session, selection: $selection)
                 }
             } label: {
@@ -106,5 +152,19 @@ struct NodeRow: View {
 
     private func icon(for node: NodeData) -> String {
         node.fileType?.sfSymbolName ?? SupportedFileType.unknownSymbolName
+    }
+
+    /// Apply the workspace's file-type filter to this folder's children.
+    /// Folders always show through so the user can drill in even when
+    /// nothing in the immediate folder matches.
+    private func filteredChildren() -> [NodeData] {
+        let raw = node.children()
+        let filter = session.sidebarTypeFilter
+        guard !filter.isEmpty else { return raw }
+        return raw.filter { child in
+            if child.isExpandable { return true }
+            guard let type = child.fileType else { return false }
+            return filter.contains(type)
+        }
     }
 }

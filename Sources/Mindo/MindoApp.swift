@@ -283,6 +283,11 @@ final class AppSession {
     /// PrefKeys so the user's "show outline by default" choice sticks.
     var outlineOpen: Bool = PrefKeys.bool(PrefKeys.outlineOpenByDefault, fallback: true)
 
+    /// File-type filter for the workspace sidebar. Empty = no filter (all
+    /// files visible). Folders always show regardless so the user can
+    /// navigate. Mirrors Mindolph's `FileFilterButtonGroup`.
+    var sidebarTypeFilter: Set<SupportedFileType> = []
+
     /// Per-document outline navigation request. Editor views observe this and
     /// scroll/center on change. Reset to nil after a brief debounce so the
     /// same target can fire again.

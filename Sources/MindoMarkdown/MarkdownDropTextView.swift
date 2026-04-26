@@ -73,6 +73,31 @@ public final class MarkdownDropTextView: NSTextView {
         }
     }
 
+    /// Smart-delete the empty pair when backspacing inside one. After
+    /// typing `(` and getting `()` with caret between, backspace removes
+    /// both characters in one step instead of leaving an orphan `)`.
+    /// Falls through to super for every other shape.
+    public override func deleteBackward(_ sender: Any?) {
+        let sel = selectedRange()
+        if sel.length == 0, sel.location > 0 {
+            let body = self.string as NSString
+            if sel.location < body.length {
+                let prevCh = body.substring(with: NSRange(location: sel.location - 1, length: 1))
+                let nextCh = body.substring(with: NSRange(location: sel.location, length: 1))
+                if let expectedCloser = MarkdownAutoPair.closer(for: prevCh),
+                   String(expectedCloser) == nextCh {
+                    let pairRange = NSRange(location: sel.location - 1, length: 2)
+                    if shouldChangeText(in: pairRange, replacementString: "") {
+                        replaceCharacters(in: pairRange, with: "")
+                        didChangeText()
+                    }
+                    return
+                }
+            }
+        }
+        super.deleteBackward(sender)
+    }
+
     /// Auto-pair openers — when the user types a bracket / quote / backtick
     /// against an empty selection, insert the matching closer and place
     /// the caret between them. Multi-char inserts (IME composition,

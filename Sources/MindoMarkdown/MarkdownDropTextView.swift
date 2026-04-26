@@ -73,6 +73,45 @@ public final class MarkdownDropTextView: NSTextView {
         }
     }
 
+    /// Tab indents the line(s) covered by the current selection — one
+    /// "  " (2-space) level per press. Multi-line selections get every
+    /// line indented in a single undoable step. Caret stays inside the
+    /// modified block by extending the resulting selection range.
+    public override func insertTab(_ sender: Any?) {
+        applyLineTransform(MarkdownIndent.indent)
+    }
+
+    /// Shift-Tab outdents — removes one "  " or one leading "\t" from
+    /// each covered line. Lines without indent stay as-is.
+    public override func insertBacktab(_ sender: Any?) {
+        applyLineTransform(MarkdownIndent.outdent)
+    }
+
+    /// Shared scaffolding for the two indent overrides — expand the
+    /// selection to whole lines, run `transform` over the block, and
+    /// commit through shouldChangeText / replaceCharacters / didChangeText
+    /// so the edit lands on the undo stack as one entry.
+    private func applyLineTransform(_ transform: (String) -> String) {
+        let body = string as NSString
+        let selection = selectedRange()
+        let lineRange = body.lineRange(for: selection)
+        // Don't pull in the trailing newline — keeps the transform
+        // operating on visible-line content only.
+        var workRange = lineRange
+        if workRange.length > 0,
+           body.character(at: workRange.location + workRange.length - 1) == 0x0A /* \n */ {
+            workRange.length -= 1
+        }
+        let block = body.substring(with: workRange)
+        let replaced = transform(block)
+        guard replaced != block, shouldChangeText(in: workRange, replacementString: replaced) else { return }
+        replaceCharacters(in: workRange, with: replaced)
+        didChangeText()
+        // Re-select the modified region so subsequent Tab presses keep
+        // operating on the same block.
+        setSelectedRange(NSRange(location: workRange.location, length: (replaced as NSString).length))
+    }
+
     public override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
         let pb = sender.draggingPasteboard
         guard let urls = pb.readObjects(forClasses: [NSURL.self], options: nil) as? [URL],

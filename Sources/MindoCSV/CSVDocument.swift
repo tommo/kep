@@ -49,6 +49,33 @@ public final class CSVDocument {
         rows[row][column] = value
     }
 
+    /// Clear a single cell's value to "". Convenience over setCell that
+    /// makes intent explicit at call sites and short-circuits when the
+    /// cell is already empty so the editor doesn't burn an undo entry
+    /// on a no-op delete.
+    @discardableResult
+    public func clearCell(row: Int, column: Int) -> Bool {
+        guard row >= 0, row < rows.count else { return false }
+        guard column >= 0 else { return false }
+        if column >= rows[row].count { return false }
+        if rows[row][column].isEmpty { return false }
+        rows[row][column] = ""
+        return true
+    }
+
+    /// Clear the cells at every (row, column) pair in `cells`. Returns
+    /// the number of cells that actually changed (skipped already-empty
+    /// cells + out-of-range coordinates). One call from the editor's
+    /// Delete-key handler so the bulk clear becomes a single undo step.
+    @discardableResult
+    public func clearCells(_ cells: [(row: Int, column: Int)]) -> Int {
+        var changed = 0
+        for cell in cells {
+            if clearCell(row: cell.row, column: cell.column) { changed += 1 }
+        }
+        return changed
+    }
+
     public func appendRow() {
         rows.append(Array(repeating: "", count: columnCount))
     }

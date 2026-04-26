@@ -199,4 +199,39 @@ final class CSVDocumentTests: XCTestCase {
         XCTAssertEqual(doc.rows[1].count, 3)
         XCTAssertEqual(doc.rows[1], ["X", "", ""])
     }
+
+    // MARK: - Clear cells
+
+    func testClearCellEmptiesAndReportsChange() {
+        let doc = CSVDocument(rows: [["A", "B"], ["C", "D"]], hasHeader: false)
+        XCTAssertTrue(doc.clearCell(row: 0, column: 1))
+        XCTAssertEqual(doc.rows[0], ["A", ""])
+    }
+
+    func testClearAlreadyEmptyCellReturnsFalse() {
+        // Critical for the Delete handler — caller skips the undo
+        // registration when nothing actually changed.
+        let doc = CSVDocument(rows: [["", "B"]], hasHeader: false)
+        XCTAssertFalse(doc.clearCell(row: 0, column: 0))
+    }
+
+    func testClearOutOfRangeCellReturnsFalse() {
+        let doc = CSVDocument(rows: [["A"]], hasHeader: false)
+        XCTAssertFalse(doc.clearCell(row: 0, column: 99))
+        XCTAssertFalse(doc.clearCell(row: -1, column: 0))
+        XCTAssertFalse(doc.clearCell(row: 99, column: 0))
+        XCTAssertEqual(doc.rows, [["A"]])
+    }
+
+    func testClearCellsBatchReturnsChangeCount() {
+        let doc = CSVDocument(rows: [["A", "B", "C"], ["D", "", "F"]], hasHeader: false)
+        let n = doc.clearCells([
+            (row: 0, column: 0), (row: 0, column: 1),
+            (row: 1, column: 1), (row: 1, column: 2),
+        ])
+        // (1,1) was already empty — only 3 actual changes.
+        XCTAssertEqual(n, 3)
+        XCTAssertEqual(doc.rows[0], ["", "", "C"])
+        XCTAssertEqual(doc.rows[1], ["D", "", ""])
+    }
 }

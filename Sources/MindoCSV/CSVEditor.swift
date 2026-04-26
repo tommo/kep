@@ -19,7 +19,7 @@ public struct CSVEditor: NSViewRepresentable {
         scroll.hasVerticalScroller = true
         scroll.hasHorizontalScroller = true
         scroll.borderType = .lineBorder
-        let table = NSTableView()
+        let table = CSVTableView()
         table.usesAlternatingRowBackgroundColors = true
         table.style = .inset
         table.allowsColumnResizing = true
@@ -28,6 +28,12 @@ public struct CSVEditor: NSViewRepresentable {
         table.dataSource = context.coordinator
         table.delegate = context.coordinator
         table.target = context.coordinator
+        // Delete / Backspace clears the cells under selection — mindolph
+        // parity for csv.menu.delete.cell. Closure rather than delegate
+        // protocol so the subclass stays self-contained.
+        table.onClearSelectedCells = { [weak coordinator = context.coordinator] in
+            coordinator?.clearSelectedCells()
+        }
         scroll.documentView = table
 
         // Status footer — rows × cols, mirrors the markdown / plantuml /
@@ -309,6 +315,26 @@ public struct CSVEditor: NSViewRepresentable {
                 for i in selected.reversed() {
                     doc.removeColumn(at: i)
                 }
+            }
+        }
+
+        /// Clear every cell in the row × column intersection of the
+        /// current selection. Skips already-empty cells so an
+        /// empty-on-empty Delete doesn't burn an undo entry.
+        func clearSelectedCells() {
+            guard let table = tableView,
+                  !table.selectedRowIndexes.isEmpty,
+                  !table.selectedColumnIndexes.isEmpty else { return }
+            // Resolve view-row indices into doc-row indices (header
+            // row sits at doc[0] when hasHeader is true) so the editor
+            // never accidentally clears the header strip.
+            let cells: [(row: Int, column: Int)] = table.selectedRowIndexes.flatMap { viewRow in
+                table.selectedColumnIndexes.map { col in
+                    (row: doc.hasHeader ? viewRow + 1 : viewRow, column: col)
+                }
+            }
+            performUndoable(actionName: cells.count > 1 ? "Clear Cells" : "Clear Cell") {
+                _ = doc.clearCells(cells)
             }
         }
 

@@ -80,17 +80,34 @@ public final class MarkdownDropTextView: NSTextView {
     public override func insertText(_ string: Any, replacementRange: NSRange) {
         if let str = string as? String,
            replacementRange.length == 0,
-           selectedRange().length == 0,
            let closer = MarkdownAutoPair.closer(for: str) {
-            let pair = "\(str)\(closer)"
             let target = selectedRange()
-            if shouldChangeText(in: target, replacementString: pair) {
-                replaceCharacters(in: target, with: pair)
-                didChangeText()
-                // Caret between the opener and the closer.
-                setSelectedRange(NSRange(location: target.location + 1, length: 0))
+            if target.length == 0 {
+                // Empty selection — auto-pair: insert opener+closer, caret
+                // lands between them.
+                let pair = "\(str)\(closer)"
+                if shouldChangeText(in: target, replacementString: pair) {
+                    replaceCharacters(in: target, with: pair)
+                    didChangeText()
+                    setSelectedRange(NSRange(location: target.location + 1, length: 0))
+                }
+                return
+            } else {
+                // Non-empty selection — wrap: opener + selection + closer.
+                // Inner text stays re-selected so the user can keep typing
+                // wrappers around it or replace it. Matches Sublime / VS
+                // Code's default behavior.
+                let selectedText = (self.string as NSString).substring(with: target)
+                let wrapped = "\(str)\(selectedText)\(closer)"
+                if shouldChangeText(in: target, replacementString: wrapped) {
+                    replaceCharacters(in: target, with: wrapped)
+                    didChangeText()
+                    // Re-select the inner text (unchanged) so the user can
+                    // keep typing wrappers around it or replace it.
+                    setSelectedRange(NSRange(location: target.location + 1, length: target.length))
+                }
+                return
             }
-            return
         }
         super.insertText(string, replacementRange: replacementRange)
     }

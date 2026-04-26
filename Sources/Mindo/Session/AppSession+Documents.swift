@@ -96,6 +96,14 @@ extension AppSession {
         }
     }
 
+    /// Import a Coggle `.mm` XML export.
+    func importCoggle() {
+        importMindMap(extension: "mm") { url in
+            let xml = try String(contentsOf: url, encoding: .utf8)
+            return try CoggleImporter.parse(xml)
+        }
+    }
+
     /// Shared scaffolding for any mindmap importer: open panel scoped to one
     /// extension, parse via the supplied closure, present as an untitled
     /// .mmd doc. Errors route to lastError.

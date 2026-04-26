@@ -185,6 +185,7 @@ public struct AIGeneratePane: View {
             }
             Spacer()
             Button("Discard") { dismiss() }
+                .keyboardShortcut(.cancelAction) // Esc
             Button("Insert") {
                 onAccept(output, insertionMode)
                 dismiss()

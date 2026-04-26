@@ -56,4 +56,28 @@ final class MarkdownListContinuationTests: XCTestCase {
     func testNumericWithoutSpaceIsNotMarker() {
         XCTAssertNil(MarkdownListContinuation.action(for: "1.foo"))
     }
+
+    // MARK: - leadingIndent (powers indent-preservation on Enter)
+
+    func testLeadingIndentSpaces() {
+        XCTAssertEqual(MarkdownListContinuation.leadingIndent(of: "    hello"), "    ")
+    }
+
+    func testLeadingIndentTabs() {
+        XCTAssertEqual(MarkdownListContinuation.leadingIndent(of: "\t\thello"), "\t\t")
+    }
+
+    func testLeadingIndentMixed() {
+        XCTAssertEqual(MarkdownListContinuation.leadingIndent(of: "  \t hello"), "  \t ")
+    }
+
+    func testLeadingIndentEmpty() {
+        XCTAssertEqual(MarkdownListContinuation.leadingIndent(of: "hello"), "")
+    }
+
+    func testLeadingIndentBlankLineIsAllWhitespace() {
+        // Whitespace-only line is "all indent" — preserving it is the
+        // expected behavior (matches what code editors do for empty lines).
+        XCTAssertEqual(MarkdownListContinuation.leadingIndent(of: "   "), "   ")
+    }
 }

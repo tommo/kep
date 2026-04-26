@@ -37,7 +37,20 @@ public final class MarkdownDropTextView: NSTextView {
         let line = body.substring(with: NSRange(location: lineRange.location,
                                                 length: caret - lineRange.location))
         guard let action = MarkdownListContinuation.action(for: line) else {
-            super.insertNewline(sender)
+            // No list marker on this line — preserve leading indentation
+            // (spaces or tabs) on the next line so wrapped paragraphs and
+            // code-style indented prose stay aligned. Empty leading indent
+            // falls through to plain super.insertNewline.
+            let leading = MarkdownListContinuation.leadingIndent(of: line)
+            if !leading.isEmpty {
+                let inserted = "\n" + leading
+                if shouldChangeText(in: selectedRange(), replacementString: inserted) {
+                    replaceCharacters(in: selectedRange(), with: inserted)
+                    didChangeText()
+                }
+            } else {
+                super.insertNewline(sender)
+            }
             return
         }
         switch action {

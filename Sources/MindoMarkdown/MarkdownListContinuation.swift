@@ -51,6 +51,13 @@ public enum MarkdownListContinuation {
         public let length: Int
     }
 
+    /// Leading whitespace (spaces or tabs) on `line`. Used as the fall-
+    /// through behaviour for `insertNewline` when no list marker is
+    /// present — preserves indentation on the next line.
+    public static func leadingIndent(of line: String) -> String {
+        return String(line.prefix(while: { $0 == " " || $0 == "\t" }))
+    }
+
     public static func parseMarker(_ body: String) -> ParsedMarker? {
         guard let first = body.first else { return nil }
         // Bullet form: "- ", "* ", "+ "

@@ -24,6 +24,8 @@ struct PreferencesView: View {
 private struct GeneralPrefs: View {
     @AppStorage(PrefKeys.theme) private var theme: String = ThemeChoice.light.rawValue
     @AppStorage(PrefKeys.outlineOpenByDefault) private var outlineOpen: Bool = true
+    @AppStorage(PrefKeys.showHiddenFiles) private var showHiddenFiles: Bool = false
+    @Environment(AppSession.self) private var session
 
     var body: some View {
         Form {
@@ -34,6 +36,10 @@ private struct GeneralPrefs: View {
                     Text(L("menu.view.theme.classic")).tag(ThemeChoice.classic.rawValue)
                 }
                 Toggle(L("prefs.general.outline_default_open"), isOn: $outlineOpen)
+            }
+            Section(L("prefs.general.section.workspace")) {
+                Toggle(L("prefs.general.show_hidden_files"), isOn: $showHiddenFiles)
+                    .onChange(of: showHiddenFiles) { _, _ in session.reloadAllWorkspaces() }
             }
         }
         .formStyle(.grouped)

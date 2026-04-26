@@ -163,6 +163,8 @@
 "prefs.editor.font_size_value" = "Editor font size: %d pt";
 "prefs.editor.font_family" = "Editor font family";
 "prefs.editor.font_family.system" = "System default (mono)";
+"prefs.general.section.workspace" = "Workspace sidebar";
+"prefs.general.show_hidden_files" = "Show hidden files (dotfiles)";
 "prefs.editor.section.split" = "Editor split orientation";
 "prefs.editor.split.markdown" = "Markdown editor";
 "prefs.editor.split.plantuml" = "PlantUML editor";

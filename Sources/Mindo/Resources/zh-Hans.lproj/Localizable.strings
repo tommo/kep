@@ -160,6 +160,8 @@
 "prefs.editor.font_size_value" = "编辑器字号：%d pt";
 "prefs.editor.font_family" = "编辑器字体";
 "prefs.editor.font_family.system" = "系统默认（等宽）";
+"prefs.general.section.workspace" = "工作区侧边栏";
+"prefs.general.show_hidden_files" = "显示隐藏文件（点开头）";
 "prefs.editor.section.split" = "编辑器分屏方向";
 "prefs.editor.split.markdown" = "Markdown 编辑器";
 "prefs.editor.split.plantuml" = "PlantUML 编辑器";

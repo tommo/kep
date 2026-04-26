@@ -249,7 +249,7 @@ struct NodeRow: View {
     /// Folders always show through so the user can drill in even when
     /// nothing in the immediate folder matches.
     private func filteredChildren() -> [NodeData] {
-        let raw = node.children()
+        let raw = node.children(config: WorkspaceConfig.fromPreferences())
         let filter = session.sidebarTypeFilter
         guard !filter.isEmpty else { return raw }
         return raw.filter { child in

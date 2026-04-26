@@ -155,6 +155,16 @@ extension AppSession {
         workspaceRoots = workspaceRoots
     }
 
+    /// Reload every workspace root with the current preferences (e.g.
+    /// after the user flips Show Hidden Files in Preferences). Walks
+    /// only the root level — deeper folders re-load lazily on expand.
+    @MainActor
+    func reloadAllWorkspaces() {
+        let cfg = WorkspaceConfig.fromPreferences()
+        for root in workspaceRoots { root.reloadChildren(config: cfg) }
+        workspaceRoots = workspaceRoots
+    }
+
     /// Single-line text prompt — same shape as the markdown editor's
     /// promptString helper but lives here so the sidebar context menu
     /// doesn't have to reach into MindoMarkdown.

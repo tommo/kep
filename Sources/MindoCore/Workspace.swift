@@ -81,6 +81,15 @@ public struct WorkspaceConfig: Sendable {
 
     public static let `default` = WorkspaceConfig()
 
+    /// Build a config that mirrors the user's current preference for
+    /// hidden-file visibility. Sidebar / NodeData callers use this so a
+    /// pref toggle picks up on the next reload without callers having
+    /// to read PrefKeys themselves.
+    public static func fromPreferences() -> WorkspaceConfig {
+        let show = PrefKeys.bool(PrefKeys.showHiddenFiles, fallback: false)
+        return WorkspaceConfig(showHiddenFiles: show, showHiddenDirectories: show)
+    }
+
     public func acceptsFile(_ url: URL) -> Bool {
         let name = url.lastPathComponent
         if !showHiddenFiles && name.hasPrefix(".") { return false }

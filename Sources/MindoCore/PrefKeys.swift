@@ -9,6 +9,10 @@ public enum PrefKeys {
     public static let theme = "mindo.prefs.theme"
     public static let outlineOpenByDefault = "mindo.prefs.outlineOpenByDefault"
     public static let editorFontSize = "mindo.prefs.editorFontSize"
+    /// Show dotfiles + hidden directories in the workspace sidebar.
+    /// Default false — matches Finder. Mirrors mindolph's
+    /// `GENERAL_SHOW_HIDDEN_FILES`.
+    public static let showHiddenFiles = "mindo.prefs.showHiddenFiles"
     /// Optional preferred monospaced font family for the markdown /
     /// plantuml editors. Empty = use the system default monospaced font.
     public static let editorFontFamily = "mindo.prefs.editorFontFamily"

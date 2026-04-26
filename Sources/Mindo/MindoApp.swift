@@ -172,6 +172,8 @@ struct MindoApp: App {
                         .disabled(session.activeFileType != .mindMap)
                     Button(L("menu.file.export_mindmap_asciidoc")) { session.exportActiveAsAsciiDoc() }
                         .disabled(session.activeFileType != .mindMap)
+                    Button(L("menu.file.export_mindmap_mindmup")) { session.exportActiveAsMindmup() }
+                        .disabled(session.activeFileType != .mindMap)
                 }
             }
             CommandGroup(after: .pasteboard) {

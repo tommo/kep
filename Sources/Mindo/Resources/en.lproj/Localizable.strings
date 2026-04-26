@@ -26,6 +26,7 @@
 "menu.file.export_mindmap_orgmode" = "Mind Map to Org-Mode…";
 "menu.file.export_mindmap_markdown" = "Mind Map to Markdown…";
 "menu.file.export_mindmap_asciidoc" = "Mind Map to AsciiDoc…";
+"menu.file.export_mindmap_mindmup" = "Mind Map to Mindmup…";
 "menu.file.open_recent" = "Open Recent";
 "menu.file.open_recent.empty" = "(no recent files)";
 "menu.file.clear_recents" = "Clear Menu";

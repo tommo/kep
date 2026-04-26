@@ -26,9 +26,36 @@ public enum MindmupImporter {
         catch { throw ImportError.invalidJSON }
         guard let dict = any as? [String: Any] else { throw ImportError.missingRoot }
         let map = MindMap()
-        let root = Topic(text: title(from: dict))
+
+        // Two flavors of `.mup` exist in the wild:
+        //
+        //   (1) "Simplified": top-level dict IS the root — `title` is
+        //       the root's text, `ideas` are the root's direct children.
+        //   (2) "Official" (what mindolph + mindmup.com emit): the doc
+        //       has `formatVersion` / `id: "root"` at the top, and the
+        //       actual root topic lives under `ideas.<key>` (usually
+        //       "1"). The top-level `title` is just a label.
+        //
+        // We detect (2) by the presence of `formatVersion` and unwrap
+        // before delegating to the simplified walker.
+        let rootDict: [String: Any]
+        if dict["formatVersion"] != nil,
+           let outerIdeas = dict["ideas"] as? [String: Any],
+           let firstRootKey = outerIdeas.keys
+                .compactMap({ key -> (Double, String)? in
+                    guard let w = Double(key.trimmingCharacters(in: .whitespaces)) else { return nil }
+                    return (w, key)
+                })
+                .min(by: { $0.0 < $1.0 })?.1,
+           let inner = outerIdeas[firstRootKey] as? [String: Any] {
+            rootDict = inner
+        } else {
+            rootDict = dict
+        }
+
+        let root = Topic(text: title(from: rootDict))
         map.root = root
-        appendIdeas(from: dict, to: root, isRoot: true)
+        appendIdeas(from: rootDict, to: root, isRoot: true)
         return map
     }
 

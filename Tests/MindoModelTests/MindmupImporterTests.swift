@@ -97,4 +97,30 @@ final class MindmupImporterTests: XCTestCase {
         XCTAssertEqual(map.root?.text, "")
         XCTAssertEqual(map.root?.children.first?.text, "A")
     }
+
+    func testOfficialFormatWithFormatVersionUnwrapsRoot() throws {
+        // mindolph + mindmup.com emit the wrapped form: top-level
+        // `formatVersion` + `id: "root"`, with the actual root topic
+        // inside `ideas.1`. We must follow the wrapper rather than
+        // treating the outer dict as the root (or every imported
+        // mindmup file would gain a stray "" root).
+        let json = #"""
+        {
+          "formatVersion": 3,
+          "id": "root",
+          "title": "outer label",
+          "ideas": {
+            "1": {
+              "title": "Real Root",
+              "ideas": {
+                "1": { "title": "Child" }
+              }
+            }
+          }
+        }
+        """#
+        let map = try MindmupImporter.parse(json)
+        XCTAssertEqual(map.root?.text, "Real Root")
+        XCTAssertEqual(map.root?.children.map(\.text), ["Child"])
+    }
 }

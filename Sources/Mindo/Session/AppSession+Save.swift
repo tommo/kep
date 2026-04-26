@@ -176,6 +176,23 @@ extension AppSession {
         }
     }
 
+    /// Export the active mindmap as a Mindmup `.mup` JSON document
+    /// (mindolph parity — MindmupExporter).
+    @MainActor
+    func exportActiveAsMindmup() {
+        guard let doc = activeDocument, case .mindMap(let map) = doc.kind else { return }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [UTType.init(filenameExtension: "mup") ?? .data]
+        if let url = doc.fileURL { panel.directoryURL = url.deletingLastPathComponent() }
+        panel.nameFieldStringValue = (doc.fileURL?.deletingPathExtension().lastPathComponent ?? "Untitled") + ".mup"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try MindmupExporter.export(map).write(to: url, atomically: true, encoding: .utf8)
+        } catch {
+            lastError = String(format: L("error.save_failed"), error.localizedDescription)
+        }
+    }
+
     /// Export the active mindmap as AsciiDoc (mindolph parity —
     /// ASCIIDocExporter).
     @MainActor

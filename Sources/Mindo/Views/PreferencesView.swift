@@ -100,6 +100,8 @@ private struct MindMapPrefs: View {
     @AppStorage(PrefKeys.mindmapConnectorWidth) private var connectorWidth: Double = 1.5
     @AppStorage(PrefKeys.mindmapInheritFillColor) private var inheritFillColor: Bool = false
     @AppStorage(PrefKeys.mindmapTrimTopicText) private var trimTopicText: Bool = false
+    @AppStorage(PrefKeys.mindmapShowGrid) private var showGrid: Bool = false
+    @AppStorage(PrefKeys.mindmapGridStep) private var gridStep: Double = 16
 
     var body: some View {
         Form {
@@ -123,6 +125,13 @@ private struct MindMapPrefs: View {
             Section(L("prefs.mindmap.section.behavior")) {
                 Toggle(L("prefs.mindmap.inherit_fill_color"), isOn: $inheritFillColor)
                 Toggle(L("prefs.mindmap.trim_topic_text"), isOn: $trimTopicText)
+            }
+            Section(L("prefs.mindmap.section.grid")) {
+                Toggle(L("prefs.mindmap.show_grid"), isOn: $showGrid)
+                Stepper(value: $gridStep, in: 4...64, step: 2) {
+                    Text(String(format: L("prefs.mindmap.grid_step"), Int(gridStep)))
+                }
+                .disabled(!showGrid)
             }
         }
         .formStyle(.grouped)

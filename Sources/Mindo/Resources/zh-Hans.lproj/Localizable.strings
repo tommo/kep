@@ -169,6 +169,9 @@
 "quit.confirm.message" = "已打开标签页中的未保存改动可能会丢失。";
 "quit.confirm.quit" = "退出";
 "quit.confirm.cancel" = "取消";
+"prefs.mindmap.section.grid" = "网格";
+"prefs.mindmap.show_grid" = "显示背景网格";
+"prefs.mindmap.grid_step" = "网格间距：%d pt";
 "prefs.editor.section.split" = "编辑器分屏方向";
 "prefs.editor.split.markdown" = "Markdown 编辑器";
 "prefs.editor.split.plantuml" = "PlantUML 编辑器";

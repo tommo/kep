@@ -308,6 +308,13 @@ public final class MindMapView: NSView {
         ctx.setFillColor(theme.paperColor.cgColor)
         ctx.fill(bounds)
 
+        // Optional dotted grid — drawn directly on top of the paper so
+        // it sits *under* connectors / topics. PrefKey-gated; defaults
+        // to off so the canvas stays clean for users who don't want it.
+        if PrefKeys.bool(PrefKeys.mindmapShowGrid, fallback: false) {
+            drawGrid(in: bounds, into: ctx)
+        }
+
         guard let root = rootElement else { return }
 
         // Connectors first (under the rectangles).

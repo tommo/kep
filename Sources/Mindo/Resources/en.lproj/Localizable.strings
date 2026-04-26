@@ -172,6 +172,9 @@
 "quit.confirm.message" = "Any unsaved changes in open tabs may be lost.";
 "quit.confirm.quit" = "Quit";
 "quit.confirm.cancel" = "Cancel";
+"prefs.mindmap.section.grid" = "Grid";
+"prefs.mindmap.show_grid" = "Show background grid";
+"prefs.mindmap.grid_step" = "Grid spacing: %d pt";
 "prefs.editor.section.split" = "Editor split orientation";
 "prefs.editor.split.markdown" = "Markdown editor";
 "prefs.editor.split.plantuml" = "PlantUML editor";

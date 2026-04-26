@@ -8,6 +8,37 @@ import MindoModel
 /// touches private drag-state for the ghost overlay.
 extension MindMapView {
 
+    /// Render a faint dotted grid behind the canvas content. Called
+    /// from `draw(_:)` after the paper fill but before connectors /
+    /// topics so the grid sits at the bottom of the layer stack.
+    /// Step + visibility come from `PrefKeys`; the dot color is the
+    /// theme's connector color at low alpha so it picks up dark mode
+    /// automatically.
+    func drawGrid(in bounds: CGRect, into ctx: CGContext) {
+        let step = MindMapGrid.normalizedStep(
+            PrefKeys.double(PrefKeys.mindmapGridStep, fallback: 16)
+        )
+        guard step > 0 else { return }
+        let dotColor = theme.connectorColor.withAlphaComponent(0.15).cgColor
+        ctx.saveGState()
+        ctx.setFillColor(dotColor)
+        // Draw 1pt dots on the grid intersections — cheaper than full
+        // lines and visually less busy. Bounds.minX may be 0; round
+        // down to align dots to whole-pixel grid origins.
+        let startX = bounds.minX.rounded(.down)
+        let startY = bounds.minY.rounded(.down)
+        var x = startX
+        while x <= bounds.maxX {
+            var y = startY
+            while y <= bounds.maxY {
+                ctx.fill(CGRect(x: x, y: y, width: 1, height: 1))
+                y += step
+            }
+            x += step
+        }
+        ctx.restoreGState()
+    }
+
     /// Render one topic: rounded rect + drop shadow + border + embedded
     /// image (if any) + text + extras strip + collapse marker.
     func drawElement(_ el: MindMapElement, into ctx: CGContext) {

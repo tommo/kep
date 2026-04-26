@@ -42,6 +42,13 @@ public enum PrefKeys {
     public static let mindmapConnectorWidth = "mindo.prefs.mindmapConnectorWidth"
     public static let mindmapInheritFillColor = "mindo.prefs.mindmapInheritFillColor"
     public static let mindmapTrimTopicText = "mindo.prefs.mindmapTrimTopicText"
+    /// Show a faint dotted grid behind the mindmap canvas. Default off.
+    /// Mirrors mindolph's MmdPreferencesPane `ckbShowGrid`.
+    public static let mindmapShowGrid = "mindo.prefs.mindmapShowGrid"
+    /// Spacing in points between grid lines. Mirrors `spnGridStep`.
+    /// Default 16pt — visible without crowding most reasonable zoom
+    /// levels.
+    public static let mindmapGridStep = "mindo.prefs.mindmapGridStep"
 
     /// Convenience: pulls a Double from UserDefaults, returning `fallback`
     /// when the key is unset or stored as a non-positive value.

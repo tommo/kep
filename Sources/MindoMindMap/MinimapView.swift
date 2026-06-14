@@ -44,13 +44,13 @@ final class MinimapView: NSView {
 
     deinit { NotificationCenter.default.removeObserver(self) }
 
-    /// Recompute visibility + redraw. Cheap; called on every scroll tick.
+    /// Redraw. Cheap; called on every scroll tick. The minimap is always
+    /// visible while a non-empty map is loaded — it's a persistent overview,
+    /// not just a when-you-can't-see-everything affordance. Only an empty
+    /// canvas (no content) hides it.
     @objc func refresh() {
-        guard let map = mapView, let scroll = scrollView else { isHidden = true; return }
-        let content = map.contentBounds
-        let visible = scroll.documentVisibleRect
-        // Nothing to navigate when the content already fits the viewport.
-        isHidden = content.width <= visible.width + 1 && content.height <= visible.height + 1
+        guard let map = mapView, map.contentBounds.width > 0 else { isHidden = true; return }
+        isHidden = false
         needsDisplay = true
     }
 

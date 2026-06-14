@@ -97,4 +97,24 @@ final class ZoomMathTests: XCTestCase {
         }
         XCTAssertEqual(current, 0.25, accuracy: 1e-9)
     }
+
+    // MARK: - Scroll-to-pan offset
+
+    func testTrackpadPanPassesDeltasThrough() {
+        let (dx, dy) = MindMapView.panOffset(deltaX: 8, deltaY: -5, precise: true)
+        XCTAssertEqual(dx, 8, accuracy: 1e-9)
+        XCTAssertEqual(dy, -5, accuracy: 1e-9)
+    }
+
+    func testMouseWheelPanAmplifiesLineDeltas() {
+        // A coarse wheel notch (delta 1) should move a useful distance, not 1px.
+        let (_, dy) = MindMapView.panOffset(deltaX: 0, deltaY: 1, precise: false)
+        XCTAssertEqual(dy, 12, accuracy: 1e-9)
+    }
+
+    func testZeroDeltaPansNothing() {
+        let (dx, dy) = MindMapView.panOffset(deltaX: 0, deltaY: 0, precise: true)
+        XCTAssertEqual(dx, 0)
+        XCTAssertEqual(dy, 0)
+    }
 }

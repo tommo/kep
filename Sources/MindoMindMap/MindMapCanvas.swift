@@ -39,6 +39,10 @@ public struct MindMapCanvas: NSViewRepresentable {
         // minimap (added below) replaces them for overview + navigation.
         scroll.hasHorizontalScroller = false
         scroll.hasVerticalScroller = false
+        // No rubber-band bounce — panning (scrollWheel below drives the clip
+        // directly) should feel like grabbing the canvas, not a scroll view.
+        scroll.horizontalScrollElasticity = .none
+        scroll.verticalScrollElasticity = .none
         scroll.allowsMagnification = true
         scroll.minMagnification = 0.25
         scroll.maxMagnification = 3.0
@@ -57,13 +61,6 @@ public struct MindMapCanvas: NSViewRepresentable {
         }
         view.display(map: map)
         scroll.documentView = view
-
-        // Corner minimap overlay (replaces the scrollbars). Floats fixed over
-        // the scrolling content, pinned bottom-right.
-        let minimap = MinimapView()
-        minimap.autoresizingMask = [.minXMargin, .maxYMargin]
-        scroll.addFloatingSubview(minimap, for: .vertical)
-        minimap.attach(to: scroll, mapView: view)
 
         // Status footer below the scroll view — topic count + zoom percent.
         let footer = NSTextField(labelWithString: "")
@@ -86,6 +83,22 @@ public struct MindMapCanvas: NSViewRepresentable {
             footer.heightAnchor.constraint(equalToConstant: 16),
         ])
 
+        // Corner minimap overlay (replaces the scrollbars). A constrained
+        // sibling pinned to the bottom-right — on top of the scroll view, so
+        // it stays put while the canvas scrolls underneath. Auto Layout keeps
+        // it correctly placed regardless of when the scroll view gets sized
+        // (the earlier floating-subview approach landed off-screen).
+        let minimap = MinimapView()
+        minimap.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(minimap)   // added last → renders above the scroll view
+        NSLayoutConstraint.activate([
+            minimap.trailingAnchor.constraint(equalTo: scroll.trailingAnchor, constant: -10),
+            minimap.bottomAnchor.constraint(equalTo: scroll.bottomAnchor, constant: -10),
+            minimap.widthAnchor.constraint(equalToConstant: MinimapView.preferredSize.width),
+            minimap.heightAnchor.constraint(equalToConstant: MinimapView.preferredSize.height),
+        ])
+        minimap.attach(to: scroll, mapView: view)
+
         // Track magnification changes so the footer's zoom-percent stays
         // current. NSScrollView.willStartLiveMagnify isn't enough — we want
         // the value after every change, not just at gesture start.
@@ -99,7 +112,6 @@ public struct MindMapCanvas: NSViewRepresentable {
         context.coordinator.scroll = scroll
         context.coordinator.footer = footer
         context.coordinator.minimap = minimap
-        context.coordinator.positionMinimap()
         context.coordinator.refreshFooter()
         return container
     }
@@ -123,7 +135,6 @@ public struct MindMapCanvas: NSViewRepresentable {
 
     public func updateNSView(_ container: NSView, context: Context) {
         guard let view = context.coordinator.view else { return }
-        context.coordinator.positionMinimap()
         view.theme = theme
         view.onExtraFileTap = onExtraFileTap
         if view.searchHighlight != searchHighlight {
@@ -153,19 +164,6 @@ public struct MindMapCanvas: NSViewRepresentable {
         weak var footer: NSTextField?
         weak var minimap: MinimapView?
         var lastNavigated: String?
-
-        /// Keep the floating minimap pinned to the scroll view's bottom-right
-        /// corner with an 8pt margin (autoresizing handles live resize; this
-        /// fixes the initial placement once the scroll view has a real size).
-        func positionMinimap() {
-            guard let scroll = scroll, let minimap = minimap else { return }
-            let m: CGFloat = 8
-            let size = MinimapView.preferredSize
-            minimap.frame = CGRect(
-                x: scroll.bounds.width - size.width - m,
-                y: m,
-                width: size.width, height: size.height)
-        }
 
         /// Recompute the canvas footer text — topic count, optional
         /// selection count, zoom percent. Called after document load,

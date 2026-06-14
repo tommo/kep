@@ -465,22 +465,39 @@ extension MindMapView {
 
     // MARK: - Mouse-wheel zoom
 
-    /// ⌘ + scroll-wheel zooms, centered on the cursor — the standard mouse
-    /// (non-trackpad) zoom, pairing with drag-to-pan so the whole canvas is
-    /// navigable without a trackpad or the menu. A bare scroll falls through to
-    /// NSScrollView's normal panning.
+    /// Scroll-wheel / trackpad behaviour on the canvas:
+    ///   • ⌘ + scroll → zoom, centered on the cursor.
+    ///   • bare scroll → **pan** the canvas (translate the clip origin), the
+    ///     same grab-the-canvas feel as drag-to-pan. We drive the clip
+    ///     directly instead of letting NSScrollView scroll so there's no
+    ///     rubber-band / overlay-scrollbar "scroll view" UX — just panning.
     public override func scrollWheel(with event: NSEvent) {
-        guard event.modifierFlags.contains(.command), let scroll = enclosingScrollView else {
+        guard let scroll = enclosingScrollView else {
             super.scrollWheel(with: event)
             return
         }
-        let factor = Self.scrollZoomFactor(delta: event.scrollingDeltaY)
-        guard factor != 1 else { return }
-        let target = Self.clampedZoom(
-            current: scroll.magnification, factor: factor,
-            min: scroll.minMagnification, max: scroll.maxMagnification)
-        let center = convert(event.locationInWindow, from: nil)
-        scroll.setMagnification(target, centeredAt: center)
+        if event.modifierFlags.contains(.command) {
+            let factor = Self.scrollZoomFactor(delta: event.scrollingDeltaY)
+            guard factor != 1 else { return }
+            let target = Self.clampedZoom(
+                current: scroll.magnification, factor: factor,
+                min: scroll.minMagnification, max: scroll.maxMagnification)
+            let center = convert(event.locationInWindow, from: nil)
+            scroll.setMagnification(target, centeredAt: center)
+            return
+        }
+        // Pan. Translate the clip origin by the scroll delta — content follows
+        // the gesture (origin moves opposite the delta, matching natural
+        // scrolling and the drag-pan direction). clip.scroll(to:) clamps to the
+        // content bounds, so panning can't wander off into empty space.
+        let (dx, dy) = Self.panOffset(
+            deltaX: event.scrollingDeltaX, deltaY: event.scrollingDeltaY,
+            precise: event.hasPreciseScrollingDeltas)
+        guard dx != 0 || dy != 0 else { return }
+        let clip = scroll.contentView
+        let origin = clip.bounds.origin
+        clip.scroll(to: NSPoint(x: origin.x - dx, y: origin.y - dy))
+        scroll.reflectScrolledClipView(clip)
     }
 
     /// Per-event zoom factor for ⌘+scroll: scroll up (positive delta) zooms in,
@@ -490,5 +507,14 @@ extension MindMapView {
         guard delta != 0 else { return 1 }
         let step = max(-0.2, min(0.2, delta * 0.01))
         return 1 + step
+    }
+
+    /// Translate a scroll event's deltas into a clip-origin pan offset.
+    /// Trackpad pixel deltas (`precise`) pass through 1:1 for a smooth grab;
+    /// mouse-wheel line deltas are amplified so a single notch moves a useful
+    /// distance rather than a few pixels. Pure → unit-testable.
+    static func panOffset(deltaX: CGFloat, deltaY: CGFloat, precise: Bool) -> (dx: CGFloat, dy: CGFloat) {
+        let scale: CGFloat = precise ? 1 : 12
+        return (deltaX * scale, deltaY * scale)
     }
 }

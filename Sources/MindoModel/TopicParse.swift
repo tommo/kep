@@ -67,7 +67,14 @@ extension Topic {
 
             case .codeSnippetEnd:
                 if let t = topic, let lang = codeSnippetLanguage {
-                    t.putCodeSnippet(language: lang, body: codeSnippetBody ?? "")
+                    // Drop the single newline the serializer inserts between the
+                    // body and the closing fence — otherwise every save/load
+                    // grows the snippet a trailing "\n" (fenced-block content,
+                    // by convention, excludes that final separator newline).
+                    var body = codeSnippetBody ?? ""
+                    if body.hasSuffix("\r\n") { body.removeLast(2) }
+                    else if body.hasSuffix("\n") { body.removeLast() }
+                    t.putCodeSnippet(language: lang, body: body)
                 }
                 codeSnippetLanguage = nil
                 codeSnippetBody = nil

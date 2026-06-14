@@ -29,11 +29,14 @@ public enum MarkdownListContinuation {
         if bodyAfterMarker.isEmpty {
             return .clearMarker
         }
-        // For numeric markers, increment; for bullets, mirror.
+        // For numeric markers, increment; bullets mirror; task checkboxes
+        // continue as a FRESH unchecked box (never carry the prior tick).
         let nextMarker: String
         switch marker.kind {
         case .bullet(let ch):
             nextMarker = "\(ch) "
+        case .checkbox(let ch):
+            nextMarker = "\(ch) [ ] "
         case .numeric(let n):
             nextMarker = "\(n + 1). "
         }
@@ -45,6 +48,9 @@ public enum MarkdownListContinuation {
     public struct ParsedMarker: Equatable {
         public enum Kind: Equatable {
             case bullet(Character)
+            /// A task checkbox bullet — "- [ ] " / "* [x] ". The Character is
+            /// the underlying bullet so continuation keeps the same one.
+            case checkbox(Character)
             case numeric(Int)
         }
         public let kind: Kind
@@ -60,8 +66,14 @@ public enum MarkdownListContinuation {
 
     public static func parseMarker(_ body: String) -> ParsedMarker? {
         guard let first = body.first else { return nil }
-        // Bullet form: "- ", "* ", "+ "
+        // Bullet form: "- ", "* ", "+ " — and the task-checkbox extension
+        // "- [ ] " / "- [x] " (any single state char between the brackets).
         if "-*+".contains(first), body.count >= 2, body[body.index(after: body.startIndex)] == " " {
+            let chars = Array(body)
+            // chars: 0=bullet 1=space 2='[' 3=state 4=']' 5=' '
+            if chars.count >= 6, chars[2] == "[", chars[4] == "]", chars[5] == " " {
+                return ParsedMarker(kind: .checkbox(first), length: 6)
+            }
             return ParsedMarker(kind: .bullet(first), length: 2)
         }
         // Numeric form: "<digits>. "

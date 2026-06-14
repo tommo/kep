@@ -19,6 +19,31 @@ final class MarkdownListContinuationTests: XCTestCase {
         XCTAssertEqual(MarkdownListContinuation.action(for: "3. third"), .insert("4. "))
     }
 
+    // MARK: - Task checkboxes (Obsidian parity)
+
+    func testUncheckedTaskContinuesAsFreshBox() {
+        XCTAssertEqual(MarkdownListContinuation.action(for: "- [ ] buy milk"), .insert("- [ ] "))
+    }
+
+    func testCheckedTaskContinuesAsUncheckedBox() {
+        // A ticked item must NOT carry its tick to the next line.
+        XCTAssertEqual(MarkdownListContinuation.action(for: "- [x] done"), .insert("- [ ] "))
+        XCTAssertEqual(MarkdownListContinuation.action(for: "* [X] done"), .insert("* [ ] "))
+    }
+
+    func testTaskCheckboxKeepsIndent() {
+        XCTAssertEqual(MarkdownListContinuation.action(for: "    - [ ] nested"), .insert("    - [ ] "))
+    }
+
+    func testEmptyTaskBreaksOut() {
+        XCTAssertEqual(MarkdownListContinuation.action(for: "- [ ] "), .clearMarker)
+    }
+
+    func testMalformedCheckboxFallsBackToBullet() {
+        // No trailing space inside the brackets → it's just a bullet line.
+        XCTAssertEqual(MarkdownListContinuation.action(for: "- [] foo"), .insert("- "))
+    }
+
     func testNumericMarkerDoubleDigit() {
         XCTAssertEqual(MarkdownListContinuation.action(for: "10. ten"), .insert("11. "))
     }

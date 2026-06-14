@@ -35,8 +35,10 @@ public struct MindMapCanvas: NSViewRepresentable {
         let container = NSView()
 
         let scroll = NSScrollView()
-        scroll.hasHorizontalScroller = true
-        scroll.hasVerticalScroller = true
+        // Scrollbars are near-useless on an infinite-feeling canvas — a corner
+        // minimap (added below) replaces them for overview + navigation.
+        scroll.hasHorizontalScroller = false
+        scroll.hasVerticalScroller = false
         scroll.allowsMagnification = true
         scroll.minMagnification = 0.25
         scroll.maxMagnification = 3.0
@@ -55,6 +57,13 @@ public struct MindMapCanvas: NSViewRepresentable {
         }
         view.display(map: map)
         scroll.documentView = view
+
+        // Corner minimap overlay (replaces the scrollbars). Floats fixed over
+        // the scrolling content, pinned bottom-right.
+        let minimap = MinimapView()
+        minimap.autoresizingMask = [.minXMargin, .maxYMargin]
+        scroll.addFloatingSubview(minimap, for: .vertical)
+        minimap.attach(to: scroll, mapView: view)
 
         // Status footer below the scroll view — topic count + zoom percent.
         let footer = NSTextField(labelWithString: "")
@@ -89,6 +98,8 @@ public struct MindMapCanvas: NSViewRepresentable {
         context.coordinator.view = view
         context.coordinator.scroll = scroll
         context.coordinator.footer = footer
+        context.coordinator.minimap = minimap
+        context.coordinator.positionMinimap()
         context.coordinator.refreshFooter()
         return container
     }
@@ -112,6 +123,7 @@ public struct MindMapCanvas: NSViewRepresentable {
 
     public func updateNSView(_ container: NSView, context: Context) {
         guard let view = context.coordinator.view else { return }
+        context.coordinator.positionMinimap()
         view.theme = theme
         view.onExtraFileTap = onExtraFileTap
         if view.searchHighlight != searchHighlight {
@@ -139,7 +151,21 @@ public struct MindMapCanvas: NSViewRepresentable {
         weak var view: MindMapView?
         weak var scroll: NSScrollView?
         weak var footer: NSTextField?
+        weak var minimap: MinimapView?
         var lastNavigated: String?
+
+        /// Keep the floating minimap pinned to the scroll view's bottom-right
+        /// corner with an 8pt margin (autoresizing handles live resize; this
+        /// fixes the initial placement once the scroll view has a real size).
+        func positionMinimap() {
+            guard let scroll = scroll, let minimap = minimap else { return }
+            let m: CGFloat = 8
+            let size = MinimapView.preferredSize
+            minimap.frame = CGRect(
+                x: scroll.bounds.width - size.width - m,
+                y: m,
+                width: size.width, height: size.height)
+        }
 
         /// Recompute the canvas footer text — topic count, optional
         /// selection count, zoom percent. Called after document load,
@@ -156,6 +182,8 @@ public struct MindMapCanvas: NSViewRepresentable {
             } else {
                 footer.stringValue = "\(topicCount) topics · \(zoomPct)%"
             }
+            // Content/zoom may have shifted — keep the overview current.
+            minimap?.refresh()
         }
     }
 }

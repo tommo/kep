@@ -347,6 +347,43 @@ extension MindMapView {
         return hit
     }
 
+    // MARK: - Hover cursor (pan affordance)
+
+    /// A single tracking area over the visible rect so we get mouseMoved and
+    /// can switch the cursor to an open hand over empty canvas — the standard
+    /// "you can drag here to pan" hint that makes the pan gesture discoverable.
+    public override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for area in trackingAreas { removeTrackingArea(area) }
+        addTrackingArea(NSTrackingArea(
+            rect: .zero,
+            options: [.activeInKeyWindow, .mouseMoved, .inVisibleRect],
+            owner: self, userInfo: nil))
+    }
+
+    public override func mouseMoved(with event: NSEvent) {
+        super.mouseMoved(with: event)
+        // Never fight an in-progress pan (closed hand) or a held-Space pan
+        // (open hand already pushed).
+        guard !isSpaceDown, panOriginInWindow == nil else { return }
+        let p = convert(event.locationInWindow, from: nil)
+        if enclosingScrollView != nil, isPannableCanvas(at: p) {
+            NSCursor.openHand.set()
+        } else {
+            NSCursor.arrow.set()
+        }
+    }
+
+    /// True when `point` is empty canvas — no topic, extra icon, collapsator,
+    /// or embedded image under it — i.e. a plain drag there would pan. Pure
+    /// hit-test composition, so the cursor decision is unit-testable.
+    func isPannableCanvas(at point: CGPoint) -> Bool {
+        element(at: point) == nil
+            && elementExtra(at: point) == nil
+            && collapseIndicator(at: point) == nil
+            && embeddedImage(at: point) == nil
+    }
+
     /// Find the element whose collapsator circle contains `point`, if any.
     /// Used by mouseDown so a click on the fold circle toggles collapse.
     func collapseIndicator(at point: CGPoint) -> MindMapElement? {

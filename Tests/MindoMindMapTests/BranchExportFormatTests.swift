@@ -1,7 +1,46 @@
 import XCTest
+import MindoModel
 @testable import MindoMindMap
 
 final class BranchExportFormatTests: XCTestCase {
+
+    private func branch() -> MindMap {
+        let map = MindMap()
+        let root = Topic(text: "Project"); map.root = root
+        let a = root.addChild(text: "Alpha")
+        _ = a.addChild(text: "Alpha detail")
+        _ = root.addChild(text: "Beta")
+        return map
+    }
+
+    // MARK: - Shared export(_:) + clipboard subset (C4)
+
+    func testMarkdownExportContainsTopics() {
+        let md = BranchExportFormat.markdown.export(branch())
+        XCTAssertTrue(md.contains("Project") && md.contains("Alpha") && md.contains("Beta"))
+    }
+
+    func testTextOrgAsciidocAllProduceNonEmptyTextWithTopics() {
+        for fmt in [BranchExportFormat.text, .orgMode, .asciidoc] {
+            let body = fmt.export(branch())
+            XCTAssertFalse(body.isEmpty, "\(fmt) produced empty output")
+            XCTAssertTrue(body.contains("Alpha"), "\(fmt) dropped a topic")
+        }
+    }
+
+    func testMmdExportMentionsRoot() {
+        XCTAssertTrue(BranchExportFormat.mindmap.export(branch()).contains("Project"))
+    }
+
+    func testClipboardFormatsAreTextFriendlySubset() {
+        XCTAssertEqual(BranchExportFormat.clipboardFormats, [.markdown, .text, .asciidoc, .orgMode])
+        for fileOnly in [BranchExportFormat.mindmap, .freemind, .mindmup] {
+            XCTAssertFalse(BranchExportFormat.clipboardFormats.contains(fileOnly),
+                           "\(fileOnly) is file-only and shouldn't be a clipboard option")
+        }
+    }
+
+    // MARK: - Existing extension / title coverage
 
     func testEveryFormatHasUniqueExtension() {
         let exts = BranchExportFormat.allCases.map(\.fileExtension)

@@ -90,6 +90,19 @@ extension MindMapView {
         exportParent.submenu = exportSub
         menu.addItem(exportParent)
 
+        // Copy Branch As → submenu (clipboard, text-friendly formats only).
+        let copyBranchParent = NSMenuItem(title: "Copy Branch As", action: nil, keyEquivalent: "")
+        let copyBranchSub = NSMenu()
+        for fmt in BranchExportFormat.clipboardFormats {
+            copyBranchSub.addItem(makeContextItem(
+                title: fmt.menuTitle,
+                action: #selector(contextCopyBranch(_:)),
+                payload: BranchExportPayload(element: element, format: fmt)
+            ))
+        }
+        copyBranchParent.submenu = copyBranchSub
+        menu.addItem(copyBranchParent)
+
         // Text alignment submenu.
         let alignParent = NSMenuItem(title: "Text Alignment", action: nil, keyEquivalent: "")
         let alignSub = NSMenu()
@@ -160,17 +173,19 @@ extension MindMapView {
         // Build a temporary MindMap rooted at a deep clone of the source so
         // we don't mutate the live tree (clone() leaves parent/map nil).
         let branchMap = MindMap(root: payload.element.topic.clone(deep: true))
-        let body: String
-        switch payload.format {
-        case .mindmap:  body = branchMap.write()
-        case .orgMode:  body = OrgModeExporter.export(branchMap)
-        case .freemind: body = FreemindExporter.export(branchMap)
-        case .markdown: body = MindMapMarkdownExporter.export(branchMap)
-        case .asciidoc: body = AsciiDocExporter.export(branchMap)
-        case .mindmup:  body = MindmupExporter.export(branchMap)
-        case .text:     body = PlainTextExporter.export(branchMap)
-        }
+        let body = payload.format.export(branchMap)
         try? body.write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    /// Copy the right-clicked branch to the clipboard in the chosen text
+    /// format (mindolph branch exporters' doExportToClipboard parity).
+    @objc func contextCopyBranch(_ sender: NSMenuItem) {
+        guard let payload = sender.representedObject as? BranchExportPayload else { return }
+        let branchMap = MindMap(root: payload.element.topic.clone(deep: true))
+        let body = payload.format.export(branchMap)
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(body, forType: .string)
     }
 
     @objc func contextSetTextAlign(_ sender: NSMenuItem) {
@@ -579,6 +594,26 @@ public enum BranchExportFormat: String, CaseIterable {
         case .text:     return "Plain Text Outline (.txt)"
         }
     }
+
+    /// Serialize `map` to this format's body text. Shared by the file-export
+    /// ("Export Branch As…") and clipboard-copy ("Copy Branch As") paths so
+    /// the conversion is in one tested place.
+    public func export(_ map: MindMap) -> String {
+        switch self {
+        case .mindmap:  return map.write()
+        case .orgMode:  return OrgModeExporter.export(map)
+        case .freemind: return FreemindExporter.export(map)
+        case .markdown: return MindMapMarkdownExporter.export(map)
+        case .asciidoc: return AsciiDocExporter.export(map)
+        case .mindmup:  return MindmupExporter.export(map)
+        case .text:     return PlainTextExporter.export(map)
+        }
+    }
+
+    /// The text-friendly formats offered for clipboard copy (mirrors the
+    /// whole-map "Copy Mind Map As" set). The file-oriented binary-ish
+    /// formats (.mmd/.mm/.mup) are export-to-file only.
+    public static let clipboardFormats: [BranchExportFormat] = [.markdown, .text, .asciidoc, .orgMode]
 }
 
 /// Payload for the Export Branch submenu — bundles the element + the

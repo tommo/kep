@@ -48,9 +48,27 @@ private struct GeneralPrefs: View {
             Section(L("prefs.general.section.behavior")) {
                 Toggle(L("prefs.general.confirm_before_quit"), isOn: $confirmBeforeQuit)
             }
+            RestoreDefaultsRow(group: .general)
         }
         .formStyle(.grouped)
         .padding()
+    }
+}
+
+/// Shared "Restore Defaults" footer button for a Settings tab. Clears the
+/// group's keys; the `@AppStorage` controls above snap back to their
+/// declared defaults on the next render.
+private struct RestoreDefaultsRow: View {
+    let group: PrefResetGroup
+    var body: some View {
+        Section {
+            HStack {
+                Spacer()
+                Button(L("prefs.restore_defaults"), role: .destructive) {
+                    PrefReset.reset(group)
+                }
+            }
+        }
     }
 }
 
@@ -97,6 +115,7 @@ private struct EditorPrefs: View {
                 }
                 Text(L("prefs.editor.plantuml.dotpath_note")).font(.caption).foregroundStyle(.secondary)
             }
+            RestoreDefaultsRow(group: .editor)
         }
         .formStyle(.grouped)
         .padding()
@@ -181,6 +200,7 @@ private struct MindMapPrefs: View {
                 }
                 .disabled(!showGrid)
             }
+            RestoreDefaultsRow(group: .mindmap)
         }
         .formStyle(.grouped)
         .padding()
@@ -195,6 +215,7 @@ private struct AIPrefs: View {
             Section(L("prefs.ai.section.behavior")) {
                 Toggle(L("prefs.ai.streaming"), isOn: $streaming)
             }
+            RestoreDefaultsRow(group: .ai)
         }
         .formStyle(.grouped)
         .padding()

@@ -165,6 +165,7 @@
 
 /* MARK: - 偏好设置 */
 "prefs.tab.general" = "通用";
+"prefs.restore_defaults" = "恢复默认值";
 "prefs.tab.editor" = "编辑器";
 "prefs.tab.mindmap" = "思维导图";
 "prefs.tab.ai" = "AI";

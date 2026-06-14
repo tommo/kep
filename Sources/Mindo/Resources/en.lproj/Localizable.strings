@@ -168,6 +168,7 @@
 
 /* MARK: - Preferences */
 "prefs.tab.general" = "General";
+"prefs.restore_defaults" = "Restore Defaults";
 "prefs.tab.editor" = "Editor";
 "prefs.tab.mindmap" = "Mind Map";
 "prefs.tab.ai" = "AI";

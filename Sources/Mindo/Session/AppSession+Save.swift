@@ -115,6 +115,14 @@ extension AppSession {
         }
     }
 
+    /// Copy the active markdown document to the clipboard as styled HTML
+    /// (Obsidian "Copy as HTML"). Silent no-op off a markdown doc.
+    @MainActor
+    func copyActiveMarkdownAsHTML() {
+        guard let doc = activeDocument, case .text(let body, .markdown) = doc.kind else { return }
+        MarkdownExporter.copyHTMLToPasteboard(markdown: body)
+    }
+
     /// Render the active doc's markdown to PDF via the offscreen WKWebView.
     @MainActor
     func exportActiveAsPDF() async {

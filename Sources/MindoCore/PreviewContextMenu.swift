@@ -9,6 +9,7 @@ public enum PreviewMenuAction: String, CaseIterable, Sendable {
     case copySVG
     case copyPNG
     case copyScript
+    case copyHTML
     case export
     case viewSource
 }
@@ -47,6 +48,7 @@ public enum PreviewContextMenu {
     public static func markdown() -> [PreviewMenuItem] {
         [
             PreviewMenuItem(action: .refresh, title: "Refresh Preview", isEnabled: true),
+            PreviewMenuItem(action: .copyHTML, title: "Copy as HTML", isEnabled: true),
             PreviewMenuItem(action: .viewSource, title: "Focus Editor", isEnabled: true),
         ]
     }

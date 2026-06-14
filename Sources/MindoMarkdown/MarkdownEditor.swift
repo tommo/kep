@@ -475,7 +475,8 @@ public struct MarkdownEditor: NSViewRepresentable {
             switch action {
             case .refresh:    refreshPreview()
             case .viewSource: textView?.window?.makeFirstResponder(textView)
-            default:          break   // copy/export are PlantUML-only
+            case .copyHTML:   MarkdownExporter.copyHTMLToPasteboard(markdown: parent.text)
+            default:          break   // SVG/PNG/script/export are PlantUML-only
             }
         }
 

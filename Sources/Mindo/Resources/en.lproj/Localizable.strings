@@ -78,6 +78,7 @@
 "menu.edit.copy_mindmap_as_orgmode" = "Org-Mode";
 "menu.edit.copy_mindmap_as_png" = "Image (PNG)";
 "menu.edit.copy_mindmap_as_svg" = "Image (SVG)";
+"menu.edit.copy_markdown_as_html" = "Copy as HTML";
 "mindmap.copy_image.empty" = "Nothing to copy — the mind map is empty.";
 "menu.edit.find" = "Find…";
 "menu.edit.insert_snippet" = "Insert Snippet…";

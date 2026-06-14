@@ -34,6 +34,20 @@ public enum MarkdownExporter {
         }
     }
 
+    /// Render `markdown` to a styled HTML document and place it on the
+    /// pasteboard — as the `.html` flavor (so rich consumers like Mail / Pages
+    /// paste formatted content) plus a `.string` fallback carrying the HTML
+    /// source. Mirrors Obsidian's "Copy as HTML". Injectable pasteboard for
+    /// tests. Returns the HTML it wrote.
+    @discardableResult
+    public static func copyHTMLToPasteboard(markdown: String, pasteboard: NSPasteboard = .general) -> String {
+        let html = MarkdownRenderer.render(markdown: markdown)
+        pasteboard.clearContents()
+        pasteboard.setString(html, forType: .html)
+        pasteboard.setString(html, forType: .string)
+        return html
+    }
+
     /// Render `markdown` to PDF using an offscreen `WKWebView`. The view loads
     /// the HTML, waits for `didFinish`, then captures `createPDF` output. The
     /// PDF data is written to `url`. Must be called on the main actor.

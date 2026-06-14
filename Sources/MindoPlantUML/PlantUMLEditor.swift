@@ -180,6 +180,7 @@ public struct PlantUMLEditor: NSViewRepresentable {
             case .copyScript: copyScript()
             case .export:     exportDiagram()
             case .viewSource: textView?.window?.makeFirstResponder(textView)
+            case .copyHTML:   break   // markdown-only
             }
         }
 

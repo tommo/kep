@@ -223,6 +223,8 @@ struct MindoApp: App {
                     Button(L("menu.edit.copy_mindmap_as_svg")) { session.copyActiveMindmapAsSVG() }
                 }
                 .disabled(session.activeFileType != .mindMap)
+                Button(L("menu.edit.copy_markdown_as_html")) { session.copyActiveMarkdownAsHTML() }
+                    .disabled(session.activeFileType != .markdown)
                 Button(L("menu.edit.find")) { session.invokeFindInActiveDocument() }
                     .keyboardShortcut("f", modifiers: .command)
                     .disabled(session.activeDocument == nil)

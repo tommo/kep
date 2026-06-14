@@ -75,6 +75,7 @@
 "menu.edit.copy_mindmap_as_orgmode" = "Org-Mode";
 "menu.edit.copy_mindmap_as_png" = "图片 (PNG)";
 "menu.edit.copy_mindmap_as_svg" = "图片 (SVG)";
+"menu.edit.copy_markdown_as_html" = "拷贝为 HTML";
 "mindmap.copy_image.empty" = "无可拷贝内容 — 思维导图为空。";
 "menu.edit.find" = "查找…";
 "menu.edit.insert_snippet" = "插入片段…";

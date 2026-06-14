@@ -496,6 +496,30 @@ public final class MindMapView: NSView {
         onSelectionChange?()
     }
 
+    /// After a fold that may have hidden the primary selection, move it up to
+    /// the nearest still-visible ancestor (the shallowest collapsed ancestor),
+    /// and re-resolve it to the freshly-rebuilt element so the highlight and
+    /// arrow navigation use a live, laid-out object instead of a stranded one.
+    /// No-op when nothing is selected.
+    func ensureSelectionVisible() {
+        guard let topic = selectedElement?.topic else { return }
+        var highestCollapsed: Topic?
+        var ancestor = topic.parent
+        while let cur = ancestor {
+            if cur.attribute(TopicAttribute.collapsed).flatMap(Bool.init) ?? false {
+                highestCollapsed = cur
+            }
+            ancestor = cur.parent
+        }
+        // Hidden → select the visible folded ancestor; otherwise just re-bind
+        // to the live element for the same topic.
+        if let target = highestCollapsed, let el = element(forTopic: target) {
+            selectElement(el)
+        } else if let el = element(forTopic: topic), el !== selectedElement {
+            selectElement(el)
+        }
+    }
+
     /// Cmd-click — toggle membership without disturbing the primary selection.
     /// Promotes the toggled topic to primary when adding.
     func toggleSelection(_ element: MindMapElement?) {

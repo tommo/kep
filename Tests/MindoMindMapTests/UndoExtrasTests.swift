@@ -59,7 +59,9 @@ final class UndoExtrasTests: XCTestCase {
         let (view, mgr) = makeHeadlessMindMapWithUndo(map: map)
 
         view.setAllCollapsed(true)
-        XCTAssertEqual(root.attribute(TopicAttribute.collapsed), "true")
+        // The map root stays visible — Fold All folds everything *below* it so
+        // level 1 (A, B, Leaf) is still shown.
+        XCTAssertNil(root.attribute(TopicAttribute.collapsed), "Fold All never folds the map root")
         XCTAssertEqual(a.attribute(TopicAttribute.collapsed), "true")
         XCTAssertEqual(b.attribute(TopicAttribute.collapsed), "true")
         // Leaf has no children — must not gain a collapsed flag.

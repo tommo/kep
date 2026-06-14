@@ -181,10 +181,15 @@ extension MindMapView {
 
     private func applyCollapse(rootedAt root: Topic, collapsed: Bool, undoName: String) {
         let value: String? = collapsed ? "true" : nil
+        // The map root is never collapsed — folding it would hide the entire
+        // map behind a single node (and the root connectors draw regardless of
+        // its collapse flag, so the state is inconsistent anyway). Fold All
+        // therefore folds everything *below* the root, leaving level 1 visible.
+        let mapRoot = mindMap?.root
         var changes: [(Topic, String?)] = []
         var stack: [Topic] = [root]
         while let t = stack.popLast() {
-            if !t.children.isEmpty {
+            if !t.children.isEmpty, t !== mapRoot {
                 let old = t.attribute(TopicAttribute.collapsed)
                 if old != value { changes.append((t, old)) }
             }
@@ -198,6 +203,10 @@ extension MindMapView {
             inverse: { for (topic, old) in changes { topic.setAttribute(TopicAttribute.collapsed, old) } }
         )
         refreshAndNotify()
+        // A fold can hide the selected topic — pull the selection up to the
+        // nearest visible ancestor so the highlight + keyboard don't strand on
+        // an off-screen node.
+        ensureSelectionVisible()
     }
 
     /// Set or clear an extra on a topic. `nil` removes the extra. Captures

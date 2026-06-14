@@ -1,5 +1,6 @@
 import AppKit
 import UniformTypeIdentifiers
+import MindoBase
 import MindoCore
 import MindoMarkdown
 import MindoMindMap
@@ -164,12 +165,11 @@ extension AppSession {
                 lastError = String(format: L("error.save_failed"), error.localizedDescription)
             }
         case .text, .unsupported:
-            // The first responder handles it — NSTextView's print, WKWebView's
-            // print, etc. Pass typed-nil so the action targets the responder
-            // chain instead of a specific object.
-            let target: AnyObject? = nil
-            let sender: AnyObject? = nil
-            NSApp.sendAction(Selector(("printDocument:")), to: target, from: sender)
+            // The focused NSTextView / WKWebView prints itself via the
+            // responder chain. MUST be `print:` — the old `printDocument:`
+            // is an NSDocument method these NSView responders don't
+            // implement, so ⌘P silently did nothing.
+            TextDocumentPrinting.printFirstResponder()
         }
     }
 

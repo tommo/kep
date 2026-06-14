@@ -632,6 +632,7 @@ public final class MindMapView: NSView {
         textField.bezelStyle = .roundedBezel
         textField.target = self
         textField.action = #selector(commitInlineEdit)
+        textField.delegate = self      // commit-and-create on Tab/Return while editing
         textField.onCancel = { [weak self] in self?.cancelInlineEdit() }
         addSubview(textField)
         window?.makeFirstResponder(textField)
@@ -669,6 +670,15 @@ public final class MindMapView: NSView {
         inlineEditor = nil
         inlineEditTarget = nil
         window?.makeFirstResponder(self)
+    }
+
+    /// Commit the current inline edit and run `then` — the shared body of the
+    /// "while editing, Return/Tab commits and creates the next topic" flow.
+    /// `then` (addNextSibling / addChild) re-selects the new topic and opens a
+    /// fresh editor, so the user can keep typing without touching the mouse.
+    func commitAndContinue(_ then: () -> Void) {
+        commitInlineEdit()
+        then()
     }
 
     private func notifyChange() {

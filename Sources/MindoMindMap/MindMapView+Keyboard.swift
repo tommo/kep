@@ -241,3 +241,33 @@ extension MindMapView {
         if let moved = element(forTopic: topic) { selectElement(moved) }
     }
 }
+
+// MARK: - Inline-edit field delegate (commit-and-create flow)
+
+extension MindMapView: NSTextFieldDelegate {
+
+    /// While the inline editor is up, Return commits and creates a following
+    /// sibling, Tab commits and creates a child, ⇧Tab just commits, and Esc
+    /// cancels — the fast XMind/MindNode outlining flow where you never leave
+    /// the keyboard. Each create re-opens the editor on the new topic.
+    public func control(_ control: NSControl, textView: NSTextView,
+                        doCommandBy commandSelector: Selector) -> Bool {
+        guard control === inlineEditor else { return false }
+        switch commandSelector {
+        case #selector(NSResponder.insertNewline(_:)):
+            commitAndContinue { self.addNextSibling() }
+            return true
+        case #selector(NSResponder.insertTab(_:)):
+            commitAndContinue { self.addChild() }
+            return true
+        case #selector(NSResponder.insertBacktab(_:)):
+            commitInlineEdit()   // commit and return to the canvas; don't tab away
+            return true
+        case #selector(NSResponder.cancelOperation(_:)):
+            cancelInlineEdit()
+            return true
+        default:
+            return false
+        }
+    }
+}

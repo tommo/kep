@@ -60,10 +60,24 @@ final class CSVBlockClipboardTests: XCTestCase {
         XCTAssertEqual(block.cells, [["x", "y", "z"], ["1", "2", "3"]])
     }
 
-    func testParseCommaCSVIsNotColumnSplit() {
-        // Only TSV is column-aware; comma text is one cell per line.
+    func testParseExternalCommaCSVSplitsIntoColumns() {
+        // No tab present → fall back to comma separator so external CSV /
+        // comma-exported Excel lands in columns (R5).
         let block = CSVClipboard.parse("a,b,c\nd,e,f")
-        XCTAssertEqual(block.cells, [["a,b,c"], ["d,e,f"]])
+        XCTAssertEqual(block.cells, [["a", "b", "c"], ["d", "e", "f"]])
+    }
+
+    func testInternalSingleColumnCommaCellRoundTrips() {
+        // A 1-column block whose cell has a comma: serialize quotes it, so the
+        // comma-fallback parse keeps it as ONE cell, not split (the R5 trap).
+        let block = CSVBlock(cells: [["a,b"], ["c,d"]])
+        let wire = CSVClipboard.serialize(block)
+        XCTAssertEqual(CSVClipboard.parse(wire), block)
+    }
+
+    func testQuotedCommaInExternalCSVStaysOneField() {
+        let block = CSVClipboard.parse("\"a,b\",c")
+        XCTAssertEqual(block.cells, [["a,b", "c"]])
     }
 
     func testParseBlankOrSeparatorsYieldsEmptyBlock() {
@@ -71,8 +85,9 @@ final class CSVBlockClipboardTests: XCTestCase {
         XCTAssertTrue(CSVClipboard.parse("   \n\t").isEmpty)
     }
 
-    func testCommaIsNotQuotedInTSV() {
-        // Distinct from CSVDocument.serialize, which would quote a comma.
-        XCTAssertEqual(CSVClipboard.serialize(CSVBlock(cells: [["a,b"]])), "a,b")
+    func testCommaIsQuotedInSerialize() {
+        // A comma-bearing cell is quoted so the comma-fallback parser can't
+        // mis-split it when the block has no tab (R5 round-trip safety).
+        XCTAssertEqual(CSVClipboard.serialize(CSVBlock(cells: [["a,b"]])), "\"a,b\"")
     }
 }

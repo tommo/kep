@@ -21,16 +21,22 @@ public enum CSVClipboard {
     }
 
     /// Parse clipboard text into a block. A SINGLE pass over the whole text
-    /// tracks quote state, splitting fields on unquoted tabs and records on
-    /// unquoted newlines — so a quoted field may itself contain tabs and
-    /// newlines without being torn apart (the round-trip-fidelity fix).
-    /// Comma-separated text is NOT column-split — only the editor's own TSV
-    /// format is column-aware (external comma-CSV pastes one cell per line).
+    /// tracks quote state, splitting fields on the chosen separator and
+    /// records on unquoted newlines — so a quoted field may itself contain
+    /// separators and newlines without being torn apart.
+    ///
+    /// Separator selection: if the text has an unquoted TAB anywhere it's
+    /// treated as TSV (our own format, and what Excel/Numbers emit); else
+    /// fields split on COMMA, so an external comma-CSV paste lands in columns
+    /// instead of one cell per line. Because our own `serialize` quotes
+    /// commas, an internal single-column block with comma values still
+    /// round-trips (the quoted comma is preserved, not split).
     public static func parse(_ text: String) -> CSVBlock {
         guard !isBlankOrSeparators(text) else { return CSVBlock(cells: []) }
         // Normalize line endings so \r\n / \r record breaks behave like \n.
         let chars = Array(text.replacingOccurrences(of: "\r\n", with: "\n")
                               .replacingOccurrences(of: "\r", with: "\n"))
+        let separator: Character = hasUnquotedTab(chars) ? "\t" : ","
         var rows: [[String]] = []
         var fields: [String] = []
         var current = ""
@@ -53,7 +59,7 @@ public enum CSVClipboard {
             } else if ch == "\"" && current.isEmpty && !fieldStartedQuoted {
                 inQuotes = true
                 fieldStartedQuoted = true
-            } else if ch == "\t" {
+            } else if ch == separator {
                 fields.append(current); current = ""; fieldStartedQuoted = false
             } else if ch == "\n" {
                 fields.append(current); current = ""; fieldStartedQuoted = false
@@ -69,11 +75,37 @@ public enum CSVClipboard {
         return CSVBlock(cells: rows)
     }
 
+    /// Does the text contain a TAB outside of a quoted field? Drives the
+    /// TSV-vs-comma separator choice.
+    private static func hasUnquotedTab(_ chars: [Character]) -> Bool {
+        var inQuotes = false
+        var i = 0
+        while i < chars.count {
+            let ch = chars[i]
+            if inQuotes {
+                if ch == "\"" {
+                    if i + 1 < chars.count && chars[i + 1] == "\"" { i += 2; continue }
+                    inQuotes = false
+                }
+            } else if ch == "\"" {
+                inQuotes = true
+            } else if ch == "\t" {
+                return true
+            }
+            i += 1
+        }
+        return false
+    }
+
     // MARK: - Field encoding
 
+    /// Quote a field when it contains a tab, newline, double-quote, OR a
+    /// comma. The comma rule matters because `parse` may use comma as the
+    /// separator (external CSV); quoting keeps an internal comma-bearing cell
+    /// from being split on the round trip.
     private static func escape(_ field: String) -> String {
         let needsQuoting = field.contains("\t") || field.contains("\n")
-            || field.contains("\r") || field.contains("\"")
+            || field.contains("\r") || field.contains("\"") || field.contains(",")
         guard needsQuoting else { return field }
         let doubled = field.replacingOccurrences(of: "\"", with: "\"\"")
         return "\"\(doubled)\""

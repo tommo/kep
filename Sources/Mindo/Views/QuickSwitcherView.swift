@@ -7,21 +7,21 @@ import MindoCore
 /// title bar, no toolbar) so it reads like Obsidian's command modal rather
 /// than a native macOS open panel.
 struct QuickSwitcherView: View {
-    let files: [WorkspaceFile]
     let onOpen: (URL) -> Void
     let onClose: () -> Void
 
+    @State private var model: QuickSwitcherModel
     @State private var query: String = ""
     @State private var selection: Int = 0
     @FocusState private var fieldFocused: Bool
 
-    /// Cap the visible list — fuzzy ranking over the full index still runs,
-    /// but we only render the top slice so a huge workspace stays snappy.
-    private let maxVisible = 50
-
-    private var ranked: [(item: WorkspaceFile, result: FuzzyMatch.Result)] {
-        Array(FuzzyMatch.rank(files, query: query) { $0.relativePath }.prefix(maxVisible))
+    init(files: [WorkspaceFile], onOpen: @escaping (URL) -> Void, onClose: @escaping () -> Void) {
+        self.onOpen = onOpen
+        self.onClose = onClose
+        _model = State(initialValue: QuickSwitcherModel(files: files))
     }
+
+    private var ranked: [(item: WorkspaceFile, result: FuzzyMatch.Result)] { model.results }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -33,7 +33,7 @@ struct QuickSwitcherView: View {
                     .textFieldStyle(.plain)
                     .font(.system(size: 16))
                     .focused($fieldFocused)
-                    .onChange(of: query) { _, _ in selection = 0 }
+                    .onChange(of: query) { _, new in model.setQuery(new); selection = model.selection }
                     .onSubmit { openSelected() }
             }
             .padding(.horizontal, 14)
@@ -61,7 +61,7 @@ struct QuickSwitcherView: View {
                                 )
                                 .id(idx)
                                 .contentShape(Rectangle())
-                                .onTapGesture { selection = idx; openSelected() }
+                                .onTapGesture { model.select(at: idx); selection = model.selection; openSelected() }
                             }
                         }
                         .padding(6)
@@ -84,14 +84,13 @@ struct QuickSwitcherView: View {
     }
 
     private func move(_ delta: Int) {
-        let count = ranked.count
-        guard count > 0 else { return }
-        selection = min(max(0, selection + delta), count - 1)
+        model.move(delta)
+        selection = model.selection
     }
 
     private func openSelected() {
-        guard ranked.indices.contains(selection) else { return }
-        onOpen(ranked[selection].item.url)
+        guard let file = model.selectedFile else { return }
+        onOpen(file.url)
         onClose()
     }
 }

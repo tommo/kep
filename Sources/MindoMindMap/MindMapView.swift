@@ -90,6 +90,10 @@ public final class MindMapView: NSView {
     var isSpaceDown: Bool = false
     var panOriginInWindow: CGPoint?
     var panStartScroll: CGPoint?
+    /// True while a pan was started by a plain drag on EMPTY canvas (the hand
+    /// tool), as opposed to a Space-held pan. Lets mouseUp treat a press that
+    /// never moved as a plain click that clears the selection.
+    var emptyCanvasPan: Bool = false
 
     /// Marquee (rubber-band) area selection: anchor + live corner. Set on an
     /// empty-canvas mouseDown, updated during drag, cleared on mouseUp.

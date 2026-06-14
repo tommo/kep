@@ -56,19 +56,21 @@ final class MindMapInteractiveDragEditTests: XCTestCase {
     func testMarqueeDragSelectsEnclosedTopics() throws {
         let (h, _, _, _) = try make()
         h.view.selectElement(nil)
-        // Drag a rectangle spanning the whole canvas from an empty corner —
-        // it must rubber-band-select multiple topics (root + A + B).
+        // SHIFT + drag a rectangle spanning the whole canvas from an empty
+        // corner — it must rubber-band-select multiple topics (root + A + B).
+        // (Plain drag now pans; marquee moved to Shift+drag.)
         h.drag(from: CGPoint(x: 2, y: 2),
-               to: CGPoint(x: h.view.bounds.maxX - 2, y: h.view.bounds.maxY - 2))
+               to: CGPoint(x: h.view.bounds.maxX - 2, y: h.view.bounds.maxY - 2),
+               mods: .shift)
         XCTAssertGreaterThanOrEqual(h.view.selectedTopics.count, 2,
-                                    "marquee over the canvas selects multiple topics")
+                                    "Shift+marquee over the canvas selects multiple topics")
     }
 
     func testTinyClickDragOnEmptyDoesNotSelectEverything() throws {
         let (h, _, _, _) = try make()
         h.view.selectElement(nil)
-        // A near-zero drag in an empty corner is effectively a click → clears.
-        h.drag(from: CGPoint(x: 3, y: 3), to: CGPoint(x: 4, y: 4), steps: 1)
+        // A near-zero Shift-drag in an empty corner is effectively a click → clears.
+        h.drag(from: CGPoint(x: 3, y: 3), to: CGPoint(x: 4, y: 4), steps: 1, mods: .shift)
         XCTAssertTrue(h.view.selectedTopics.isEmpty, "a click in empty space selects nothing")
     }
 

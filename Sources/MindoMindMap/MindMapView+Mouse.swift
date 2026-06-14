@@ -48,21 +48,35 @@ extension MindMapView {
             return
         }
         let el = element(at: p)
-        // Cmd-click toggles multi-selection, Shift-click adds; otherwise replace.
+        // Cmd-click toggles multi-selection, Shift-click on a NODE adds it;
+        // otherwise replace. Shift on EMPTY canvas falls through to the marquee.
         if event.modifierFlags.contains(.command) {
             toggleSelection(el)
-        } else if event.modifierFlags.contains(.shift) {
-            if let el = el {
-                selectedTopics.insert(ObjectIdentifier(el.topic))
-                selectedElement = el
-                needsDisplay = true
-            }
+        } else if event.modifierFlags.contains(.shift), let el = el {
+            selectedTopics.insert(ObjectIdentifier(el.topic))
+            selectedElement = el
+            needsDisplay = true
         } else if el == nil {
-            // Empty-canvas press with no modifier: begin a marquee. Don't
-            // clear the selection yet — wait for mouseUp to tell a click
-            // (clears) from a drag (selects the enclosed topics).
-            marqueeStart = p
-            marqueeCurrent = nil
+            if event.modifierFlags.contains(.shift) {
+                // Shift + empty-canvas drag: rubber-band marquee select. Don't
+                // clear the selection yet — mouseUp tells a click (clears) from
+                // a drag (selects the enclosed topics).
+                marqueeStart = p
+                marqueeCurrent = nil
+            } else if let scroll = enclosingScrollView {
+                // Plain empty-canvas drag = pan the canvas (hand tool) — the
+                // primary way to navigate a large map with a mouse. A press
+                // that never moves is treated as a click and clears selection
+                // (handled in mouseUp).
+                panOriginInWindow = event.locationInWindow
+                panStartScroll = scroll.contentView.bounds.origin
+                emptyCanvasPan = true
+                NSCursor.closedHand.push()
+            } else {
+                // No scroll view (headless / export): nothing to pan, so a
+                // bare empty press just clears the selection.
+                selectElement(nil)
+            }
         } else {
             selectElement(el)
         }
@@ -162,8 +176,20 @@ extension MindMapView {
 
     public override func mouseUp(with event: NSEvent) {
         if panOriginInWindow != nil {
+            let start = panStartScroll
+            let wasEmptyCanvasPan = emptyCanvasPan
             panOriginInWindow = nil
             panStartScroll = nil
+            if emptyCanvasPan {
+                emptyCanvasPan = false
+                NSCursor.pop()
+            }
+            // An empty-canvas press that never actually panned is a plain
+            // click on the background → clear the selection.
+            if wasEmptyCanvasPan,
+               (enclosingScrollView?.contentView.bounds.origin ?? .zero) == (start ?? .zero) {
+                selectElement(nil)
+            }
             return
         }
         // Finish a marquee: a real drag already set the selection; a bare

@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 import UniformTypeIdentifiers
 import MindoModel
 
@@ -230,18 +231,27 @@ extension MindMapView {
 
     @objc func contextSetEmoticon(_ sender: NSMenuItem) {
         guard let element = sender.representedObject as? MindMapElement else { return }
-        let alert = NSAlert()
-        alert.messageText = "Topic Icon"
-        alert.informativeText = "Enter an icon name (e.g. star, bell, warning, idea). Leave blank to clear."
-        let field = NSTextField(string: element.topic.attribute(TopicAttribute.emoticon) ?? "")
-        field.frame = NSRect(x: 0, y: 0, width: 200, height: 24)
-        field.placeholderString = "star, bell, warning…"
-        alert.accessoryView = field
-        alert.addButton(withTitle: "OK")
-        alert.addButton(withTitle: "Cancel")
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        let raw = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        undoableSetAttribute(element.topic, key: TopicAttribute.emoticon, value: raw.isEmpty ? nil : raw)
+        presentEmoticonPicker(for: element)
+    }
+
+    /// Show a visual icon-grid popover anchored to the topic, replacing the
+    /// old free-text NSAlert. Picking a glyph (or Clear) writes the
+    /// `mmd.emoticon` attribute and dismisses.
+    private func presentEmoticonPicker(for element: MindMapElement) {
+        let current = element.topic.attribute(TopicAttribute.emoticon)
+        let popover = NSPopover()
+        popover.behavior = .transient
+        weak var weakPopover: NSPopover?
+        let picker = EmoticonPickerView(current: current) { [weak self] picked in
+            self?.undoableSetAttribute(element.topic, key: TopicAttribute.emoticon, value: picked)
+            weakPopover?.close()
+        }
+        weakPopover = popover
+        popover.contentViewController = NSHostingController(rootView: picker)
+        // Anchor to the topic's rect; fall back to the whole view if it's
+        // somehow off-screen so the popover always appears.
+        let rect = element.frame.isEmpty ? bounds : element.frame
+        popover.show(relativeTo: rect, of: self, preferredEdge: .maxY)
     }
 
     @objc func contextRemoveEmoticon(_ sender: NSMenuItem) {

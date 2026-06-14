@@ -39,6 +39,12 @@ enum MindMapEmoticon {
     /// SF Symbol equivalent is not the generic `tag` fallback.
     static let suggestedNames: [String] = symbolMap.keys.sorted()
 
+    /// (emoticon name, SF Symbol) pairs for the visual picker grid, sorted by
+    /// name. Every entry resolves to a real symbol (never the `tag`
+    /// fallback), so the popover only ever shows icons the app can render.
+    static let pickerItems: [(name: String, symbol: String)] =
+        symbolMap.sorted { $0.key < $1.key }.map { (name: $0.key, symbol: $0.value) }
+
     /// Named map. Keep entries lowercased.
     private static let symbolMap: [String: String] = [
         // FreeMind BUILTIN names
@@ -109,7 +115,8 @@ enum MindMapEmoticon {
         "money":        "dollarsign.circle.fill",
         "balance":      "scalemass",
         "battery":      "battery.100",
-        "anchor":       "anchor",
+        "anchor":       "ferry",   // SF Symbols has no "anchor"; ferry is the nearest nautical glyph
+
         "apple":        "applelogo",
         "android":      "platter.2.filled.iphone",
     ]

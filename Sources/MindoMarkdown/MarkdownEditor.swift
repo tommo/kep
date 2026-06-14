@@ -138,10 +138,14 @@ public struct MarkdownEditor: NSViewRepresentable {
         stack.addArrangedSubview(iconButton(symbol: "bold", tooltip: "Bold", action: #selector(Coordinator.toolbarBold)))
         stack.addArrangedSubview(iconButton(symbol: "italic", tooltip: "Italic", action: #selector(Coordinator.toolbarItalic)))
         stack.addArrangedSubview(iconButton(symbol: "chevron.left.forwardslash.chevron.right", tooltip: "Inline code", action: #selector(Coordinator.toolbarInlineCode)))
+        stack.addArrangedSubview(iconButton(symbol: "curlybraces.square", tooltip: "Code block", action: #selector(Coordinator.toolbarCodeBlock)))
         stack.addArrangedSubview(makeVerticalDivider())
         stack.addArrangedSubview(iconButton(symbol: "1.square", tooltip: "Heading 1", action: #selector(Coordinator.toolbarH1)))
         stack.addArrangedSubview(iconButton(symbol: "2.square", tooltip: "Heading 2", action: #selector(Coordinator.toolbarH2)))
         stack.addArrangedSubview(iconButton(symbol: "3.square", tooltip: "Heading 3", action: #selector(Coordinator.toolbarH3)))
+        stack.addArrangedSubview(iconButton(symbol: "4.square", tooltip: "Heading 4", action: #selector(Coordinator.toolbarH4)))
+        stack.addArrangedSubview(iconButton(symbol: "5.square", tooltip: "Heading 5", action: #selector(Coordinator.toolbarH5)))
+        stack.addArrangedSubview(iconButton(symbol: "6.square", tooltip: "Heading 6", action: #selector(Coordinator.toolbarH6)))
         stack.addArrangedSubview(makeVerticalDivider())
         stack.addArrangedSubview(iconButton(symbol: "list.bullet", tooltip: "Bullet list", action: #selector(Coordinator.toolbarBullet)))
         stack.addArrangedSubview(iconButton(symbol: "list.number", tooltip: "Numbered list", action: #selector(Coordinator.toolbarNumbered)))
@@ -219,9 +223,13 @@ public struct MarkdownEditor: NSViewRepresentable {
         @objc func toolbarBold()       { applyTransform(MarkdownFormatting.bold) }
         @objc func toolbarItalic()     { applyTransform(MarkdownFormatting.italic) }
         @objc func toolbarInlineCode() { applyTransform(MarkdownFormatting.inlineCode) }
+        @objc func toolbarCodeBlock()  { applyTransform(MarkdownFormatting.codeBlock) }
         @objc func toolbarH1()         { applyTransform { MarkdownFormatting.heading($0, range: $1, level: 1) } }
         @objc func toolbarH2()         { applyTransform { MarkdownFormatting.heading($0, range: $1, level: 2) } }
         @objc func toolbarH3()         { applyTransform { MarkdownFormatting.heading($0, range: $1, level: 3) } }
+        @objc func toolbarH4()         { applyTransform { MarkdownFormatting.heading($0, range: $1, level: 4) } }
+        @objc func toolbarH5()         { applyTransform { MarkdownFormatting.heading($0, range: $1, level: 5) } }
+        @objc func toolbarH6()         { applyTransform { MarkdownFormatting.heading($0, range: $1, level: 6) } }
         @objc func toolbarBullet()     { applyTransform(MarkdownFormatting.bulletList) }
         @objc func toolbarNumbered()   { applyTransform(MarkdownFormatting.numberedList) }
         @objc func toolbarQuote()      { applyTransform(MarkdownFormatting.blockquote) }

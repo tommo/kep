@@ -51,6 +51,29 @@ public enum MarkdownFormatting {
         wrap(text, range: range, with: "`")
     }
 
+    /// Wrap the selection in a fenced code block (```), each fence on its own
+    /// line. Blank lines are inserted around the block only when the
+    /// selection isn't already at a line boundary, so we don't pile up empty
+    /// lines. The returned range selects the inner content (caret on the
+    /// empty middle line for an empty selection).
+    public static func codeBlock(_ text: String, range: NSRange) -> (String, NSRange) {
+        let nsText = text as NSString
+        let selected = nsText.substring(with: range)
+        let beforeChar = range.location > 0
+            ? nsText.substring(with: NSRange(location: range.location - 1, length: 1)) : ""
+        let afterLoc = NSMaxRange(range)
+        let afterChar = afterLoc < nsText.length
+            ? nsText.substring(with: NSRange(location: afterLoc, length: 1)) : ""
+        let leading = (range.location == 0 || beforeChar == "\n") ? "" : "\n"
+        let trailing = (afterLoc == nsText.length || afterChar == "\n") ? "" : "\n"
+        let block = leading + "```\n" + selected + "\n```" + trailing
+        let newText = nsText.replacingCharacters(in: range, with: block)
+        // Inner content begins after the leading newline (if any) + "```\n".
+        let innerLoc = range.location + (leading as NSString).length + 4
+        let newRange = NSRange(location: innerLoc, length: (selected as NSString).length)
+        return (newText, newRange)
+    }
+
     /// Prepend `#`s to the line under `range`. Toggling between H1…H6 cycles
     /// through depths.
     public static func heading(_ text: String, range: NSRange, level: Int) -> (String, NSRange) {

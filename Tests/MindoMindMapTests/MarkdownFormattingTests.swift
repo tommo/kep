@@ -38,6 +38,33 @@ final class MarkdownFormattingTests: XCTestCase {
         XCTAssertEqual(text, "## hello")
     }
 
+    func testHeadingSupportsH4ThroughH6() {
+        XCTAssertEqual(MarkdownFormatting.heading("x", range: nsRange(0, 0), level: 4).0, "#### x")
+        XCTAssertEqual(MarkdownFormatting.heading("x", range: nsRange(0, 0), level: 5).0, "##### x")
+        XCTAssertEqual(MarkdownFormatting.heading("x", range: nsRange(0, 0), level: 6).0, "###### x")
+    }
+
+    func testCodeBlockWrapsSelectionInFences() {
+        // Whole-document selection: already at both boundaries, no extra blanks.
+        let (text, range) = MarkdownFormatting.codeBlock("let x = 1", range: nsRange(0, 9))
+        XCTAssertEqual(text, "```\nlet x = 1\n```")
+        // Inner content selected (after the opening "```\n").
+        XCTAssertEqual(range, nsRange(4, 9))
+    }
+
+    func testCodeBlockInsertsBlankLinesMidParagraph() {
+        // Selection sits between text on both sides → fences get their own lines.
+        let src = "abXYde"
+        let (text, _) = MarkdownFormatting.codeBlock(src, range: nsRange(2, 2)) // "XY"
+        XCTAssertEqual(text, "ab\n```\nXY\n```\nde")
+    }
+
+    func testCodeBlockEmptySelectionPlacesCaretInside() {
+        let (text, range) = MarkdownFormatting.codeBlock("", range: nsRange(0, 0))
+        XCTAssertEqual(text, "```\n\n```")
+        XCTAssertEqual(range, nsRange(4, 0))   // caret on the empty middle line
+    }
+
     func testHeadingTogglesDepth() {
         let (text, _) = MarkdownFormatting.heading("# hello", range: nsRange(0, 0), level: 3)
         XCTAssertEqual(text, "### hello")

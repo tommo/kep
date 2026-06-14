@@ -6,9 +6,12 @@ import SwiftUI
 /// table exposes add/remove row/column.
 public struct CSVEditor: NSViewRepresentable {
     @Binding public var text: String
+    /// Native find/replace bar visibility, driven by ⌘F via the session.
+    @Binding public var findBarVisible: Bool
 
-    public init(text: Binding<String>) {
+    public init(text: Binding<String>, findBarVisible: Binding<Bool> = .constant(false)) {
         self._text = text
+        self._findBarVisible = findBarVisible
     }
 
     public func makeNSView(context: Context) -> NSView {
@@ -80,11 +83,20 @@ public struct CSVEditor: NSViewRepresentable {
         footer.alignment = .right
         footer.translatesAutoresizingMaskIntoConstraints = false
 
+        let findBar = makeFindBar(coordinator: context.coordinator)
+        findBar.isHidden = true
+
         toolbar.translatesAutoresizingMaskIntoConstraints = false
         scroll.translatesAutoresizingMaskIntoConstraints = false
+        findBar.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(toolbar)
         container.addSubview(scroll)
+        container.addSubview(findBar)
         container.addSubview(footer)
+        // Find bar collapses to zero height when hidden so it doesn't eat
+        // table space; the coordinator flips isHidden + this constant.
+        let findBarHeight = findBar.heightAnchor.constraint(equalToConstant: 0)
+        context.coordinator.findBarHeightConstraint = findBarHeight
         NSLayoutConstraint.activate([
             toolbar.topAnchor.constraint(equalTo: container.topAnchor),
             toolbar.leadingAnchor.constraint(equalTo: container.leadingAnchor),
@@ -93,7 +105,11 @@ public struct CSVEditor: NSViewRepresentable {
             scroll.topAnchor.constraint(equalTo: toolbar.bottomAnchor),
             scroll.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             scroll.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            scroll.bottomAnchor.constraint(equalTo: footer.topAnchor),
+            scroll.bottomAnchor.constraint(equalTo: findBar.topAnchor),
+            findBar.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            findBar.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            findBar.bottomAnchor.constraint(equalTo: footer.topAnchor),
+            findBarHeight,
             footer.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 8),
             footer.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -8),
             footer.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -2),
@@ -116,9 +132,61 @@ public struct CSVEditor: NSViewRepresentable {
             context.coordinator.rebuildColumns()
             context.coordinator.tableView?.reloadData()
         }
+        context.coordinator.setFindBarVisible(findBarVisible)
     }
 
     public func makeCoordinator() -> Coordinator { Coordinator() }
+
+    /// Native find/replace bar: search field + prev/next + count, a case
+    /// toggle, a replace field + Replace / Replace All, and Done. Hidden
+    /// until ⌘F. Mirrors the markdown find bar's affordances using the
+    /// pure CSVMatcher / CSVFindNavigator / CSVReplace modules.
+    private func makeFindBar(coordinator: Coordinator) -> NSStackView {
+        let stack = NSStackView()
+        stack.orientation = .horizontal
+        stack.spacing = 6
+        stack.edgeInsets = NSEdgeInsets(top: 4, left: 8, bottom: 4, right: 8)
+        stack.alignment = .centerY
+
+        let find = NSSearchField()
+        find.placeholderString = "Find in cells…"
+        find.target = coordinator
+        find.action = #selector(Coordinator.findFieldChanged)
+        find.sendsSearchStringImmediately = false
+        find.widthAnchor.constraint(equalToConstant: 160).isActive = true
+        coordinator.findField = find
+
+        let count = NSTextField(labelWithString: "")
+        count.font = .monospacedDigitSystemFont(ofSize: 10, weight: .regular)
+        count.textColor = .secondaryLabelColor
+        count.widthAnchor.constraint(equalToConstant: 60).isActive = true
+        coordinator.findCountLabel = count
+
+        func btn(_ title: String, _ tip: String, _ sel: Selector) -> NSButton {
+            let b = NSButton(title: title, target: coordinator, action: sel)
+            b.bezelStyle = .rounded
+            b.toolTip = tip
+            return b
+        }
+        let prev = btn("‹", "Previous match", #selector(Coordinator.findPrevious))
+        let next = btn("›", "Next match", #selector(Coordinator.findNext))
+        let caseToggle = NSButton(checkboxWithTitle: "Aa", target: coordinator, action: #selector(Coordinator.toggleFindCase))
+        caseToggle.toolTip = "Case-sensitive"
+        coordinator.findCaseToggle = caseToggle
+
+        let replace = NSTextField(string: "")
+        replace.placeholderString = "Replace…"
+        replace.widthAnchor.constraint(equalToConstant: 140).isActive = true
+        coordinator.replaceField = replace
+
+        let replaceOne = btn("Replace", "Replace the current match", #selector(Coordinator.replaceOne))
+        let replaceAll = btn("All", "Replace all matches", #selector(Coordinator.replaceAll))
+        let done = btn("Done", "Close find bar (Esc)", #selector(Coordinator.closeFindBar))
+
+        [find, count, prev, next, caseToggle, replace, replaceOne, replaceAll, NSView(), done]
+            .forEach { stack.addArrangedSubview($0) }
+        return stack
+    }
 
     private func makeToolbar(coordinator: Coordinator) -> NSStackView {
         let stack = NSStackView()
@@ -154,6 +222,16 @@ public struct CSVEditor: NSViewRepresentable {
         var tableView: NSTableView?
         var headerCheckbox: NSButton?
         weak var statusFooter: NSTextField?
+
+        // Find/replace bar state.
+        weak var findField: NSSearchField?
+        weak var replaceField: NSTextField?
+        weak var findCountLabel: NSTextField?
+        weak var findCaseToggle: NSButton?
+        var findBarHeightConstraint: NSLayoutConstraint?
+        private var caseSensitiveFind = false
+        private var currentMatch: CSVMatch?
+        private var findBarShown = false
         private var doc = CSVDocument()
 
         // MARK: - Wiring
@@ -435,6 +513,120 @@ public struct CSVEditor: NSViewRepresentable {
             performUndoable(actionName: "Paste", rebuildColumns: willGrowColumns) {
                 doc.applyPaste(plan)
             }
+        }
+
+        // MARK: - Find / Replace
+
+        /// Reflect the binding-driven visibility: collapse/expand the bar and
+        /// focus the search field on first show.
+        func setFindBarVisible(_ visible: Bool) {
+            guard visible != findBarShown else { return }
+            findBarShown = visible
+            findBarHeightConstraint?.constant = visible ? 30 : 0
+            findField?.superview?.isHidden = !visible
+            if visible {
+                findField?.window?.makeFirstResponder(findField)
+                refreshFindCount()
+            } else {
+                currentMatch = nil
+            }
+        }
+
+        @objc func closeFindBar() {
+            parent?.findBarVisible = false
+            setFindBarVisible(false)
+        }
+
+        @objc func toggleFindCase(_ sender: NSButton) {
+            caseSensitiveFind = sender.state == .on
+            currentMatch = nil
+            refreshFindCount()
+        }
+
+        @objc func findFieldChanged() {
+            currentMatch = nil
+            findNext()
+        }
+
+        /// Body-row matches (header excluded — its cells can't be selected).
+        /// Match row indices are body/view-relative.
+        private func findMatches() -> [CSVMatch] {
+            let keyword = findField?.stringValue ?? ""
+            return CSVMatcher.matches(in: doc.bodyRows, keyword: keyword, caseSensitive: caseSensitiveFind)
+        }
+
+        @objc func findNext()     { advanceFind(.forward) }
+        @objc func findPrevious() { advanceFind(.backward) }
+
+        private func advanceFind(_ direction: CSVFindDirection) {
+            let matches = findMatches()
+            guard let hit = CSVFindNavigator.next(matches: matches, after: currentMatch, direction: direction) else {
+                currentMatch = nil
+                refreshFindCount(matches)
+                return
+            }
+            currentMatch = hit
+            selectMatch(hit)
+            refreshFindCount(matches)
+        }
+
+        /// Select + scroll to the matched cell's row. NSTableView row/column
+        /// selection is mutually exclusive, so we highlight the whole row
+        /// (the closest we can get to a single-cell highlight) and scroll it
+        /// into view.
+        private func selectMatch(_ match: CSVMatch) {
+            guard let table = tableView else { return }
+            table.selectRowIndexes(IndexSet(integer: match.row), byExtendingSelection: false)
+            table.scrollRowToVisible(match.row)
+        }
+
+        private func refreshFindCount(_ matches: [CSVMatch]? = nil) {
+            let all = matches ?? findMatches()
+            guard let label = findCountLabel else { return }
+            if (findField?.stringValue ?? "").isEmpty {
+                label.stringValue = ""
+            } else if all.isEmpty {
+                label.stringValue = "0 found"
+            } else if let cur = currentMatch, let idx = all.firstIndex(of: cur) {
+                label.stringValue = "\(idx + 1) of \(all.count)"
+            } else {
+                label.stringValue = "\(all.count) found"
+            }
+        }
+
+        @objc func replaceOne() {
+            guard let match = currentMatch else { advanceFind(.forward); return }
+            let keyword = findField?.stringValue ?? ""
+            guard !keyword.isEmpty else { return }
+            let replacement = replaceField?.stringValue ?? ""
+            let docRow = doc.hasHeader ? match.row + 1 : match.row
+            let current = (docRow < doc.rows.count && match.column < doc.rows[docRow].count) ? doc.rows[docRow][match.column] : ""
+            guard CSVReplace.cellContains(current, keyword: keyword, caseSensitive: caseSensitiveFind) else {
+                advanceFind(.forward); return
+            }
+            let updated = CSVReplace.replaceInCell(current, keyword: keyword, with: replacement, caseSensitive: caseSensitiveFind)
+            performUndoable(actionName: "Replace", rebuildColumns: false) {
+                doc.setCell(row: docRow, column: match.column, to: updated)
+            }
+            currentMatch = nil
+            advanceFind(.forward)
+        }
+
+        @objc func replaceAll() {
+            let keyword = findField?.stringValue ?? ""
+            guard !keyword.isEmpty else { return }
+            let replacement = replaceField?.stringValue ?? ""
+            // Plan over body rows, then shift to document coordinates.
+            let bodyWrites = CSVReplace.planReplaceAll(in: doc.bodyRows, keyword: keyword,
+                                                       with: replacement, caseSensitive: caseSensitiveFind)
+            guard !bodyWrites.isEmpty else { return }
+            let offset = doc.hasHeader ? 1 : 0
+            let writes = bodyWrites.map { CSVCellWrite(row: $0.row + offset, column: $0.column, value: $0.value) }
+            performUndoable(actionName: writes.count > 1 ? "Replace All" : "Replace") {
+                _ = doc.applyReplacements(writes)
+            }
+            currentMatch = nil
+            refreshFindCount()
         }
 
         @objc func toggleHeader(_ sender: NSButton) {

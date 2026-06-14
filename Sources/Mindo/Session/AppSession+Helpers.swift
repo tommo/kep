@@ -60,6 +60,11 @@ extension AppSession {
         switch doc.kind {
         case .mindMap:
             inDocFindOpen.toggle()
+        case .text(_, .csv):
+            // CSV uses an NSTableView, not an NSTextView, so the standard
+            // find bar can't drive it — toggle our native CSV find/replace
+            // bar (the editor observes this flag via a binding).
+            csvFindOpen.toggle()
         case .text, .unsupported:
             // Route performFindPanelAction: through the responder chain so
             // NSTextView's built-in find bar (usesFindBar=true) takes over.

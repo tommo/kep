@@ -388,6 +388,9 @@ final class AppSession {
             config: .fromPreferences()
         )
     }
+    /// Native CSV find/replace bar visible (CSV editor only — its
+    /// NSTableView can't use the standard text find bar). Toggled by ⌘F.
+    var csvFindOpen: Bool = false
     /// In-document Find bar visible (mindmap canvas only — text editors
     /// route ⌘F to NSTextView's built-in find bar).
     var inDocFindOpen: Bool = false

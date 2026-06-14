@@ -88,7 +88,8 @@ struct EditorPane: View {
                 documentURL: session.openDocuments.first(where: { $0.id == documentID })?.fileURL
             )
         case .text(_, .csv):
-            CSVEditor(text: textBinding(for: documentID))
+            CSVEditor(text: textBinding(for: documentID),
+                      findBarVisible: $session.csvFindOpen)
         case .text(let body, _):
             ScrollView {
                 Text(body)

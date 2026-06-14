@@ -119,9 +119,16 @@ public struct PlantUMLEditor: NSViewRepresentable {
     public func updateNSView(_ nsView: NSView, context: Context) {
         context.coordinator.parent = self
         context.coordinator.applyHighlighting()
-        if let tv = context.coordinator.textView, tv.string != text {
+        let textChanged = context.coordinator.textView.map { $0.string != text } ?? false
+        if let tv = context.coordinator.textView, textChanged {
             tv.string = text
             context.coordinator.applyHighlighting()
+        }
+        // Re-render on a text change OR a dark-mode flip — the preview HTML
+        // bakes in theme colors, so a theme toggle alone left it stale (the
+        // old code only checked text).
+        let darkChanged = context.coordinator.lastRenderedDarkModeValue.map { $0 != isDarkMode } ?? false
+        if PlantUMLPreviewState.shouldRerender(textChanged: textChanged, darkModeChanged: darkChanged) {
             context.coordinator.scheduleRender(immediate: true)
         }
     }
@@ -139,6 +146,13 @@ public struct PlantUMLEditor: NSViewRepresentable {
         /// Most recent successful SVG render. Cached so the toolbar's Copy
         /// SVG / Copy PNG buttons don't re-shell out to PlantUML each time.
         private var lastSVGData: Data?
+        /// Dark mode the preview was last rendered for. Lets updateNSView
+        /// notice a theme flip and re-render (the preview HTML bakes in the
+        /// background/foreground colors, so it's stale otherwise).
+        private var lastRenderedDarkMode: Bool?
+        /// Read-only peek for `updateNSView` (which lives on the struct, not
+        /// the coordinator) to detect a theme flip. nil until the first render.
+        var lastRenderedDarkModeValue: Bool? { lastRenderedDarkMode }
 
         init(parent: PlantUMLEditor) { self.parent = parent }
 
@@ -246,7 +260,11 @@ public struct PlantUMLEditor: NSViewRepresentable {
                     html = Self.errorHTML(message: error.localizedDescription, isDark: isDark)
                 }
                 DispatchQueue.main.async {
-                    self?.lastSVGData = svgData
+                    // Keep the last good SVG when this render failed, so Copy
+                    // SVG/PNG still works through a transient source error.
+                    self?.lastSVGData = PlantUMLPreviewState.updatedCache(
+                        current: self?.lastSVGData, rendered: svgData)
+                    self?.lastRenderedDarkMode = isDark
                     web.loadHTMLString(html, baseURL: nil)
                 }
             }
@@ -258,20 +276,44 @@ public struct PlantUMLEditor: NSViewRepresentable {
         /// text. Mirrors what mindolph's PlantUmlEditor exposes via the
         /// preview's right-click menu.
         @objc public func copyDiagramAsSVG() {
-            guard let data = lastSVGData, let svg = String(data: data, encoding: .utf8) else { return }
+            guard PlantUMLClipboard.outcome(for: lastSVGData) == .copied,
+                  let data = lastSVGData, let svg = String(data: data, encoding: .utf8) else {
+                reportNothingToCopy()
+                return
+            }
             let pb = NSPasteboard.general
             pb.clearContents()
             pb.setString(svg, forType: .string)
+            flashFooter("Copied SVG to clipboard")
         }
 
         /// Rasterize the cached SVG to PNG via NSImage and put it on the
         /// pasteboard as an image. Caller can paste straight into Slack /
         /// Notes / etc.
         @objc public func copyDiagramAsPNG() {
-            guard let data = lastSVGData, let image = NSImage(data: data) else { return }
+            guard PlantUMLClipboard.outcome(for: lastSVGData) == .copied,
+                  let data = lastSVGData, let image = NSImage(data: data) else {
+                reportNothingToCopy()
+                return
+            }
             let pb = NSPasteboard.general
             pb.clearContents()
             pb.writeObjects([image])
+            flashFooter("Copied PNG to clipboard")
+        }
+
+        /// No rendered diagram yet (or it failed) — beep and say so in the
+        /// footer instead of the old silent no-op.
+        private func reportNothingToCopy() {
+            NSSound.beep()
+            flashFooter("Nothing to copy — diagram hasn't rendered yet")
+        }
+
+        /// Briefly show `message` in the status footer, then restore the
+        /// normal line/char stats after a couple seconds.
+        private func flashFooter(_ message: String) {
+            statusFooter?.stringValue = message
+            statsDebouncer.schedule(after: 2.0) { [weak self] in self?.refreshStatusFooter() }
         }
 
         private static func previewHTML(svg: String, isDark: Bool) -> String {

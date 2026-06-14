@@ -218,6 +218,9 @@ struct MindoApp: App {
                     Button(L("menu.edit.copy_mindmap_as_text"))     { session.copyActiveMindmapAsText() }
                     Button(L("menu.edit.copy_mindmap_as_asciidoc")) { session.copyActiveMindmapAsAsciiDoc() }
                     Button(L("menu.edit.copy_mindmap_as_orgmode"))  { session.copyActiveMindmapAsOrgMode() }
+                    Divider()
+                    Button(L("menu.edit.copy_mindmap_as_png")) { session.copyActiveMindmapAsPNG() }
+                    Button(L("menu.edit.copy_mindmap_as_svg")) { session.copyActiveMindmapAsSVG() }
                 }
                 .disabled(session.activeFileType != .mindMap)
                 Button(L("menu.edit.find")) { session.invokeFindInActiveDocument() }

@@ -66,6 +66,43 @@ public enum MindMapImageExport {
         return bitmap
     }
 
+    // MARK: - Clipboard
+
+    /// Render `map` to a PNG and place it on the pasteboard as both PNG and
+    /// TIFF flavors, so any consumer (Slack, Notes, Preview…) can read it.
+    /// Mirrors PlantUML's "Copy as PNG". Returns false when there's nothing
+    /// to render (empty map) so the caller can give feedback. The `pasteboard`
+    /// parameter is injectable for tests.
+    @discardableResult
+    public static func copyPNGToPasteboard(
+        _ map: MindMap, theme: MindMapTheme = .light, scale: CGFloat = 2.0,
+        pasteboard: NSPasteboard = .general
+    ) -> Bool {
+        guard let bitmap = try? makeBitmap(map: map, theme: theme, scale: scale),
+              let png = bitmap.representation(using: .png, properties: [:]) else { return false }
+        pasteboard.clearContents()
+        pasteboard.setData(png, forType: .png)
+        if let tiff = bitmap.tiffRepresentation {
+            pasteboard.setData(tiff, forType: .tiff)
+        }
+        return true
+    }
+
+    /// Render `map` to vector SVG and place it on the pasteboard as a string
+    /// plus a `public.svg-image` data flavor. Mirrors PlantUML's "Copy as
+    /// SVG". Returns false when there's nothing to render.
+    @discardableResult
+    public static func copySVGToPasteboard(
+        _ map: MindMap, theme: MindMapTheme = .light,
+        pasteboard: NSPasteboard = .general
+    ) -> Bool {
+        guard let svg = try? makeSVG(map: map, theme: theme) else { return false }
+        pasteboard.clearContents()
+        pasteboard.setData(Data(svg.utf8), forType: NSPasteboard.PasteboardType("public.svg-image"))
+        pasteboard.setString(svg, forType: .string)
+        return true
+    }
+
     // MARK: - PDF
 
     /// Vector PDF export. Renders the offscreen MindMapView through

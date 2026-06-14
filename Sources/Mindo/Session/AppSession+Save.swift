@@ -220,6 +220,24 @@ extension AppSession {
     @MainActor func copyActiveMindmapAsOrgMode()  { copyActiveMindmap(OrgModeExporter.export) }
     @MainActor func copyActiveMindmapAsText()     { copyActiveMindmap(PlainTextExporter.export) }
 
+    /// Copy the active mindmap to the clipboard as a PNG raster (mindolph
+    /// PNGImageExporter.doExportToClipboard parity). Silent no-op off a
+    /// mindmap; reports when there's nothing to render.
+    @MainActor func copyActiveMindmapAsPNG() {
+        guard let doc = activeDocument, case .mindMap(let map) = doc.kind else { return }
+        if !MindMapImageExport.copyPNGToPasteboard(map, theme: theme.theme) {
+            lastError = L("mindmap.copy_image.empty")
+        }
+    }
+
+    /// Copy the active mindmap to the clipboard as a vector SVG.
+    @MainActor func copyActiveMindmapAsSVG() {
+        guard let doc = activeDocument, case .mindMap(let map) = doc.kind else { return }
+        if !MindMapImageExport.copySVGToPasteboard(map, theme: theme.theme) {
+            lastError = L("mindmap.copy_image.empty")
+        }
+    }
+
     /// Export the active mindmap as a Mindmup `.mup` JSON document
     /// (mindolph parity — MindmupExporter).
     @MainActor

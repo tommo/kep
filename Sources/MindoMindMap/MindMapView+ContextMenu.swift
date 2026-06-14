@@ -13,6 +13,7 @@ extension MindMapView {
         addExtraSection(menu, type: .note, target: element, label: "Note", placeholder: "Note text")
         addExtraSection(menu, type: .link, target: element, label: "Link", placeholder: "https://example.com")
         addExtraSection(menu, type: .file, target: element, label: "File", placeholder: "/path/to/file")
+        addTopicLinkSection(menu, for: element)
         menu.addItem(NSMenuItem.separator())
         menu.addItem(makeContextItem(title: "Set Fill Color…", action: #selector(contextSetFillColor(_:)), payload: element))
         menu.addItem(makeContextItem(title: "Set Text Color…", action: #selector(contextSetTextColor(_:)), payload: element))
@@ -324,6 +325,53 @@ extension MindMapView {
         }
     }
 
+    /// Add the topic-jump-link controls: a "Link to Topic ▸" submenu of every
+    /// other node, plus Remove/Change when one already exists. Creating a link
+    /// stamps the target with a stable UID and an `ExtraTopic` on this node;
+    /// clicking the rendered jump badge later navigates to the target.
+    private func addTopicLinkSection(_ menu: NSMenu, for element: MindMapElement) {
+        let hasLink = element.topic.extra(.topic) != nil
+        if hasLink {
+            menu.addItem(makeContextItem(title: "Remove Topic Link",
+                                         action: #selector(contextRemoveTopicLink(_:)), payload: element))
+        }
+        let others = otherTopics(excluding: element.topic)
+        guard !others.isEmpty else { return }
+        let parent = NSMenuItem(title: hasLink ? "Change Topic Link" : "Link to Topic",
+                                action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+        for target in others {
+            sub.addItem(makeContextItem(title: TopicLinkPayload.label(for: target),
+                                        action: #selector(contextLinkTopic(_:)),
+                                        payload: TopicLinkPayload(source: element.topic, target: target)))
+        }
+        parent.submenu = sub
+        menu.addItem(parent)
+    }
+
+    /// Every topic in the map except `source`, in depth-first order — the
+    /// candidate targets for a jump link.
+    private func otherTopics(excluding source: Topic) -> [Topic] {
+        guard let root = mindMap?.root else { return [] }
+        var result: [Topic] = []
+        func walk(_ t: Topic) {
+            if t !== source { result.append(t) }
+            for c in t.children { walk(c) }
+        }
+        walk(root)
+        return result
+    }
+
+    @objc func contextLinkTopic(_ sender: NSMenuItem) {
+        guard let p = sender.representedObject as? TopicLinkPayload else { return }
+        undoableLinkTopic(p.source, to: p.target)
+    }
+
+    @objc func contextRemoveTopicLink(_ sender: NSMenuItem) {
+        guard let element = sender.representedObject as? MindMapElement else { return }
+        undoableSetExtra(element.topic, .topic, value: nil)
+    }
+
     @objc func contextImportNote(_ sender: NSMenuItem) {
         guard let payload = sender.representedObject as? ExtraMenuPayload else { return }
         let panel = NSOpenPanel()
@@ -480,6 +528,20 @@ struct ExtraMenuPayload {
     let element: MindMapElement
     let type: ExtraType
     let placeholder: String
+}
+
+/// Payload for the "Link to Topic" submenu — the node that gains the jump
+/// link plus the node it points at.
+struct TopicLinkPayload {
+    let source: Topic
+    let target: Topic
+
+    /// First non-empty line of the target's text, for the menu label.
+    static func label(for t: Topic) -> String {
+        let first = t.text.split(separator: "\n").first.map(String.init) ?? t.text
+        let trimmed = first.trimmingCharacters(in: .whitespaces)
+        return trimmed.isEmpty ? "(untitled)" : trimmed
+    }
 }
 
 /// Payload for the Text Alignment submenu — bundles the element + the

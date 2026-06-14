@@ -413,6 +413,7 @@ extension MindMapView {
             }
             onExtraFileTap?(url)
         case .topic:
+            followTopicLink(uid: extra.value)
             onExtraTopicTap?(extra.value)
         case .note:
             if let custom = onExtraNoteTap {
@@ -423,6 +424,16 @@ extension MindMapView {
         case .unknown:
             break
         }
+    }
+
+    /// Resolve an `ExtraTopic` jump-link UID to its target node and select it —
+    /// `selectElement` scrolls the target into view, so the jump "navigates".
+    /// No-op when the UID resolves to nothing (e.g. the target was deleted).
+    func followTopicLink(uid: String) {
+        guard let map = mindMap,
+              let target = map.findTopic(uid: uid),
+              let el = element(forTopic: target) else { return }
+        selectElement(el)
     }
 
     func showNoteAlert(text: String) {

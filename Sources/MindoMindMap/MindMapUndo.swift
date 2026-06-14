@@ -233,6 +233,30 @@ extension MindMapView {
         refreshAndNotify()
     }
 
+    /// Return `topic`'s stable jump-link UID (the `topicLinkUID` attribute),
+    /// assigning a fresh one if it has none yet. Idempotent — a topic keeps
+    /// the same UID across links, so undoing a link can leave the (harmless,
+    /// reusable) UID in place without breaking other links to the same node.
+    @discardableResult
+    public func ensureTopicUID(_ topic: Topic) -> String {
+        if let existing = topic.attribute(ExtraTopic.topicUidAttr), !existing.isEmpty {
+            return existing
+        }
+        let uid = UUID().uuidString
+        topic.setAttribute(ExtraTopic.topicUidAttr, uid)
+        return uid
+    }
+
+    /// Make `source` a jump-link to `target`: stamp the target with a stable
+    /// UID (if absent), then set an `ExtraTopic` on the source pointing at it.
+    /// The ExtraTopic set is the undoable step. Returns the target UID.
+    @discardableResult
+    public func undoableLinkTopic(_ source: Topic, to target: Topic) -> String {
+        let uid = ensureTopicUID(target)
+        undoableSetExtra(source, .topic, value: ExtraTopic(topicUID: uid))
+        return uid
+    }
+
     /// Move `topic` to be the `index`th child of `newParent`. Pure undoable
     /// reparent; covers drag-to-reparent gestures.
     public func undoableReparent(_ topic: Topic, to newParent: Topic, at index: Int) {

@@ -18,6 +18,18 @@ extension MindMapView {
             self.keyDown(with: event)
             return true
         }
+        // ⌘ + arrow reorders/reparents the selected topic (outline-style move),
+        // distinct from a bare arrow which just moves the selection. Must be
+        // caught here in performKeyEquivalent so the window's key loop doesn't
+        // consume the arrow first. ⌥ excluded so it can't collide with future
+        // option-arrow bindings.
+        if window?.firstResponder === self,
+           event.modifierFlags.contains(.command),
+           !event.modifierFlags.contains(.option),
+           let direction = Self.arrowKeyDirections[chars] {
+            moveSelected(direction)
+            return true
+        }
         // ⌘D duplicates the selected topic with full subtree (mirror of the
         // context-menu Clone with Subtree). Convention from Finder.
         if window?.firstResponder === self,
@@ -177,5 +189,17 @@ extension MindMapView {
     func move(_ direction: Direction) {
         guard let sel = selectedElement, let target = element(in: direction, of: sel) else { return }
         selectElement(target)
+    }
+
+    /// ⌘ + arrow: structurally move the selected topic (reorder among
+    /// siblings, or indent/outdent), then keep it selected at its new spot.
+    /// No-op for the root or at a boundary where the move can't happen.
+    func moveSelected(_ direction: Direction) {
+        guard let sel = selectedElement else { return }
+        let topic = sel.topic
+        guard let plan = MindMapTopicMove.plan(for: topic, direction: direction) else { return }
+        undoableReparent(topic, to: plan.parent, at: plan.index)
+        // Elements are rebuilt by the reparent; re-resolve and reselect.
+        if let moved = element(forTopic: topic) { selectElement(moved) }
     }
 }

@@ -18,6 +18,15 @@ extension AppSession {
         NSWorkspace.shared.open(node.url)
     }
 
+    /// Copy the node's absolute path / workspace-relative path to the
+    /// general pasteboard. Mirrors Obsidian's "Copy path" file commands.
+    func copyPath(_ node: NodeData, relative: Bool) {
+        let text = NodePathClipboard.text(for: node, kind: relative ? .relative : .absolute)
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(text, forType: .string)
+    }
+
     /// Open Terminal.app rooted at the node's directory (or its parent if
     /// the node is a file). Mirrors Mindolph's "Open Terminal Here".
     func openTerminal(at node: NodeData) {

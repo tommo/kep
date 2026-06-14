@@ -110,6 +110,8 @@
 "sidebar.menu.reveal_in_finder" = "Reveal in Finder";
 "sidebar.menu.open_in_default_app" = "Open in Default App";
 "sidebar.menu.open_terminal" = "Open Terminal Here";
+"sidebar.menu.copy_path" = "Copy Path";
+"sidebar.menu.copy_relative_path" = "Copy Relative Path";
 "sidebar.menu.rename" = "Rename…";
 "sidebar.menu.duplicate" = "Duplicate";
 "sidebar.menu.new_file.mindmap" = "Mind Map (.mmd)";

@@ -240,6 +240,9 @@ struct NodeRow: View {
         }
         Button(L("sidebar.menu.open_terminal"))    { session.openTerminal(at: node) }
         Divider()
+        Button(L("sidebar.menu.copy_path")) { session.copyPath(node, relative: false) }
+        Button(L("sidebar.menu.copy_relative_path")) { session.copyPath(node, relative: true) }
+        Divider()
         if !node.isWorkspace {
             Button(L("sidebar.menu.duplicate")) { session.duplicateNode(node) }
             Button(L("sidebar.menu.rename")) { session.renameNode(node) }

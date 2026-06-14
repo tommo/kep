@@ -3,9 +3,11 @@ import AppKit
 import MindoModel
 @testable import MindoMindMap
 
-/// Coverage of the "while editing, Return/Tab commits and creates the next
-/// topic" outlining flow (XMind/MindNode parity), exercised through the real
-/// NSTextFieldDelegate command path on a headless view.
+/// The editing-finish + creation model (XMind-aligned, per user correction):
+/// while EDITING, Return/Tab/⇧Tab just COMMIT and keep the same topic
+/// selected — never create, never warp. Node creation is a SELECTED-mode
+/// action (Return = sibling, Tab = child). Driven through the real
+/// NSTextFieldDelegate command path.
 @MainActor
 final class MindMapEditCreateFlowTests: XCTestCase {
 
@@ -17,7 +19,6 @@ final class MindMapEditCreateFlowTests: XCTestCase {
         return (view, root, a)
     }
 
-    /// Send a field-editor command to the view's inline-edit delegate.
     @discardableResult
     private func command(_ view: MindMapView, _ selector: Selector) -> Bool {
         guard let field = view.inlineEditor else { return false }
@@ -29,93 +30,96 @@ final class MindMapEditCreateFlowTests: XCTestCase {
         view.beginInlineEdit(on: view.element(forTopic: topic)!)
     }
 
-    // MARK: - Return → commit + sibling
+    // MARK: - While editing: finishing keys COMMIT and STAY (no create, no warp)
 
-    func testReturnWhileEditingCommitsAndCreatesSibling() {
+    func testReturnWhileEditingCommitsAndStays() {
         let (view, root, a) = makeView()
         startEditing(view, a)
         view.inlineEditor?.stringValue = "Apple"
-        let handled = command(view, #selector(NSResponder.insertNewline(_:)))
-        XCTAssertTrue(handled)
-        XCTAssertEqual(a.text, "Apple", "the edited topic committed")
-        XCTAssertEqual(root.children.count, 2, "a sibling was created")
-        XCTAssertTrue(root.children[1] === view.inlineEditTarget, "the new sibling is now being edited")
-        XCTAssertNotNil(view.inlineEditor, "editor reopened on the new sibling")
+        XCTAssertTrue(command(view, #selector(NSResponder.insertNewline(_:))))
+        XCTAssertEqual(a.text, "Apple", "committed")
+        XCTAssertEqual(root.children.count, 1, "Return while editing must NOT create a sibling")
+        XCTAssertNil(view.inlineEditor, "edit finished")
+        XCTAssertTrue(view.selectedElement?.topic === a, "selection stays on the edited topic — no warp")
     }
 
-    // MARK: - Tab → commit + child
-
-    func testTabWhileEditingCommitsAndCreatesChild() {
+    func testTabWhileEditingCommitsAndStays() {
         let (view, _, a) = makeView()
         startEditing(view, a)
         view.inlineEditor?.stringValue = "Parent"
-        let handled = command(view, #selector(NSResponder.insertTab(_:)))
-        XCTAssertTrue(handled)
+        XCTAssertTrue(command(view, #selector(NSResponder.insertTab(_:))))
         XCTAssertEqual(a.text, "Parent")
-        XCTAssertEqual(a.children.count, 1, "a child was created under the edited topic")
-        XCTAssertTrue(a.children[0] === view.inlineEditTarget)
-        XCTAssertNotNil(view.inlineEditor)
+        XCTAssertEqual(a.children.count, 0, "Tab while editing must NOT create a child")
+        XCTAssertNil(view.inlineEditor)
+        XCTAssertTrue(view.selectedElement?.topic === a, "no warp")
     }
-
-    // MARK: - Shift-Tab → commit only
-
-    func testShiftTabCommitsWithoutCreating() {
-        let (view, root, a) = makeView()
-        startEditing(view, a)
-        view.inlineEditor?.stringValue = "Done"
-        let handled = command(view, #selector(NSResponder.insertBacktab(_:)))
-        XCTAssertTrue(handled)
-        XCTAssertEqual(a.text, "Done")
-        XCTAssertEqual(root.children.count, 1, "no new node")
-        XCTAssertNil(view.inlineEditor, "editor closed")
-    }
-
-    // MARK: - Esc → cancel
 
     func testEscCancelsAndKeepsOriginalText() {
         let (view, root, a) = makeView()
         startEditing(view, a)
         view.inlineEditor?.stringValue = "throwaway"
-        let handled = command(view, #selector(NSResponder.cancelOperation(_:)))
-        XCTAssertTrue(handled)
+        XCTAssertTrue(command(view, #selector(NSResponder.cancelOperation(_:))))
         XCTAssertEqual(a.text, "A", "Esc discards the edit")
         XCTAssertEqual(root.children.count, 1)
         XCTAssertNil(view.inlineEditor)
     }
 
-    // MARK: - Chained outlining
+    // MARK: - Selected-mode creation (keyDown, not editing)
 
-    func testChainedReturnsBuildSiblingList() {
-        // Edit A → "One", Return → sibling "Two", Return → sibling "Three".
+    func testReturnOnSelectedTopicCreatesSiblingAndEdits() {
         let (view, root, a) = makeView()
-        startEditing(view, a)
-        view.inlineEditor?.stringValue = "One"
-        command(view, #selector(NSResponder.insertNewline(_:)))
-        view.inlineEditor?.stringValue = "Two"
-        command(view, #selector(NSResponder.insertNewline(_:)))
-        view.inlineEditor?.stringValue = "Three"
-        command(view, #selector(NSResponder.insertNewline(_:)))
-        // Close the dangling editor (empty "Topic" sibling) by cancelling.
-        view.cancelInlineEdit()
-        XCTAssertEqual(root.children.prefix(3).map(\.text), ["One", "Two", "Three"])
+        view.selectElement(view.element(forTopic: a))
+        view.keyDown(with: key("\r"))
+        XCTAssertEqual(root.children.count, 2, "Return on a selected topic creates a sibling")
+        XCTAssertTrue(view.inlineEditTarget?.parent === root)
+        XCTAssertNotNil(view.inlineEditor, "the new sibling is ready to type")
     }
 
-    // MARK: - Unrelated commands fall through
+    func testTabOnSelectedTopicCreatesChildAndEdits() {
+        let (view, _, a) = makeView()
+        view.selectElement(view.element(forTopic: a))
+        view.keyDown(with: key("\t"))
+        XCTAssertEqual(a.children.count, 1, "Tab on a selected topic creates a child")
+        XCTAssertTrue(view.inlineEditTarget?.parent === a)
+        XCTAssertNotNil(view.inlineEditor)
+    }
+
+    // MARK: - The realistic loop: type, finish, make next sibling
+
+    func testTypeFinishThenMakeSiblingLoop() {
+        let (view, root, a) = makeView()
+        // edit A
+        view.selectElement(view.element(forTopic: a))
+        view.beginInlineEdit(on: view.element(forTopic: a)!)
+        view.inlineEditor?.stringValue = "One"
+        command(view, #selector(NSResponder.insertNewline(_:)))   // finish, stay on A
+        XCTAssertTrue(view.selectedElement?.topic === a)
+        view.keyDown(with: key("\r"))                             // selected → sibling, editing
+        view.inlineEditor?.stringValue = "Two"
+        command(view, #selector(NSResponder.insertNewline(_:)))   // finish
+        XCTAssertEqual(root.children.map(\.text), ["One", "Two"])
+    }
+
+    // MARK: - Delegate guards
 
     func testUnhandledCommandReturnsFalse() {
         let (view, _, a) = makeView()
         startEditing(view, a)
-        let handled = command(view, #selector(NSResponder.moveLeft(_:)))
-        XCTAssertFalse(handled, "non-create commands are left to the field editor")
+        XCTAssertFalse(command(view, #selector(NSResponder.moveLeft(_:))))
     }
 
     func testCommandIgnoredWhenControlIsNotTheInlineEditor() {
         let (view, _, a) = makeView()
         startEditing(view, a)
-        // A different control must not drive the canvas.
         let stranger = NSTextField()
-        let handled = view.control(stranger, textView: NSTextView(),
-                                   doCommandBy: #selector(NSResponder.insertNewline(_:)))
-        XCTAssertFalse(handled)
+        XCTAssertFalse(view.control(stranger, textView: NSTextView(),
+                                    doCommandBy: #selector(NSResponder.insertNewline(_:))))
+    }
+
+    private func key(_ chars: String, _ mods: NSEvent.ModifierFlags = []) -> NSEvent {
+        NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: mods,
+                         timestamp: 0, windowNumber: 0, context: nil,
+                         characters: chars, charactersIgnoringModifiers: chars,
+                         isARepeat: false, keyCode: 0)!
     }
 }

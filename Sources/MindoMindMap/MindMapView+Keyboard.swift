@@ -256,14 +256,18 @@ extension MindMapView: NSTextFieldDelegate {
                         doCommandBy commandSelector: Selector) -> Bool {
         guard control === inlineEditor else { return false }
         switch commandSelector {
-        case #selector(NSResponder.insertNewline(_:)):
-            commitAndContinue { self.addNextSibling() }
-            return true
-        case #selector(NSResponder.insertTab(_:)):
-            commitAndContinue { self.addChild() }
-            return true
-        case #selector(NSResponder.insertBacktab(_:)):
-            commitInlineEdit()   // commit and return to the canvas; don't tab away
+        // While EDITING, the finishing keys all just commit and keep the SAME
+        // topic selected — NO node is created and the cursor never warps.
+        // (Bug report: "finish editing → the cursor warped to another node.")
+        // Node creation is a SELECTED-mode action: press Return for a sibling
+        // or Tab for a child once the edit is finished. This matches XMind,
+        // where Enter/Tab create topics on a *selected* (not editing) topic.
+        case #selector(NSResponder.insertNewline(_:)),
+             #selector(NSResponder.insertTab(_:)),
+             #selector(NSResponder.insertBacktab(_:)):
+            let edited = inlineEditTarget
+            commitInlineEdit()
+            if let t = edited, let el = element(forTopic: t) { selectElement(el) }
             return true
         case #selector(NSResponder.cancelOperation(_:)):
             cancelInlineEdit()

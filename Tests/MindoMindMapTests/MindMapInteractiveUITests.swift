@@ -66,35 +66,33 @@ final class MindMapInteractiveUITests: XCTestCase {
 
     // MARK: - Real commit-and-create outlining via Return/Tab in the editor
 
-    func testReturnInEditorCommitsAndCreatesSibling() throws {
+    func testReturnInEditorCommitsAndStaysThroughRealEvents() throws {
         let (h, root, a) = try make()
         h.view.selectElement(h.view.element(forTopic: a))
         h.sendKey("O"); h.sendKey("n"); h.sendKey("e")   // type "One" (O replaces "A")
         XCTAssertEqual(h.editorText, "One")
-        h.sendKey("\r")                                   // Return → commit + sibling
+        h.sendKey("\r")                                   // Return → commit + STAY
         XCTAssertEqual(a.text, "One", "committed through the real editor")
-        XCTAssertEqual(root.children.count, 2, "a sibling was created")
-        XCTAssertNotNil(h.view.inlineEditor, "new sibling is being edited")
+        XCTAssertEqual(root.children.count, 1, "Return while editing does NOT create a sibling")
+        XCTAssertNil(h.view.inlineEditor, "edit finished")
+        XCTAssertTrue(h.view.selectedElement?.topic === a, "selection stays on the edited node — no warp")
     }
 
-    func testTabInEditorCommitsAndCreatesChild() throws {
+    func testReturnOnSelectedTopicCreatesSiblingThroughRealEvents() throws {
+        let (h, root, a) = try make()
+        h.view.selectElement(h.view.element(forTopic: a))   // selected, NOT editing
+        h.sendKey("\r")                                      // → new sibling, editing
+        XCTAssertEqual(root.children.count, 2)
+        XCTAssertNotNil(h.view.inlineEditor, "the new sibling is ready to type")
+        XCTAssertTrue(h.view.inlineEditTarget?.parent === root)
+    }
+
+    func testTabOnSelectedTopicCreatesChildThroughRealEvents() throws {
         let (h, _, a) = try make()
         h.view.selectElement(h.view.element(forTopic: a))
-        h.sendKey("P")
-        h.sendKey("\t")                                   // Tab → commit + child
-        XCTAssertEqual(a.text, "P")
+        h.sendKey("\t")                                      // → child, editing
         XCTAssertEqual(a.children.count, 1)
         XCTAssertNotNil(h.view.inlineEditor)
-    }
-
-    func testChainedReturnsBuildSiblingsThroughRealEvents() throws {
-        let (h, root, a) = try make()
-        h.view.selectElement(h.view.element(forTopic: a))
-        h.sendKey("1"); h.sendKey("\r")
-        h.sendKey("2"); h.sendKey("\r")
-        h.sendKey("3"); h.sendKey("\r")
-        h.view.cancelInlineEdit()                         // drop the trailing empty editor
-        XCTAssertEqual(root.children.prefix(3).map(\.text), ["1", "2", "3"])
     }
 
     // MARK: - F2 edit + Esc cancel through real events

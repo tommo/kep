@@ -30,25 +30,28 @@ final class MindMapInteractiveContinuityTests: XCTestCase {
         return h.window.firstResponder === editor
     }
 
-    // MARK: - Continuity: keep typing after Return-creates-sibling
+    // MARK: - Continuity: make a sibling from the SELECTED node, keep typing
 
-    func testCanKeepTypingAfterReturnCreatesSibling() throws {
+    func testCanKeepTypingAfterSelectedReturnCreatesSibling() throws {
         let (h, root, a) = try make()
         h.view.selectElement(h.view.element(forTopic: a))
-        h.sendKey("A")                       // edit A → "A"
-        h.sendKey("\r")                      // commit + new sibling, editor reopened
-        XCTAssertTrue(editorIsFirstResponder(h), "new sibling editor must hold focus")
-        h.sendKey("B"); h.sendKey("2")       // should type straight into the new editor
-        XCTAssertEqual(h.editorText, "B2", "typing flows into the new sibling without a click")
+        h.sendKey("A")                       // type-to-edit A → "A"
+        h.sendKey("\r")                      // Return finishes the edit (stays on A)
+        XCTAssertNil(h.view.inlineEditor)
+        XCTAssertTrue(h.view.selectedElement?.topic === a)
+        h.sendKey("\r")                      // Return on selected A → new sibling, editing
+        XCTAssertTrue(editorIsFirstResponder(h), "new sibling editor holds focus")
+        h.sendKey("B"); h.sendKey("2")       // typing flows into the new sibling
+        XCTAssertEqual(h.editorText, "B2")
         h.view.cancelInlineEdit()
         XCTAssertEqual(root.children.count, 2)
     }
 
-    func testCanKeepTypingAfterTabCreatesChild() throws {
+    func testCanKeepTypingAfterSelectedTabCreatesChild() throws {
         let (h, _, a) = try make()
         h.view.selectElement(h.view.element(forTopic: a))
-        h.sendKey("P")
-        h.sendKey("\t")                      // child, editor reopened
+        h.sendKey("P"); h.sendKey("\r")      // name A "P", finish
+        h.sendKey("\t")                      // Tab on selected A → child, editing
         XCTAssertTrue(editorIsFirstResponder(h))
         h.sendKey("C")
         XCTAssertEqual(h.editorText, "C")

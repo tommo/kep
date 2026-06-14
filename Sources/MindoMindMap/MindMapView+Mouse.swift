@@ -79,6 +79,10 @@ extension MindMapView {
             if hypot(p.x - origin.x, p.y - origin.y) < dragThreshold { return }
         }
         dragGhostCenter = p
+        // Auto-scroll when the drag nears a viewport edge so off-screen drop
+        // targets are reachable without releasing. Pure ramp math; applied to
+        // the clip view here.
+        autoScrollDuringDrag(cursor: p)
         // "Drop between siblings" wins over "drop onto topic" — when the
         // cursor lands in a gap among the source's existing siblings, show
         // the insertion indicator instead of highlighting a parent.
@@ -101,6 +105,18 @@ extension MindMapView {
             dragTargetElement = target
         }
         needsDisplay = true
+    }
+
+    /// Nudge the enclosing scroll view when the drag cursor is within the
+    /// edge margin, so a topic can be dragged to an off-screen target.
+    private func autoScrollDuringDrag(cursor: CGPoint) {
+        guard let scroll = enclosingScrollView else { return }
+        let delta = MindMapAutoScroll.delta(
+            point: cursor, visibleRect: visibleRect, margin: 50, maxSpeed: 24)
+        guard delta != .zero else { return }
+        let origin = scroll.contentView.bounds.origin
+        scroll.contentView.scroll(to: NSPoint(x: origin.x + delta.dx, y: origin.y + delta.dy))
+        scroll.reflectScrolledClipView(scroll.contentView)
     }
 
     public override func mouseUp(with event: NSEvent) {

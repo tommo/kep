@@ -440,8 +440,12 @@ extension MindMapView {
             deleteSelection()
             return
         }
-        undoableRemove(element.topic)
-        if let parent = element.topic.parent { selectElement(self.element(forTopic: parent)) }
+        // Stay at the current level: select the adjacent sibling (falling back
+        // to the parent only when there's none), matching the Delete-key path.
+        let victim = element.topic
+        let next = siblingAfterDeleting(victim, alsoDeleting: [victim])
+        undoableRemove(victim)
+        if let next, let el = self.element(forTopic: next) { selectElement(el) }
     }
 
     /// Show a modal NSAlert with a multi-line text view. Returns nil when the

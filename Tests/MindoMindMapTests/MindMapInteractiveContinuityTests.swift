@@ -64,12 +64,13 @@ final class MindMapInteractiveContinuityTests: XCTestCase {
         let b = root.addChild(text: "B")
         h.view.rebuildElementsPublic()
         h.view.selectElement(h.view.element(forTopic: b))
-        h.sendKey("\u{7F}")                  // Delete B → selection collapses to parent (root)
-        XCTAssertTrue(h.view.selectedElement?.topic === root, "selection falls back to parent")
+        h.sendKey("\u{7F}")                  // Delete B → cursor stays at the current level (A)
+        XCTAssertTrue(h.view.selectedElement?.topic === a, "selection stays on the surviving sibling A")
         XCTAssertTrue(h.window.firstResponder === h.view, "canvas keeps focus after delete")
-        // Arrow nav must still function (the 'unstable' symptom would be a no-op).
-        h.sendArrow(NSRightArrowFunctionKey)
-        XCTAssertTrue(h.view.selectedElement?.topic === a, "Right still navigates to a child")
+        // Arrow nav must still function (the 'unstable' symptom would be a no-op):
+        // Left from the right-side A walks back toward the root.
+        h.sendArrow(NSLeftArrowFunctionKey)
+        XCTAssertTrue(h.view.selectedElement?.topic === root, "Left still navigates toward the root")
     }
 
     // MARK: - Nav then immediate edit

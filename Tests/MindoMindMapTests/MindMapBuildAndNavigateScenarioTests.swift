@@ -73,9 +73,9 @@ final class MindMapBuildAndNavigateScenarioTests: XCTestCase {
         XCTAssertEqual(sel(h), "B")
         h.sendKey("\u{7F}")                      // Delete
         XCTAssertEqual(root.children.map(\.text), ["A", "C"], "B removed")
-        XCTAssertEqual(sel(h), "Root", "selection falls back to the parent")
-        // And the keyboard still works afterwards.
-        h.sendArrow(NSRightArrowFunctionKey)
+        XCTAssertEqual(sel(h), "C", "selection stays at the current level — the sibling after B")
+        // And the keyboard still works afterwards: Up from C lands on A.
+        h.sendArrow(NSUpArrowFunctionKey)
         XCTAssertEqual(sel(h), "A", "navigation still works after delete")
     }
 }

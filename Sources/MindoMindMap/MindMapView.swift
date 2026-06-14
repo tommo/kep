@@ -47,6 +47,14 @@ public final class MindMapView: NSView {
 
     private var layoutEngine: MindMapLayout
     var contentBounds: CGRect = .zero
+
+    /// Document-space centre the root is pinned to across relayouts. nil only
+    /// before the first layout (or right after loading a new map), when the
+    /// content is centred fresh. Keeping the root anchored means a structural
+    /// edit — delete / add / reparent — reflows only the changed branch
+    /// instead of teleporting the whole graph (the "delete makes the layout
+    /// jump drastically" bug).
+    private var anchoredRootCenter: CGPoint?
     /// File-internal so MindMapView+Mouse / +Keyboard extensions in this
     /// module can read + reset the inline edit field.
     var inlineEditor: NSTextField?
@@ -130,6 +138,7 @@ public final class MindMapView: NSView {
 
     public func display(map: MindMap) {
         self.mindMap = map
+        anchoredRootCenter = nil   // fresh map → centre it in the viewport
         rebuildElements()
         // Auto-select root so the very first arrow / Tab / Enter has a
         // target without requiring a click first. Without this the user has
@@ -244,40 +253,69 @@ public final class MindMapView: NSView {
 
     private func relayout() {
         guard let root = rootElement else { return }
+        let pad: CGFloat = 32
         layoutEngine = MindMapLayout(theme: theme)
         let bounds = layoutEngine.layout(root)
         contentBounds = bounds
 
-        // First normalize so the content's top-left sits at (0, 0).
+        // Normalize so the content's top-left sits at (0, 0). The root's
+        // centre is now at some (rcx, rcy) inside the [0, W]×[0, H] box.
         shiftAllFrames(rootElement: root, dx: -bounds.origin.x, dy: -bounds.origin.y)
         contentBounds.origin = .zero
+        let W = contentBounds.width, H = contentBounds.height
+        let rcx = root.frame.midX, rcy = root.frame.midY
 
-        // Floor the document view to the scroll view's visible area so the
-        // canvas always fills the container — even when the topic content is
-        // tiny (bug #38).
         let visibleSize = enclosingScrollView?.contentView.bounds.size ?? bounds.size
-        let minWidth = max(visibleSize.width, contentBounds.width + 64)
-        let minHeight = max(visibleSize.height, contentBounds.height + 64)
-        if let parent = enclosingScrollView {
-            self.frame = CGRect(x: 0, y: 0, width: minWidth, height: minHeight)
-            parent.documentView?.frame.size = CGSize(width: minWidth, height: minHeight)
-        } else {
-            self.frame.size = CGSize(width: minWidth, height: minHeight)
+
+        // Where should the root's centre land in document space?
+        //  • First layout / fresh map: centre the whole content in the larger
+        //    of the viewport and the content box (the old bug #41 behaviour).
+        //  • Afterwards: keep the root exactly where it already was, so a
+        //    structural edit only moves the branch that changed.
+        let target: CGPoint = anchoredRootCenter ?? CGPoint(
+            x: max(visibleSize.width, W + 2 * pad) / 2 - W / 2 + rcx,
+            y: max(visibleSize.height, H + 2 * pad) / 2 - H / 2 + rcy)
+
+        // Origin shift that maps the normalized content so root.centre == target.
+        var ox = target.x - rcx
+        var oy = target.y - rcy
+
+        // Clamp: never let content clip past the top-left edge. If anchoring
+        // would push the box negative (the changed branch grew leftward/upward
+        // past the root), nudge everything back into view and scroll the clip
+        // view by the same amount so the viewport doesn't visibly jump.
+        let needLeft = max(0, pad - ox)
+        let needTop = max(0, pad - oy)
+        ox += needLeft; oy += needTop
+        if (needLeft != 0 || needTop != 0), let clip = enclosingScrollView?.contentView {
+            var o = clip.bounds.origin
+            o.x += needLeft; o.y += needTop
+            clip.scroll(to: o)
+            enclosingScrollView?.reflectScrolledClipView(clip)
         }
 
-        // Then center the content inside the document view. Without this the
-        // tree is glued to the top-left and the user sees a "canvas edge"
-        // off to the right/bottom when content is smaller than the viewport
-        // (bug #41). Centering also makes scroll-back-to-root predictable
-        // — the root sits at the middle of the document area instead of
-        // at (32, 32).
-        let centerX = (minWidth - contentBounds.width) / 2
-        let centerY = (minHeight - contentBounds.height) / 2
-        shiftAllFrames(rootElement: root, dx: centerX, dy: centerY)
-        contentBounds.origin = CGPoint(x: centerX, y: centerY)
+        // Document view must hold the placed content plus padding, and still
+        // fill the viewport (bug #38: tiny maps shouldn't expose a canvas edge).
+        let docWidth = max(visibleSize.width, ox + W + pad)
+        let docHeight = max(visibleSize.height, oy + H + pad)
+        if let parent = enclosingScrollView {
+            self.frame = CGRect(x: 0, y: 0, width: docWidth, height: docHeight)
+            parent.documentView?.frame.size = CGSize(width: docWidth, height: docHeight)
+        } else {
+            self.frame.size = CGSize(width: docWidth, height: docHeight)
+        }
+
+        shiftAllFrames(rootElement: root, dx: ox, dy: oy)
+        contentBounds.origin = CGPoint(x: ox, y: oy)
+        anchoredRootCenter = CGPoint(x: rcx + ox, y: rcy + oy)
 
         needsDisplay = true
     }
+
+    /// Forget the root anchor so the next relayout re-centres the content in
+    /// the viewport — used when loading a new map (display) and available to
+    /// the View menu's "Center / Reset" action.
+    func resetLayoutAnchor() { anchoredRootCenter = nil }
 
     /// Translate every element's frame + subtreeBounds by (dx, dy).
     private func shiftAllFrames(rootElement: MindMapElement, dx: CGFloat, dy: CGFloat) {
@@ -597,13 +635,37 @@ public final class MindMapView: NSView {
         }
         let pruned = MindMapSelection.topLevel(victims)
         guard !pruned.isEmpty else { return }
+
+        // Decide what to select AFTER the delete, computed from the tree as it
+        // stands NOW. Stay at the CURRENT LEVEL (XMind / outliner behaviour):
+        // prefer the sibling just after the primary victim, else the one just
+        // before it; only when the node had no surviving siblings does the
+        // selection fall back to the parent. (Old behaviour always jumped to
+        // the parent, which felt like the cursor teleporting up a level.)
+        let primaryVictim = (selectedElement?.topic).flatMap { t in
+            victims.contains(where: { $0 === t }) ? t : nil
+        } ?? pruned.first!
+        let nextSelection = siblingAfterDeleting(primaryVictim, alsoDeleting: pruned)
+
         groupedUndo(name: pruned.count > 1 ? "Delete Topics" : "Delete Topic") {
             for topic in pruned { undoableRemove(topic) }
         }
-        // Selection collapses to the first surviving parent.
-        if let firstParent = pruned.first?.parent, let parentEl = element(forTopic: firstParent) {
-            selectElement(parentEl)
+        if let target = nextSelection, let el = element(forTopic: target) {
+            selectElement(el)
         }
+    }
+
+    /// Pick the topic that should hold the selection once `victim` (and the
+    /// rest of `victims`) are removed: the nearest surviving sibling after it,
+    /// then the nearest before it, then the parent. Returns nil only when the
+    /// victim is detached (no parent) — callers leave the selection untouched.
+    func siblingAfterDeleting(_ victim: Topic, alsoDeleting victims: [Topic]) -> Topic? {
+        guard let parent = victim.parent,
+              let idx = parent.children.firstIndex(where: { $0 === victim }) else { return nil }
+        let isVictim = { (t: Topic) in victims.contains(where: { $0 === t }) }
+        if let after = parent.children[(idx + 1)...].first(where: { !isVictim($0) }) { return after }
+        if let before = parent.children[..<idx].reversed().first(where: { !isVictim($0) }) { return before }
+        return parent
     }
 
     // MARK: - Inline edit

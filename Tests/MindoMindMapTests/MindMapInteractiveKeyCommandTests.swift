@@ -79,16 +79,17 @@ final class MindMapInteractiveKeyCommandTests: XCTestCase {
     // MARK: - Delete removes the selected node
 
     func testDeleteRemovesSelectedAndKeepsKeyboardLive() throws {
-        let (h, root, a, _) = try build()
+        let (h, root, a, a1) = try build()
         let b = root.addChild(text: "B")
         h.view.rebuildElementsPublic()
         h.view.selectElement(h.view.element(forTopic: b))
         h.sendKey("\u{7F}")
         XCTAssertEqual(root.children.map(\.text), ["A"], "B deleted")
-        XCTAssertTrue(h.view.selectedElement?.topic === root, "selection falls back to parent")
-        // Keyboard still works.
+        XCTAssertTrue(h.view.selectedElement?.topic === a,
+                      "cursor stays at the current level — the surviving sibling A")
+        // Keyboard still works: Right from A descends into its child A1.
         h.sendArrow(NSRightArrowFunctionKey)
-        XCTAssertTrue(h.view.selectedElement?.topic === a)
+        XCTAssertTrue(h.view.selectedElement?.topic === a1)
     }
 
     // MARK: - Collapse key does NOT fire while editing (goes to the field)

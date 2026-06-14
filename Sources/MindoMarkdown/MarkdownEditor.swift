@@ -89,9 +89,13 @@ public struct MarkdownEditor: NSViewRepresentable {
         let webConfig = WKWebViewConfiguration()
         webConfig.userContentController.add(context.coordinator, name: "previewScroll")
         webConfig.userContentController.add(context.coordinator, name: "previewAnchor")
-        let web = WKWebView(frame: .zero, configuration: webConfig)
+        let web = MarkdownPreviewWebView(frame: .zero, configuration: webConfig)
         web.setValue(false, forKey: "drawsBackground") // KVO trick to make transparent
         web.navigationDelegate = context.coordinator
+        web.menuItemsProvider = { PreviewContextMenu.markdown() }
+        web.onMenuAction = { [weak coordinator = context.coordinator] action in
+            coordinator?.handlePreviewMenuAction(action)
+        }
 
         split.addArrangedSubview(scroll)
         split.addArrangedSubview(web)
@@ -453,6 +457,16 @@ public struct MarkdownEditor: NSViewRepresentable {
             guard let storage = textView?.textStorage else { return }
             highlighter.theme = parent.isDarkMode ? .dark : .light
             highlighter.highlight(storage)
+        }
+
+        /// Route a preview right-click action. Refresh re-renders; Focus
+        /// Editor returns the caret to the source pane.
+        func handlePreviewMenuAction(_ action: PreviewMenuAction) {
+            switch action {
+            case .refresh:    refreshPreview()
+            case .viewSource: textView?.window?.makeFirstResponder(textView)
+            default:          break   // copy/export are PlantUML-only
+            }
         }
 
         func refreshPreview() {

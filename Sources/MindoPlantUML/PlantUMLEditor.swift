@@ -35,8 +35,14 @@ public struct PlantUMLEditor: NSViewRepresentable {
             textViewFactory: { PlantUMLTextView(frame: .zero) }
         )
 
-        let web = WKWebView()
+        let web = PlantUMLPreviewWebView()
         web.setValue(false, forKey: "drawsBackground")
+        web.menuItemsProvider = { [weak coordinator = context.coordinator] in
+            PreviewContextMenu.plantUML(hasRenderedDiagram: coordinator?.hasRenderedDiagram ?? false)
+        }
+        web.onMenuAction = { [weak coordinator = context.coordinator] action in
+            coordinator?.handlePreviewMenuAction(action)
+        }
 
         split.addArrangedSubview(scroll)
         split.addArrangedSubview(web)
@@ -159,6 +165,22 @@ public struct PlantUMLEditor: NSViewRepresentable {
         /// Read-only peek for `updateNSView` (which lives on the struct, not
         /// the coordinator) to detect a theme flip. nil until the first render.
         var lastRenderedDarkModeValue: Bool? { lastRenderedDarkMode }
+
+        /// Whether a diagram has successfully rendered — gates the preview
+        /// context menu's Copy/Export items.
+        var hasRenderedDiagram: Bool { PlantUMLClipboard.outcome(for: lastSVGData) == .copied }
+
+        /// Route a preview right-click menu action to the matching toolbar
+        /// behaviour. Refresh forces an immediate re-render.
+        func handlePreviewMenuAction(_ action: PreviewMenuAction) {
+            switch action {
+            case .refresh:    scheduleRender(immediate: true)
+            case .copySVG:    copyDiagramAsSVG()
+            case .copyPNG:    copyDiagramAsPNG()
+            case .export:     exportDiagram()
+            case .viewSource: textView?.window?.makeFirstResponder(textView)
+            }
+        }
 
         init(parent: PlantUMLEditor) { self.parent = parent }
 

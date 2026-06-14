@@ -13,11 +13,17 @@ public struct MarkdownEditor: NSViewRepresentable {
     /// External navigation hint — string-encoded UTF-8 byte offset (matches
     /// `Outline.fromMarkdown`). When this changes, scroll the text view.
     public var navigationTarget: String?
+    /// On-disk URL of the document being edited, when it has one. Used as
+    /// the preview's `baseURL` so relative image/link references (e.g.
+    /// `![](images/diagram.png)`) resolve against the document's folder
+    /// instead of failing to load (the bug: baseURL was always nil).
+    public var documentURL: URL?
 
-    public init(text: Binding<String>, isDarkMode: Bool = false, navigationTarget: String? = nil) {
+    public init(text: Binding<String>, isDarkMode: Bool = false, navigationTarget: String? = nil, documentURL: URL? = nil) {
         self._text = text
         self.isDarkMode = isDarkMode
         self.navigationTarget = navigationTarget
+        self.documentURL = documentURL
     }
 
     public func makeNSView(context: Context) -> NSView {
@@ -387,7 +393,10 @@ public struct MarkdownEditor: NSViewRepresentable {
         func refreshPreview() {
             guard let web = webView else { return }
             let html = MarkdownRenderer.render(markdown: parent.text)
-            web.loadHTMLString(html, baseURL: nil)
+            // baseURL = the document's folder so relative image/link refs
+            // (e.g. ![](img/x.png)) resolve. nil for unsaved docs.
+            let base = MarkdownPreviewBase.baseURL(forDocumentAt: parent.documentURL)
+            web.loadHTMLString(html, baseURL: base)
         }
 
         /// Intercept link clicks in the preview. Without this, clicking any

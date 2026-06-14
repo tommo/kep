@@ -23,6 +23,19 @@ public enum MarkdownLinkAction: Equatable {
 /// preview "swallowed" the click). Only `.linkActivated` navigations are
 /// user clicks; the initial `loadHTMLString` and JS scroll bridge arrive as
 /// other types and must always be allowed.
+/// Resolves the `baseURL` the preview should render against, given the
+/// document's on-disk URL. Returns the document's *directory* so relative
+/// references resolve as a browser would. Nil for an unsaved document (no
+/// folder to resolve against). Pure for unit-testing.
+public enum MarkdownPreviewBase {
+    public static func baseURL(forDocumentAt url: URL?) -> URL? {
+        guard let url else { return nil }
+        // A file URL points at the document; relative refs are siblings, so
+        // strip the last component to get the containing directory.
+        return url.deletingLastPathComponent()
+    }
+}
+
 public enum MarkdownLinkPolicy {
     private static let externalSchemes: Set<String> = ["http", "https", "mailto", "tel", "ftp"]
 

@@ -78,7 +78,8 @@ struct EditorPane: View {
             MarkdownEditor(
                 text: textBinding(for: documentID),
                 isDarkMode: colorScheme == .dark,
-                navigationTarget: session.sanitizedNavigationTarget
+                navigationTarget: session.sanitizedNavigationTarget,
+                documentURL: session.openDocuments.first(where: { $0.id == documentID })?.fileURL
             )
         case .text(_, .plantUML):
             PlantUMLEditor(

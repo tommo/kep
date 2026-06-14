@@ -66,3 +66,29 @@ final class MarkdownLinkPolicyTests: XCTestCase {
             .openExternally(url))
     }
 }
+
+final class MarkdownPreviewBaseTests: XCTestCase {
+
+    func testNilDocumentYieldsNilBase() {
+        XCTAssertNil(MarkdownPreviewBase.baseURL(forDocumentAt: nil))
+    }
+
+    func testBaseURLIsDocumentDirectory() {
+        let doc = URL(fileURLWithPath: "/Users/me/notes/journal.md")
+        let base = MarkdownPreviewBase.baseURL(forDocumentAt: doc)
+        XCTAssertEqual(base?.path, "/Users/me/notes")
+    }
+
+    func testRelativeImageResolvesAgainstBase() {
+        // The whole point: ![](images/x.png) must resolve to a sibling path.
+        let doc = URL(fileURLWithPath: "/Users/me/notes/journal.md")
+        let base = MarkdownPreviewBase.baseURL(forDocumentAt: doc)!
+        let resolved = URL(string: "images/x.png", relativeTo: base)!
+        XCTAssertEqual(resolved.absoluteURL.path, "/Users/me/notes/images/x.png")
+    }
+
+    func testNestedDirectoryPreserved() {
+        let doc = URL(fileURLWithPath: "/a/b/c/d.md")
+        XCTAssertEqual(MarkdownPreviewBase.baseURL(forDocumentAt: doc)?.path, "/a/b/c")
+    }
+}

@@ -138,44 +138,46 @@ final class ZoomMathTests: XCTestCase {
         XCTAssertEqual(dy, 0)
     }
 
-    // MARK: - Per-axis pan clamping (regression: X scroll reset Y offset)
+    // MARK: - Free-canvas pan bounds (CanvasClipView.constrainBoundsRect)
 
-    func testPanningXDoesNotResetYWhenXAxisHasNoRoom() {
-        // Tall, narrow content: viewport is as wide as the doc (no X room) but
-        // shorter (Y room). Already scrolled down to y=100. A horizontal scroll
-        // must leave y untouched — the bug zeroed it.
+    func testCanvasAllowsPanningAScreenfulPastContent() {
+        // Free-canvas feel: you can pan one viewport beyond the document edges
+        // (not clamped to the doc like a scroll view).
+        let doc = CGSize(width: 1000, height: 800)
+        let viewport = CGSize(width: 400, height: 300)
+        let margin = viewport
+        // Push hard negative → clamps to -margin, not 0.
+        let near = CanvasScroll.constrainedOrigin(
+            proposed: CGPoint(x: -9999, y: -9999), viewport: viewport, doc: doc, margin: margin)
+        XCTAssertEqual(near.x, -400, accuracy: 1e-9)
+        XCTAssertEqual(near.y, -300, accuracy: 1e-9)
+        // Push hard positive → clamps to (doc − viewport) + margin.
+        let far = CanvasScroll.constrainedOrigin(
+            proposed: CGPoint(x: 9999, y: 9999), viewport: viewport, doc: doc, margin: margin)
+        XCTAssertEqual(far.x, (1000 - 400) + 400, accuracy: 1e-9)
+        XCTAssertEqual(far.y, (800 - 300) + 300, accuracy: 1e-9)
+    }
+
+    func testCanvasPanIsFreeEvenWhenContentFitsViewport() {
+        // Content smaller than the viewport still pans within the margin —
+        // a plain scroll view would refuse to move at all ("scrolls like a doc").
+        let doc = CGSize(width: 300, height: 200)
+        let viewport = CGSize(width: 800, height: 600)
+        let margin = viewport
+        let o = CanvasScroll.constrainedOrigin(
+            proposed: CGPoint(x: -100, y: -80), viewport: viewport, doc: doc, margin: margin)
+        XCTAssertEqual(o.x, -100, accuracy: 1e-9, "can pan a fitting map around")
+        XCTAssertEqual(o.y, -80, accuracy: 1e-9)
+    }
+
+    func testCanvasConstrainIsPerAxisIndependent() {
+        // The X clamp must not touch Y (the original cross-axis reset bug).
         let doc = CGSize(width: 800, height: 2000)
         let viewport = CGSize(width: 800, height: 600)
-        let origin = MindMapView.pannedOrigin(
-            current: CGPoint(x: 0, y: 100), dx: 30, dy: 0,
-            docSize: doc, viewportSize: viewport)
-        XCTAssertEqual(origin.x, 0, accuracy: 1e-9, "no X room → x pinned at 0")
-        XCTAssertEqual(origin.y, 100, accuracy: 1e-9, "Y offset preserved across an X pan")
-    }
-
-    func testPanClampsToScrollableRangePerAxis() {
-        let doc = CGSize(width: 2000, height: 1500)
-        let viewport = CGSize(width: 400, height: 300)
-        // Push past the far edge on both axes → clamp to (doc − viewport).
-        let far = MindMapView.pannedOrigin(
-            current: CGPoint(x: 1500, y: 1100), dx: -1000, dy: -1000,
-            docSize: doc, viewportSize: viewport)
-        XCTAssertEqual(far.x, 1600, accuracy: 1e-9)
-        XCTAssertEqual(far.y, 1200, accuracy: 1e-9)
-        // Push past the near edge → clamp to 0.
-        let near = MindMapView.pannedOrigin(
-            current: CGPoint(x: 50, y: 50), dx: 1000, dy: 1000,
-            docSize: doc, viewportSize: viewport)
-        XCTAssertEqual(near, .zero)
-    }
-
-    func testPanIndependentAxesBothMove() {
-        let doc = CGSize(width: 2000, height: 1500)
-        let viewport = CGSize(width: 400, height: 300)
-        let o = MindMapView.pannedOrigin(
-            current: CGPoint(x: 500, y: 500), dx: -20, dy: -10,
-            docSize: doc, viewportSize: viewport)
-        XCTAssertEqual(o.x, 520, accuracy: 1e-9)
-        XCTAssertEqual(o.y, 510, accuracy: 1e-9)
+        let margin = viewport
+        let o = CanvasScroll.constrainedOrigin(
+            proposed: CGPoint(x: 50, y: 900), viewport: viewport, doc: doc, margin: margin)
+        XCTAssertEqual(o.y, 900, accuracy: 1e-9, "Y preserved while X is constrained")
+        XCTAssertEqual(o.x, 50, accuracy: 1e-9, "x within margin passes through")
     }
 }

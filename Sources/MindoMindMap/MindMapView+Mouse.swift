@@ -488,37 +488,20 @@ extension MindMapView {
         }
         // Pan — for BOTH a trackpad (precise pixel deltas) and a mouse wheel
         // (line deltas, amplified). Shift + vertical wheel pans horizontally.
-        // Translate the clip origin so content follows the gesture; clamp EACH
-        // axis explicitly to its own scrollable range, reading the authoritative
-        // current position from documentVisibleRect (passing an out-of-range
-        // value to clip.scroll(to:) makes NSClipView re-derive the whole origin,
-        // which would zero the other axis).
+        // Just translate the clip origin by the delta; the CanvasClipView's
+        // constrainBoundsRect handles the (free, per-axis) bounding, so this
+        // can't reset the other axis and pans a screenful past the content.
         let (dx, dy) = Self.panOffset(
             scrollingDeltaX: event.scrollingDeltaX, scrollingDeltaY: event.scrollingDeltaY,
             precise: event.hasPreciseScrollingDeltas,
             shiftHeld: event.modifierFlags.contains(.shift))
         guard dx != 0 || dy != 0 else { return }
         let clip = scroll.contentView
-        let target = Self.pannedOrigin(
-            current: scroll.documentVisibleRect.origin, dx: dx, dy: dy,
-            docSize: bounds.size, viewportSize: scroll.documentVisibleRect.size)
-        clip.scroll(to: target)
+        let o = clip.bounds.origin
+        clip.scroll(to: NSPoint(x: o.x - dx, y: o.y - dy))
         scroll.reflectScrolledClipView(clip)
     }
 
-    /// New clip origin after panning by (dx, dy), clamped per-axis to
-    /// `[0, doc − viewport]`. Each axis is independent, so panning one never
-    /// disturbs the other. Pure → unit-testable.
-    static func pannedOrigin(
-        current: CGPoint, dx: CGFloat, dy: CGFloat,
-        docSize: CGSize, viewportSize: CGSize
-    ) -> CGPoint {
-        let maxX = max(0, docSize.width - viewportSize.width)
-        let maxY = max(0, docSize.height - viewportSize.height)
-        return CGPoint(
-            x: min(max(0, current.x - dx), maxX),
-            y: min(max(0, current.y - dy), maxY))
-    }
 
     /// Per-event zoom factor for ⌘+scroll: scroll up (positive delta) zooms in,
     /// down zooms out, each tick capped to ±20% so a chunky mouse wheel can't

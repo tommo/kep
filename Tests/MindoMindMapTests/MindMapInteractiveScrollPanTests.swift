@@ -25,6 +25,7 @@ final class MindMapInteractiveScrollPanTests: XCTestCase {
             window = NSWindow(contentRect: NSRect(origin: .zero, size: size),
                               styleMask: [.titled], backing: .buffered, defer: false)
             scroll = NSScrollView(frame: NSRect(origin: .zero, size: size))
+            scroll.contentView = CanvasClipView()   // the real free-canvas clip view
             scroll.hasHorizontalScroller = false
             scroll.hasVerticalScroller = false
             scroll.horizontalScrollElasticity = .none

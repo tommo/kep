@@ -25,6 +25,13 @@ public struct CSVEditor: NSViewRepresentable {
         table.allowsColumnResizing = true
         table.allowsColumnReordering = false
         table.allowsMultipleSelection = true
+        // Without this, NSTableView ignores every selectColumnIndexes call,
+        // so selectedColumnIndexes stays permanently empty — which silently
+        // killed Delete-to-clear, Delete Column, and the insert-at-selection
+        // column ops (they all read selectedColumnIndexes). Clicking a column
+        // header now selects the column so those actions have something to
+        // act on. (mindolph parity: csv column ops operate on a selection.)
+        table.allowsColumnSelection = true
         table.dataSource = context.coordinator
         table.delegate = context.coordinator
         table.target = context.coordinator
@@ -344,17 +351,19 @@ public struct CSVEditor: NSViewRepresentable {
         /// current selection. Skips already-empty cells so an
         /// empty-on-empty Delete doesn't burn an undo entry.
         func clearSelectedCells() {
-            guard let table = tableView,
-                  !table.selectedRowIndexes.isEmpty,
-                  !table.selectedColumnIndexes.isEmpty else { return }
-            // Resolve view-row indices into doc-row indices (header
-            // row sits at doc[0] when hasHeader is true) so the editor
-            // never accidentally clears the header strip.
-            let cells: [(row: Int, column: Int)] = table.selectedRowIndexes.flatMap { viewRow in
-                table.selectedColumnIndexes.map { col in
-                    (row: doc.hasHeader ? viewRow + 1 : viewRow, column: col)
-                }
-            }
+            guard let table = tableView else { return }
+            // NSTableView row/column selection is mutually exclusive, so
+            // CSVCellSelection treats whichever is active as the target:
+            // selected columns clear top-to-bottom, selected rows clear
+            // left-to-right. Pure resolver → header strip is never touched.
+            let cells = CSVCellSelection.cellsToClear(
+                selectedViewRows: table.selectedRowIndexes,
+                selectedColumns: table.selectedColumnIndexes,
+                bodyRowCount: doc.bodyRows.count,
+                columnCount: doc.columnCount,
+                hasHeader: doc.hasHeader
+            )
+            guard !cells.isEmpty else { return }
             performUndoable(actionName: cells.count > 1 ? "Clear Cells" : "Clear Cell") {
                 _ = doc.clearCells(cells)
             }

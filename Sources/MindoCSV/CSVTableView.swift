@@ -17,10 +17,13 @@ public final class CSVTableView: NSTableView {
         // straight to the field editor, so we only catch the keys when
         // no editor is up. NSTableView publishes the editing row via
         // editedRow/editedColumn — both -1 when nothing's being edited.
+        // Fire when EITHER rows or columns are selected — NSTableView makes
+        // the two mutually exclusive, so requiring both (as before) meant
+        // Delete could never fire at all. The coordinator's resolver maps a
+        // whole-row or whole-column selection to the cells to clear.
         let editing = editedRow != -1 || editedColumn != -1
         if !editing,
-           !selectedRowIndexes.isEmpty,
-           !selectedColumnIndexes.isEmpty,
+           !(selectedRowIndexes.isEmpty && selectedColumnIndexes.isEmpty),
            let chars = event.charactersIgnoringModifiers,
            let scalar = chars.unicodeScalars.first,
            scalar == "\u{7F}" || scalar == "\u{08}" {  // Delete (forward) or Backspace

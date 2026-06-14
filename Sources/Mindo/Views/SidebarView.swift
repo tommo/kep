@@ -5,6 +5,11 @@ import MindoCore
 struct SidebarView: View {
     @Binding var session: AppSession
     @Binding var selection: NodeData?
+    /// Records what drove the next selection change so ContentView can tell
+    /// arrow-key traversal (highlight only) apart from a click (opens).
+    var onSelectionSource: (SidebarSelectionSource) -> Void = { _ in }
+    /// Return on the highlighted row — opens it (R6).
+    var onConfirm: () -> Void = {}
 
     var body: some View {
         VStack(spacing: 0) {
@@ -59,6 +64,18 @@ struct SidebarView: View {
                     }
                 }
                 .listStyle(.sidebar)
+                // Arrow keys move the highlight only — flag the source so the
+                // open-on-selection wiring skips them (#21). `.ignored` lets
+                // the List perform its own arrow navigation afterwards.
+                .onKeyPress(keys: [.upArrow, .downArrow, .leftArrow, .rightArrow]) { _ in
+                    onSelectionSource(.keyboardNavigation)
+                    return .ignored
+                }
+                // Return opens the highlighted file (R6).
+                .onKeyPress(.return) {
+                    onConfirm()
+                    return .handled
+                }
             }
         }
     }

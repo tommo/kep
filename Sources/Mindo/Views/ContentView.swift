@@ -7,6 +7,11 @@ import MindoCore
 struct ContentView: View {
     @Binding var session: AppSession
     @State private var sidebarSelection: NodeData?
+    /// What drove the pending selection change. Arrow keys set this to
+    /// `.keyboardNavigation` just before the List moves the highlight, so the
+    /// open-on-selection rule below can skip them; reset to `.pointer` after
+    /// each change so the next click opens as usual.
+    @State private var selectionSource: SidebarSelectionSource = .pointer
 
     /// Maps the persisted `sidebarVisible` bool to the split view's
     /// column-visibility, and writes back when the user collapses the
@@ -20,8 +25,13 @@ struct ContentView: View {
 
     var body: some View {
         NavigationSplitView(columnVisibility: columnVisibility) {
-            SidebarView(session: $session, selection: $sidebarSelection)
-                .navigationSplitViewColumnWidth(min: 200, ideal: 280)
+            SidebarView(
+                session: $session,
+                selection: $sidebarSelection,
+                onSelectionSource: { selectionSource = $0 },
+                onConfirm: openSelectedFile
+            )
+            .navigationSplitViewColumnWidth(min: 200, ideal: 280)
         } detail: {
             DetailArea(session: $session)
                 .inspector(isPresented: $session.outlineOpen) {
@@ -34,16 +44,20 @@ struct ContentView: View {
         }
         .onChange(of: sidebarSelection) { _, new in
             // Open on selection (single-click, Obsidian-style) but only when
-            // the rule says so — skips folders and the already-active file
-            // so the reverse active-doc→selection sync can't loop back into
-            // a redundant re-open. See SidebarOpenDecision.
+            // the rule says so — skips folders, the already-active file (so
+            // the reverse active-doc→selection sync can't loop back into a
+            // redundant re-open), and arrow-key traversal (which only moves
+            // the highlight; Return opens). See SidebarOpenDecision.
             if SidebarOpenDecision.shouldOpen(
                 isFile: new?.isFile ?? false,
                 selectedURL: new?.url,
-                activeURL: session.activeDocument?.fileURL
+                activeURL: session.activeDocument?.fileURL,
+                source: selectionSource
             ), let node = new {
                 session.open(url: node.url)
             }
+            // Next change is a click again unless an arrow key re-flags it.
+            selectionSource = .pointer
         }
         // Reverse direction: when the active doc changes (tab click, ⌃⇥
         // cycle, etc.), reflect that selection in the sidebar so the user
@@ -63,6 +77,19 @@ struct ContentView: View {
         } message: {
             Text(session.lastError ?? "")
         }
+    }
+
+    /// Open the currently-highlighted sidebar file (Return key, R6). Honours
+    /// the same file/folder/active-doc guards as click-to-open.
+    private func openSelectedFile() {
+        guard let node = sidebarSelection,
+              SidebarOpenDecision.shouldOpen(
+                isFile: node.isFile,
+                selectedURL: node.url,
+                activeURL: session.activeDocument?.fileURL,
+                source: .keyboardConfirm
+              ) else { return }
+        session.open(url: node.url)
     }
 
     /// Walk every workspace tree looking for the node whose URL matches.

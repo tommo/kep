@@ -32,13 +32,11 @@ struct DocumentTabBar: View {
                                 .help(L("tab.tooltip.unsaved_changes"))
                         }
                         Button {
-                            if let idx = session.openDocuments.firstIndex(where: { $0.id == doc.id }) {
-                                session.openDocuments.remove(at: idx)
-                                if session.activeDocumentID == doc.id {
-                                    session.activeDocumentID = session.openDocuments.last?.id
-                                }
-                                session.persistOpenTabs()
-                            }
+                            // Route through closeTab so the FileWatcher is
+                            // torn down and the MRU tab tracker stays
+                            // consistent — the old inline removal leaked
+                            // watchers and corrupted ⌃⇥ navigation.
+                            session.closeTab(doc.id)
                         } label: {
                             Image(systemName: "xmark")
                                 .font(.system(size: 9, weight: .bold))

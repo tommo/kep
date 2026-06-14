@@ -37,6 +37,19 @@ final class TabManagerTests: XCTestCase {
         XCTAssertNil(mgr.mruIndex(of: 2))
     }
 
+    /// Regression for the tab-close bug: closing the *active* tab must
+    /// drop it from the MRU so `activeID` advances to the next tab rather
+    /// than dangling on the closed one (the old inline close path skipped
+    /// `remove`, leaving ⌃⇥ pointing at a dead tab).
+    func testRemoveActivePromotesNextMRU() {
+        let mgr = TabManager<Int>()
+        for id in [1, 2, 3] { mgr.activate(id) }   // MRU front = 3 (active)
+        XCTAssertEqual(mgr.activeID, 3)
+        mgr.remove(3)
+        XCTAssertEqual(mgr.activeID, 2)            // not the removed 3
+        XCTAssertNil(mgr.mruIndex(of: 3))
+    }
+
     func testCycleNoOpsWithFewerThanTwo() {
         let mgr = TabManager<Int>()
         XCTAssertNil(mgr.nextMRU(after: 1))

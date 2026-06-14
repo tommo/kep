@@ -237,8 +237,19 @@ extension MindMapView {
     func moveSelected(_ direction: Direction) {
         guard let sel = selectedElement else { return }
         let topic = sel.topic
+        let wasLeftSide = sel.isLeftSide
         guard let plan = MindMapTopicMove.plan(for: topic, direction: direction) else { return }
         undoableReparent(topic, to: plan.parent, at: plan.index)
+        // When the move lands the topic directly under the ROOT (an outdent, or
+        // a reorder among root children), pin an explicit side matching the one
+        // it visually came from. Otherwise balanceRoot re-derives the side from
+        // index parity and can flip the node to the opposite half — the cursor
+        // appears to teleport across the map (bug #39/#40, same fix as
+        // addNextSibling's inheritRootSide).
+        if plan.parent === mindMap?.root {
+            topic.setAttribute(TopicAttribute.leftSide, wasLeftSide ? "true" : "false")
+            rebuildElementsPublic()
+        }
         // Elements are rebuilt by the reparent; re-resolve and reselect.
         if let moved = element(forTopic: topic) { selectElement(moved) }
     }

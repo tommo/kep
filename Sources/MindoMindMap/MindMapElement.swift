@@ -55,6 +55,23 @@ public final class MindMapElement {
         isCollapsed ? [] : children
     }
 
+    /// Clickable fold/unfold target ("collapsator") for any non-root topic
+    /// that has children — a small circle just outside the edge facing the
+    /// children (right edge for right-side / root-right nodes, left edge for
+    /// left-side ones). nil for leaves and the root. Same coordinate space as
+    /// `frame`. Drives both the drawn indicator and its mouse hit-test, so the
+    /// two can never drift apart.
+    public var collapseIndicatorRect: CGRect? {
+        guard !children.isEmpty, topic.parent != nil else { return nil }
+        let d = Self.collapseIndicatorSize
+        let x = isLeftSide ? frame.minX - d - Self.collapseIndicatorGap
+                           : frame.maxX + Self.collapseIndicatorGap
+        return CGRect(x: x, y: frame.midY - d / 2, width: d, height: d)
+    }
+
+    public static let collapseIndicatorSize: CGFloat = 14
+    public static let collapseIndicatorGap: CGFloat = 3
+
     // MARK: - Extras strip
 
     /// Ordered list of extras present on this topic, in the order we render

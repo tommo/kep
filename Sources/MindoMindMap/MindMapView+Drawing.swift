@@ -128,16 +128,28 @@ extension MindMapView {
             drawExtraIcon(type: type, in: rect, level: level, into: ctx)
         }
 
-        // Collapse marker (small caret on the side facing children).
-        if el.isCollapsed && !el.children.isEmpty {
-            let marker = "+"
+        // Clickable collapsator: a small circle on the side facing children,
+        // showing "+" when folded and "−" when expanded. Present for every
+        // non-root parent so the mouse can fold/unfold without the menu.
+        if let rect = el.collapseIndicatorRect {
+            let color = theme.borderColor(forLevel: level)
+            let circle = NSBezierPath(ovalIn: rect.insetBy(dx: 0.5, dy: 0.5))
+            ctx.saveGState()
+            theme.paperColor.setFill()
+            circle.fill()
+            color.setStroke()
+            circle.lineWidth = 1
+            circle.stroke()
+            let marker = el.isCollapsed ? "+" : "–"
             let mAttrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.boldSystemFont(ofSize: 10),
-                .foregroundColor: theme.borderColor(forLevel: level),
+                .foregroundColor: color,
             ]
             let size = (marker as NSString).size(withAttributes: mAttrs)
-            let x = el.isLeftSide ? el.frame.minX - size.width - 4 : el.frame.maxX + 4
-            (marker as NSString).draw(at: CGPoint(x: x, y: el.frame.midY - size.height / 2), withAttributes: mAttrs)
+            (marker as NSString).draw(
+                at: CGPoint(x: rect.midX - size.width / 2, y: rect.midY - size.height / 2),
+                withAttributes: mAttrs)
+            ctx.restoreGState()
         }
     }
 

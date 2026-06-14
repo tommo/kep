@@ -32,6 +32,16 @@ extension MindMapView {
             handleExtraTap(on: el, type: type)
             return
         }
+        // Collapsator hit-test: a click on the fold circle toggles the node's
+        // collapsed state (undoable) without starting a drag or editing. Runs
+        // before the marquee/selection path because the circle sits OUTSIDE the
+        // node frame, where element(at:) would otherwise read empty canvas.
+        if let el = collapseIndicator(at: p) {
+            selectElement(el)
+            undoableSetAttribute(el.topic, key: TopicAttribute.collapsed,
+                                 value: el.isCollapsed ? nil : "true")
+            return
+        }
         // Embedded-image hit: open the lightbox at full resolution.
         if event.clickCount >= 1, let image = embeddedImage(at: p) {
             MindMapImageLightbox.present(image: image, near: window)
@@ -307,6 +317,18 @@ extension MindMapView {
             for (type, rect) in el.extraIconRects where rect.contains(point) {
                 hit = (el, type)
             }
+        }
+        return hit
+    }
+
+    /// Find the element whose collapsator circle contains `point`, if any.
+    /// Used by mouseDown so a click on the fold circle toggles collapse.
+    func collapseIndicator(at point: CGPoint) -> MindMapElement? {
+        guard let root = rootElement else { return nil }
+        var hit: MindMapElement?
+        root.traverse { el in
+            if hit != nil { return }
+            if let rect = el.collapseIndicatorRect, rect.contains(point) { hit = el }
         }
         return hit
     }

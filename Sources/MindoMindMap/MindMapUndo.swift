@@ -247,6 +247,26 @@ extension MindMapView {
         )
         refreshAndNotify()
     }
+
+    /// Insert a brand-new (parentless) `subtree` as the `index`th child of
+    /// `parent`. Distinct from `undoableReparent`, which MOVES an existing
+    /// node: here the inverse REMOVES the subtree entirely. Used by paste —
+    /// the old code appended first then called undoableReparent, which made
+    /// oldParent == newParent so undo merely repositioned the pasted node
+    /// back instead of removing it (it could never be undone).
+    public func undoableInsert(_ subtree: Topic, into parent: Topic, at index: Int) {
+        parent.append(subtree)
+        parent.move(child: subtree, to: index)
+        registerUndo(
+            name: "Insert Topic",
+            forward: {
+                parent.append(subtree)
+                parent.move(child: subtree, to: index)
+            },
+            inverse: { parent.removeChild(subtree) }
+        )
+        refreshAndNotify()
+    }
 }
 
 // MARK: - Internal hooks (private to module)

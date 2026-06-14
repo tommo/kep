@@ -396,6 +396,7 @@ public struct CSVEditor: NSViewRepresentable {
             let selected = tableView?.selectedColumnIndexes.first
             performUndoable(actionName: "Insert Column Before", rebuildColumns: true) {
                 doc.insertColumn(at: selected ?? doc.columnCount)
+                columnWidths.removeAll()   // indices shifted — stale widths
             }
         }
 
@@ -403,6 +404,7 @@ public struct CSVEditor: NSViewRepresentable {
             let selected = tableView?.selectedColumnIndexes.last
             performUndoable(actionName: "Insert Column After", rebuildColumns: true) {
                 doc.insertColumn(at: (selected ?? doc.columnCount - 1) + 1)
+                columnWidths.removeAll()
             }
         }
 
@@ -429,6 +431,7 @@ public struct CSVEditor: NSViewRepresentable {
                 for i in selected.reversed() {
                     doc.removeColumn(at: i)
                 }
+                columnWidths.removeAll()   // indices shifted — stale widths
             }
         }
 

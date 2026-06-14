@@ -73,10 +73,10 @@ extension MindMapView {
         if let data = pb.data(forType: NSPasteboard.PasteboardType(TopicSubtreeCodec.pasteboardType)),
            let subtrees = try? TopicSubtreeCodec.decodeForest(data), !subtrees.isEmpty {
             // Graft every copied subtree under the target in one undo group.
+            // undoableInsert (not reparent) so a single ⌘Z removes them.
             groupedUndo(name: subtrees.count > 1 ? "Paste Topics" : "Paste Topic") {
                 for subtree in subtrees {
-                    topic.append(subtree)
-                    undoableReparent(subtree, to: topic, at: topic.children.count - 1)
+                    undoableInsert(subtree, into: topic, at: topic.children.count)
                 }
             }
             return
@@ -92,8 +92,7 @@ extension MindMapView {
         if PrefKeys.bool(PrefKeys.mindmapSmartTextPaste, fallback: true),
            let text = pb.string(forType: .string),
            let subtree = MindMapPasteHelper.smartTextSubtree(text) {
-            topic.append(subtree)
-            undoableReparent(subtree, to: topic, at: topic.children.count - 1)
+            undoableInsert(subtree, into: topic, at: topic.children.count)
             return
         }
     }

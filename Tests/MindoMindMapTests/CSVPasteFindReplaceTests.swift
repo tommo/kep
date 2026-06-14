@@ -130,4 +130,16 @@ final class CSVPasteFindReplaceTests: XCTestCase {
         XCTAssertEqual(doc.applyReplacements(writes), 1)
         XCTAssertEqual(doc.rows, [["X", "dog"]])
     }
+
+    func testApplyReplacementsCountsOnlyInBoundsWrites() {
+        // Bug (bug-hunt): setCell silently ignores an out-of-bounds row, but
+        // applyReplacements returned writes.count, over-reporting.
+        let doc = CSVDocument(rows: [["cat", "dog"]], hasHeader: false)
+        let writes = [
+            CSVCellWrite(row: 0, column: 0, value: "X"),
+            CSVCellWrite(row: 10, column: 0, value: "Y"),   // out of bounds
+        ]
+        XCTAssertEqual(doc.applyReplacements(writes), 1, "only the in-bounds write counts")
+        XCTAssertEqual(doc.rows, [["X", "dog"]])
+    }
 }

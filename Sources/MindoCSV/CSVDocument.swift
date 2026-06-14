@@ -167,10 +167,15 @@ public final class CSVDocument {
     /// editor skip burning an undo entry on a no-op replace-all).
     @discardableResult
     public func applyReplacements(_ writes: [CSVCellWrite]) -> Int {
+        // Count only writes that actually land — setCell silently ignores an
+        // out-of-bounds row, so returning writes.count would over-report.
+        var applied = 0
         for w in writes {
+            guard w.row >= 0, w.row < rows.count else { continue }
             setCell(row: w.row, column: w.column, to: w.value)
+            applied += 1
         }
-        return writes.count
+        return applied
     }
 
     // MARK: - Parsing & serialization

@@ -110,6 +110,12 @@ struct MindoApp: App {
                         onClose: { session.quickSwitcherOpen = false }
                     )
                 }
+                .sheet(isPresented: $session.commandPaletteOpen) {
+                    CommandPaletteView(
+                        commands: session.paletteCommands(),
+                        onClose: { session.commandPaletteOpen = false }
+                    )
+                }
         }
         .commands {
             CommandGroup(replacing: .appInfo) {
@@ -129,6 +135,8 @@ struct MindoApp: App {
                 Button(L("menu.file.quick_open")) { session.quickSwitcherOpen = true }
                     .keyboardShortcut("o", modifiers: .command)
                     .disabled(session.workspaceRoots.isEmpty)
+                Button(L("menu.file.command_palette")) { session.commandPaletteOpen = true }
+                    .keyboardShortcut("p", modifiers: [.command, .shift])
                 Button(L("menu.file.open_workspace")) { session.openWorkspace() }
                     .keyboardShortcut("o", modifiers: [.command, .shift])
                 Button(L("menu.file.open_file")) { session.openFile() }
@@ -368,6 +376,8 @@ final class AppSession {
     var findInFilesOpen: Bool = false
     /// Obsidian-style ⌘O quick switcher sheet flag.
     var quickSwitcherOpen: Bool = false
+    /// Obsidian-style ⌘⇧P command palette sheet flag.
+    var commandPaletteOpen: Bool = false
 
     /// Flat index of every file across open workspaces — data source for
     /// the quick switcher. Rebuilt each time the switcher opens so it

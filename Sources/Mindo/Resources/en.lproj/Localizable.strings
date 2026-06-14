@@ -8,7 +8,14 @@
 "menu.file.open_workspace" = "Open Workspace…";
 "menu.file.open_file" = "Open File…";
 "menu.file.quick_open" = "Quick Open…";
+"menu.file.command_palette" = "Command Palette…";
 "switcher.placeholder" = "Type to search files…";
+"palette.placeholder" = "Type a command…";
+"palette.empty.prompt" = "Type to search commands…";
+"palette.empty.nomatch" = "No matching commands";
+"palette.cat.file" = "File";
+"palette.cat.edit" = "Edit";
+"palette.cat.view" = "View";
 "switcher.empty.prompt" = "Start typing to find a file";
 "switcher.empty.nomatch" = "No matching files";
 "menu.file.save" = "Save";

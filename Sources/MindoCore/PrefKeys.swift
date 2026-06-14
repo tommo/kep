@@ -28,6 +28,9 @@ public enum PrefKeys {
     /// the left, preview on the right; false = source on top, preview
     /// below. Mirrors mindolph's per-editor Orientation pref.
     public static let markdownSplitVertical = "mindo.prefs.markdownSplitVertical"
+    /// Markdown view mode — editor / split / preview. Raw value of
+    /// `MarkdownViewMode`. Remembered across launches and documents.
+    public static let markdownViewMode = "mindo.prefs.markdownViewMode"
     /// PlantUML editor split orientation — same semantics as
     /// `markdownSplitVertical` but for the puml editor's source/preview
     /// pane.

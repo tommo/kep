@@ -99,9 +99,12 @@ public struct MarkdownEditor: NSViewRepresentable {
 
         context.coordinator.textView = textView
         context.coordinator.webView = web
+        context.coordinator.splitView = split
+        context.coordinator.editorScroll = scroll
         context.coordinator.applyHighlighting()
         context.coordinator.refreshStatusFooter()
         context.coordinator.refreshPreview()
+        context.coordinator.applyViewMode(context.coordinator.viewMode, persist: false)
         return container
     }
 
@@ -147,7 +150,27 @@ public struct MarkdownEditor: NSViewRepresentable {
         stack.addArrangedSubview(iconButton(symbol: "tablecells", tooltip: "Table", action: #selector(Coordinator.toolbarTable)))
         stack.addArrangedSubview(iconButton(symbol: "captions.bubble", tooltip: "HTML comment", action: #selector(Coordinator.toolbarComment)))
         stack.addArrangedSubview(iconButton(symbol: "minus", tooltip: "Horizontal rule", action: #selector(Coordinator.toolbarHorizontalRule)))
-        stack.addArrangedSubview(NSView())  // spacer
+        stack.addArrangedSubview(NSView())  // spacer — pushes view controls to the right
+
+        // Right side: flip split orientation + a 3-way view-mode switch
+        // (editor / split / preview). Mirrors Obsidian's editing/reading toggle.
+        let flip = iconButton(symbol: "arrow.left.arrow.right.square",
+                              tooltip: "Flip orientation",
+                              action: #selector(Coordinator.toolbarFlipOrientation))
+        stack.addArrangedSubview(flip)
+        coordinator.flipButton = flip
+
+        let modes = MarkdownViewMode.allCases
+        let images = modes.map { NSImage(systemSymbolName: $0.symbolName, accessibilityDescription: $0.tooltip) ?? NSImage() }
+        let seg = NSSegmentedControl(images: images, trackingMode: .selectOne,
+                                     target: coordinator, action: #selector(Coordinator.toolbarViewModeChanged(_:)))
+        for (i, mode) in modes.enumerated() {
+            seg.setToolTip(mode.tooltip, forSegment: i)
+        }
+        seg.selectedSegment = modes.firstIndex(of: coordinator.viewMode) ?? 1
+        stack.addArrangedSubview(seg)
+        coordinator.viewModeControl = seg
+
         return stack
     }
 
@@ -172,6 +195,12 @@ public struct MarkdownEditor: NSViewRepresentable {
         var textView: NSTextView?
         var webView: WKWebView?
         weak var statusFooter: NSTextField?
+        weak var splitView: NSSplitView?
+        weak var editorScroll: NSScrollView?
+        weak var viewModeControl: NSSegmentedControl?
+        weak var flipButton: NSButton?
+        /// Current pane layout. Persisted to `PrefKeys.markdownViewMode`.
+        var viewMode: MarkdownViewMode = .from(rawValue: PrefKeys.string(PrefKeys.markdownViewMode))
         var lastNavigated: String?
         let highlighter = MarkdownHighlighter()
         private let previewDebouncer = Debouncer()
@@ -261,6 +290,42 @@ public struct MarkdownEditor: NSViewRepresentable {
             default: alignment = .none
             }
             applyTransform { MarkdownFormatting.table($0, range: $1, rows: rows, cols: cols, alignment: alignment) }
+        }
+
+        // MARK: - View mode
+
+        @objc func toolbarViewModeChanged(_ sender: NSSegmentedControl) {
+            let modes = MarkdownViewMode.allCases
+            guard modes.indices.contains(sender.selectedSegment) else { return }
+            applyViewMode(modes[sender.selectedSegment])
+        }
+
+        @objc func toolbarFlipOrientation() {
+            guard let split = splitView else { return }
+            split.isVertical.toggle()
+            UserDefaults.standard.set(split.isVertical, forKey: PrefKeys.markdownSplitVertical)
+            split.adjustSubviews()
+        }
+
+        /// Show/hide the editor and preview panes for `mode`. NSSplitView
+        /// honours `isHidden` on its arranged subviews, collapsing the hidden
+        /// one and giving the other the full area. Re-renders the preview when
+        /// it becomes visible so a preview-only switch isn't stale.
+        func applyViewMode(_ mode: MarkdownViewMode, persist: Bool = true) {
+            viewMode = mode
+            editorScroll?.isHidden = !mode.showsEditor
+            webView?.isHidden = !mode.showsPreview
+            splitView?.adjustSubviews()
+            // The orientation flip only means something when both panes show.
+            flipButton?.isEnabled = (mode == .split)
+            if let seg = viewModeControl,
+               let idx = MarkdownViewMode.allCases.firstIndex(of: mode) {
+                seg.selectedSegment = idx
+            }
+            if mode.showsPreview { refreshPreview() }
+            if persist {
+                UserDefaults.standard.set(mode.rawValue, forKey: PrefKeys.markdownViewMode)
+            }
         }
 
         /// Backing map so the stepper action can find its sibling field.

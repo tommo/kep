@@ -13,21 +13,21 @@ extension MindMapView {
     /// signals the system to fall back to keyDown for non-equivalent keys.
     public override func performKeyEquivalent(with event: NSEvent) -> Bool {
         let chars = event.charactersIgnoringModifiers ?? ""
-        if window?.firstResponder === self,
-           ["\t", "\r", "-", "=", "+", " "].contains(chars) || Self.arrowKeyChars.contains(chars) {
-            self.keyDown(with: event)
-            return true
-        }
         // ⌘ + arrow reorders/reparents the selected topic (outline-style move),
-        // distinct from a bare arrow which just moves the selection. Must be
-        // caught here in performKeyEquivalent so the window's key loop doesn't
-        // consume the arrow first. ⌥ excluded so it can't collide with future
-        // option-arrow bindings.
+        // distinct from a bare arrow which just moves the selection. This MUST
+        // come before the bare-arrow gate below — otherwise that gate swallows
+        // every arrow (⌘ or not) into keyDown and the ⌘ move never fires.
+        // ⌥ excluded so it can't collide with future option-arrow bindings.
         if window?.firstResponder === self,
            event.modifierFlags.contains(.command),
            !event.modifierFlags.contains(.option),
            let direction = Self.arrowKeyDirections[chars] {
             moveSelected(direction)
+            return true
+        }
+        if window?.firstResponder === self,
+           ["\t", "\r", "-", "=", "+", " "].contains(chars) || Self.arrowKeyChars.contains(chars) {
+            self.keyDown(with: event)
             return true
         }
         // ⌘D duplicates the selected topic with full subtree (mirror of the

@@ -52,6 +52,24 @@ final class WindowedMindMap {
         sendKey(String(Character(UnicodeScalar(functionKey)!)), mods)
     }
 
+    /// Drive a key EQUIVALENT (a ⌘/⌥-modified key) the way NSApplication
+    /// does — through `performKeyEquivalent`, which is where the canvas
+    /// handles ⌘+arrow topic moves. Returns whether it was handled.
+    @discardableResult
+    func sendKeyEquivalent(_ chars: String, _ mods: NSEvent.ModifierFlags) -> Bool {
+        let ev = NSEvent.keyEvent(
+            with: .keyDown, location: .zero, modifierFlags: mods,
+            timestamp: 0, windowNumber: window.windowNumber, context: nil,
+            characters: chars, charactersIgnoringModifiers: chars,
+            isARepeat: false, keyCode: 0)!
+        return view.performKeyEquivalent(with: ev)
+    }
+
+    @discardableResult
+    func sendArrowEquivalent(_ functionKey: Int, _ mods: NSEvent.ModifierFlags) -> Bool {
+        sendKeyEquivalent(String(Character(UnicodeScalar(functionKey)!)), mods)
+    }
+
     /// Post a real left mouse-down + up at a point given in the view's
     /// (flipped) coordinate space — routed through the window so hit-testing
     /// and the view's mouseDown/mouseUp run for real. `clickCount` 2 = a

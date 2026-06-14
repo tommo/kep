@@ -399,6 +399,24 @@ final class AppSession {
         didSet { UserDefaults.standard.set(sidebarVisible, forKey: PrefKeys.sidebarVisible) }
     }
 
+    /// Per-folder expansion state the user has toggled, restored across
+    /// launches so the workspace tree reopens the way it was left.
+    var sidebarExpansion: [String: Bool] = SidebarExpansionState.decode(
+        PrefKeys.string(PrefKeys.sidebarExpansion))
+
+    /// Whether `url`'s folder row should render expanded. Workspaces default
+    /// open, sub-folders closed, until the user toggles them.
+    func isFolderExpanded(_ url: URL, isWorkspace: Bool) -> Bool {
+        SidebarExpansionState.isExpanded(url.path, in: sidebarExpansion, defaultExpanded: isWorkspace)
+    }
+
+    /// Record a folder's expansion and persist the whole map.
+    func setFolderExpanded(_ url: URL, isWorkspace: Bool, _ expanded: Bool) {
+        sidebarExpansion[url.path] = expanded
+        UserDefaults.standard.set(SidebarExpansionState.encode(sidebarExpansion),
+                                  forKey: PrefKeys.sidebarExpansion)
+    }
+
     /// Native CSV find/replace bar visible (CSV editor only — its
     /// NSTableView can't use the standard text find bar). Toggled by ⌘F.
     var csvFindOpen: Bool = false

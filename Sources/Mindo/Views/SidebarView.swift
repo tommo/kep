@@ -156,9 +156,17 @@ struct NodeRow: View {
     @Binding var selection: NodeData?
     @AppStorage(PrefKeys.hideFileExtensions) private var hideFileExtensions: Bool = false
 
+    /// Persisted expansion binding so the tree reopens the way it was left.
+    private var expansion: Binding<Bool> {
+        Binding(
+            get: { session.isFolderExpanded(node.url, isWorkspace: node.isWorkspace) },
+            set: { session.setFolderExpanded(node.url, isWorkspace: node.isWorkspace, $0) }
+        )
+    }
+
     var body: some View {
         if node.isExpandable {
-            DisclosureGroup {
+            DisclosureGroup(isExpanded: expansion) {
                 ForEach(filteredChildren(), id: \.self) { child in
                     NodeRow(node: child, session: $session, selection: $selection)
                 }

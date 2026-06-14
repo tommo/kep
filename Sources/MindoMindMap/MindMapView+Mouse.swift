@@ -134,18 +134,30 @@ extension MindMapView {
             if let moved = element(forTopic: source.topic) { selectElement(moved) }
             return
         }
-        guard let target = dragTargetElement,
-              target.topic !== source.topic.parent else { return }
-        let index = target.topic.children.count
+        guard let target = dragTargetElement else { return }
+        // When the dragged topic is part of a multi-selection, move ALL of
+        // them under the target (descendants pruned, cycles/no-ops dropped);
+        // otherwise just the dragged topic. (R12: drag previously moved only
+        // the primary, silently leaving the rest behind.)
+        let selected = selectionTopics()
+        let candidates = (selected.count > 1 && selected.contains { $0 === source.topic })
+            ? selected
+            : [source.topic]
+        let movers = MindMapSelection.reparentable(candidates, under: target.topic)
+        guard !movers.isEmpty else { return }
         // Drop onto a collapsed parent auto-unfolds it (mindolph parity:
         // ckbUnfoldCollapsedDropTarget). Without this the dropped subtree
         // disappears the instant it lands. Done BEFORE reparent so the
         // unfold + reparent share a single visible state transition.
-        if PrefKeys.bool(PrefKeys.mindmapUnfoldCollapsedDropTarget, fallback: true),
-           target.isCollapsed {
-            undoableSetAttribute(target.topic, key: TopicAttribute.collapsed, value: nil)
+        groupedUndo(name: movers.count > 1 ? "Move Topics" : "Move Topic") {
+            if PrefKeys.bool(PrefKeys.mindmapUnfoldCollapsedDropTarget, fallback: true),
+               target.isCollapsed {
+                undoableSetAttribute(target.topic, key: TopicAttribute.collapsed, value: nil)
+            }
+            for topic in movers {
+                undoableReparent(topic, to: target.topic, at: target.topic.children.count)
+            }
         }
-        undoableReparent(source.topic, to: target.topic, at: index)
         if let moved = element(forTopic: source.topic) { selectElement(moved) }
     }
 

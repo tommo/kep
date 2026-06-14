@@ -20,4 +20,23 @@ public enum MindMapSelection {
             return true
         }
     }
+
+    /// The subset of `topics` that may legally be reparented under
+    /// `newParent` in a multi-select drag-drop. Starts from `topLevel`, then
+    /// drops:
+    /// - any topic already a direct child of `newParent` (a no-op move), and
+    /// - any topic that is `newParent` itself or an ancestor of it (moving it
+    ///   under `newParent` would create a cycle).
+    public static func reparentable(_ topics: [Topic], under newParent: Topic) -> [Topic] {
+        topLevel(topics).filter { topic in
+            if topic.parent === newParent { return false }
+            // Reject when newParent is the topic or sits inside topic's subtree.
+            var t: Topic? = newParent
+            while let cur = t {
+                if cur === topic { return false }
+                t = cur.parent
+            }
+            return true
+        }
+    }
 }

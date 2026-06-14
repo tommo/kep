@@ -486,17 +486,17 @@ extension MindMapView {
             scroll.setMagnification(target, centeredAt: center)
             return
         }
-        // Pan. Translate the clip origin by the scroll delta — content follows
-        // the gesture (origin moves opposite the delta, matching natural
-        // scrolling and the drag-pan direction). We clamp EACH axis explicitly
-        // to its own scrollable range and read the authoritative current
-        // position from documentVisibleRect: passing an out-of-range value to
-        // clip.scroll(to:) makes NSClipView re-derive the whole origin, which
-        // was zeroing the other axis (scroll Y, then scroll X, and Y jumped
-        // back to 0).
+        // Pan — for BOTH a trackpad (precise pixel deltas) and a mouse wheel
+        // (line deltas, amplified). Shift + vertical wheel pans horizontally.
+        // Translate the clip origin so content follows the gesture; clamp EACH
+        // axis explicitly to its own scrollable range, reading the authoritative
+        // current position from documentVisibleRect (passing an out-of-range
+        // value to clip.scroll(to:) makes NSClipView re-derive the whole origin,
+        // which would zero the other axis).
         let (dx, dy) = Self.panOffset(
-            deltaX: event.scrollingDeltaX, deltaY: event.scrollingDeltaY,
-            precise: event.hasPreciseScrollingDeltas)
+            scrollingDeltaX: event.scrollingDeltaX, scrollingDeltaY: event.scrollingDeltaY,
+            precise: event.hasPreciseScrollingDeltas,
+            shiftHeld: event.modifierFlags.contains(.shift))
         guard dx != 0 || dy != 0 else { return }
         let clip = scroll.contentView
         let target = Self.pannedOrigin(
@@ -529,12 +529,28 @@ extension MindMapView {
         return 1 + step
     }
 
-    /// Translate a scroll event's deltas into a clip-origin pan offset.
-    /// Trackpad pixel deltas (`precise`) pass through 1:1 for a smooth grab;
-    /// mouse-wheel line deltas are amplified so a single notch moves a useful
-    /// distance rather than a few pixels. Pure → unit-testable.
-    static func panOffset(deltaX: CGFloat, deltaY: CGFloat, precise: Bool) -> (dx: CGFloat, dy: CGFloat) {
+    /// Translate a scroll event's deltas into a clip-origin pan offset, for
+    /// both input kinds:
+    ///   • trackpad — `precise` pixel deltas pass through 1:1 for a smooth grab;
+    ///   • mouse wheel — line deltas are amplified so a notch moves usefully.
+    /// `shiftHeld` turns a vertical-only wheel into a horizontal pan (the
+    /// standard Shift+scroll convention) — skipped when the platform already
+    /// reported a horizontal delta, so we never double-swap. Pure → testable.
+    static func panOffset(
+        scrollingDeltaX: CGFloat, scrollingDeltaY: CGFloat,
+        precise: Bool, shiftHeld: Bool
+    ) -> (dx: CGFloat, dy: CGFloat) {
         let scale: CGFloat = precise ? 1 : 12
-        return (deltaX * scale, deltaY * scale)
+        var dx = scrollingDeltaX * scale
+        var dy = scrollingDeltaY * scale
+        // Defensive fallback: AppKit already swaps the axes for Shift+scroll on
+        // most setups (so dx is already non-zero here), but for input devices /
+        // drivers that don't, move a vertical-only wheel onto the X axis. The
+        // dx==0 guard makes this a no-op when the platform already swapped.
+        if shiftHeld, dx == 0 {
+            dx = dy
+            dy = 0
+        }
+        return (dx, dy)
     }
 }

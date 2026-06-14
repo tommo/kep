@@ -21,7 +21,7 @@ final class MindMapInteractiveScrollPanTests: XCTestCase {
         let view: MindMapView
 
         init() {
-            let size = NSSize(width: 320, height: 220)
+            let size = NSSize(width: 240, height: 180)
             window = NSWindow(contentRect: NSRect(origin: .zero, size: size),
                               styleMask: [.titled], backing: .buffered, defer: false)
             scroll = NSScrollView(frame: NSRect(origin: .zero, size: size))
@@ -38,11 +38,12 @@ final class MindMapInteractiveScrollPanTests: XCTestCase {
             window.makeKeyAndOrderFront(nil)
             scroll.layoutSubtreeIfNeeded()
 
-            // Tall, narrow map: a root with many stacked children overflows
-            // vertically but not horizontally.
+            // A map that overflows BOTH axes (long child text → wide; many
+            // children → tall) so horizontal and vertical panning are both
+            // exercisable in the small viewport.
             let map = MindMap()
-            let root = Topic(text: "Root"); map.root = root
-            for i in 0..<20 { _ = root.addChild(text: "Child \(i)") }
+            let root = Topic(text: "Root topic with a long title"); map.root = root
+            for i in 0..<20 { _ = root.addChild(text: "Child topic number \(i) with text") }
             view.display(map: map)
             scroll.layoutSubtreeIfNeeded()
             // Zoom in like a real user might — exercises the magnified
@@ -55,14 +56,23 @@ final class MindMapInteractiveScrollPanTests: XCTestCase {
         var hasVerticalRoom: Bool {
             view.bounds.height > scroll.documentVisibleRect.height + 1
         }
+        var hasHorizontalRoom: Bool {
+            view.bounds.width > scroll.documentVisibleRect.width + 1
+        }
 
-        /// Dispatch a real scroll event (pixel-precise) through the canvas's
-        /// own scrollWheel handler.
-        func scroll(dx: Int32, dy: Int32) {
-            guard let cg = CGEvent(scrollWheelEvent2Source: nil, units: .pixel,
-                                   wheelCount: 2, wheel1: dy, wheel2: dx, wheel3: 0),
-                  let ev = NSEvent(cgEvent: cg) else {
+        /// Dispatch a real scroll event through the canvas's own scrollWheel
+        /// handler. `precise` = trackpad pixel deltas; otherwise a mouse-wheel
+        /// line event. `shift` sets the Shift modifier (mouse horizontal-scroll
+        /// convention). wheel1 = vertical axis, wheel2 = horizontal axis.
+        func scroll(dx: Int32, dy: Int32, precise: Bool = true, shift: Bool = false) {
+            guard let cg = CGEvent(scrollWheelEvent2Source: nil,
+                                   units: precise ? .pixel : .line,
+                                   wheelCount: 2, wheel1: dy, wheel2: dx, wheel3: 0) else {
                 XCTFail("could not synthesize a scroll event"); return
+            }
+            if shift { cg.flags = .maskShift }
+            guard let ev = NSEvent(cgEvent: cg) else {
+                XCTFail("could not wrap CGEvent as NSEvent"); return
             }
             view.scrollWheel(with: ev)
         }
@@ -93,5 +103,39 @@ final class MindMapInteractiveScrollPanTests: XCTestCase {
         try XCTSkipIf(first <= 0, "headless scroll view didn't pan")
         h.scroll(dx: 0, dy: -40)
         XCTAssertGreaterThan(h.origin.y, first, "successive vertical scrolls keep panning")
+    }
+
+    /// Trackpad: a precise pixel scroll pans vertically.
+    func testTrackpadScrollPans() throws {
+        let h = Harness()
+        try XCTSkipUnless(h.hasVerticalRoom, "fixture needs vertical scroll room")
+        h.scroll(dx: 0, dy: -50, precise: true)
+        try XCTSkipIf(h.origin.y <= 0, "headless scroll view didn't pan")
+        XCTAssertGreaterThan(h.origin.y, 0, "trackpad pixel scroll pans the canvas")
+    }
+
+    /// Mouse wheel: a non-precise line scroll also pans (amplified).
+    func testMouseWheelScrollPans() throws {
+        let h = Harness()
+        try XCTSkipUnless(h.hasVerticalRoom, "fixture needs vertical scroll room")
+        h.scroll(dx: 0, dy: -3, precise: false)
+        try XCTSkipIf(h.origin.y <= 0, "headless scroll view didn't pan")
+        XCTAssertGreaterThan(h.origin.y, 0, "mouse-wheel line scroll pans the canvas")
+    }
+
+    /// Mouse wheel + Shift: pans HORIZONTALLY (the wheel delta moves the X
+    /// axis), and leaves the vertical offset untouched. This is the
+    /// "mouse-scroll(+shift) should use the panning code" case.
+    func testShiftMouseWheelPansHorizontally() throws {
+        let h = Harness()
+        try XCTSkipUnless(h.hasHorizontalRoom, "fixture needs horizontal scroll room")
+        // First pan down so we can prove the vertical offset survives.
+        h.scroll(dx: 0, dy: -50, precise: false)
+        let yBefore = h.origin.y
+        try XCTSkipIf(yBefore <= 0, "headless scroll view didn't pan vertically")
+        // Shift + vertical wheel → horizontal pan.
+        h.scroll(dx: 0, dy: -10, precise: false, shift: true)
+        XCTAssertGreaterThan(h.origin.x, 0, "shift+wheel pans horizontally")
+        XCTAssertEqual(h.origin.y, yBefore, accuracy: 0.5, "and leaves the vertical offset alone")
     }
 }

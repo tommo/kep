@@ -488,16 +488,36 @@ extension MindMapView {
         }
         // Pan. Translate the clip origin by the scroll delta — content follows
         // the gesture (origin moves opposite the delta, matching natural
-        // scrolling and the drag-pan direction). clip.scroll(to:) clamps to the
-        // content bounds, so panning can't wander off into empty space.
+        // scrolling and the drag-pan direction). We clamp EACH axis explicitly
+        // to its own scrollable range and read the authoritative current
+        // position from documentVisibleRect: passing an out-of-range value to
+        // clip.scroll(to:) makes NSClipView re-derive the whole origin, which
+        // was zeroing the other axis (scroll Y, then scroll X, and Y jumped
+        // back to 0).
         let (dx, dy) = Self.panOffset(
             deltaX: event.scrollingDeltaX, deltaY: event.scrollingDeltaY,
             precise: event.hasPreciseScrollingDeltas)
         guard dx != 0 || dy != 0 else { return }
         let clip = scroll.contentView
-        let origin = clip.bounds.origin
-        clip.scroll(to: NSPoint(x: origin.x - dx, y: origin.y - dy))
+        let target = Self.pannedOrigin(
+            current: scroll.documentVisibleRect.origin, dx: dx, dy: dy,
+            docSize: bounds.size, viewportSize: scroll.documentVisibleRect.size)
+        clip.scroll(to: target)
         scroll.reflectScrolledClipView(clip)
+    }
+
+    /// New clip origin after panning by (dx, dy), clamped per-axis to
+    /// `[0, doc − viewport]`. Each axis is independent, so panning one never
+    /// disturbs the other. Pure → unit-testable.
+    static func pannedOrigin(
+        current: CGPoint, dx: CGFloat, dy: CGFloat,
+        docSize: CGSize, viewportSize: CGSize
+    ) -> CGPoint {
+        let maxX = max(0, docSize.width - viewportSize.width)
+        let maxY = max(0, docSize.height - viewportSize.height)
+        return CGPoint(
+            x: min(max(0, current.x - dx), maxX),
+            y: min(max(0, current.y - dy), maxY))
     }
 
     /// Per-event zoom factor for ⌘+scroll: scroll up (positive delta) zooms in,

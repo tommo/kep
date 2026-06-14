@@ -28,6 +28,7 @@ private struct GeneralPrefs: View {
     @AppStorage(PrefKeys.showHiddenFiles) private var showHiddenFiles: Bool = false
     @AppStorage(PrefKeys.hideFileExtensions) private var hideFileExtensions: Bool = false
     @AppStorage(PrefKeys.confirmBeforeQuit) private var confirmBeforeQuit: Bool = false
+    @AppStorage(PrefKeys.openLastFiles) private var openLastFiles: Bool = true
     @Environment(AppSession.self) private var session
 
     var body: some View {
@@ -47,6 +48,7 @@ private struct GeneralPrefs: View {
             }
             Section(L("prefs.general.section.behavior")) {
                 Toggle(L("prefs.general.confirm_before_quit"), isOn: $confirmBeforeQuit)
+                Toggle(L("prefs.general.open_last_files"), isOn: $openLastFiles)
             }
             RestoreDefaultsRow(group: .general)
         }

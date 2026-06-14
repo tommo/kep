@@ -22,6 +22,7 @@ public enum PrefResetGroup: String, CaseIterable, Sendable {
                 PrefKeys.showHiddenFiles,
                 PrefKeys.hideFileExtensions,
                 PrefKeys.confirmBeforeQuit,
+                PrefKeys.openLastFiles,
                 PrefKeys.sidebarVisible,
             ]
         case .editor:

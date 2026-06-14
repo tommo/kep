@@ -186,6 +186,7 @@
 "prefs.general.hide_file_extensions" = "侧边栏隐藏文件扩展名";
 "prefs.general.section.behavior" = "退出行为";
 "prefs.general.confirm_before_quit" = "退出前确认";
+"prefs.general.open_last_files" = "启动时重新打开上次的文件";
 "quit.confirm.title" = "退出 Mindo？";
 "quit.confirm.message" = "已打开标签页中的未保存改动可能会丢失。";
 "quit.confirm.quit" = "退出";

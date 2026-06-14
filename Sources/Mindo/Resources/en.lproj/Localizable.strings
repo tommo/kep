@@ -189,6 +189,7 @@
 "prefs.general.hide_file_extensions" = "Hide file extensions in sidebar";
 "prefs.general.section.behavior" = "Quit behavior";
 "prefs.general.confirm_before_quit" = "Confirm before quitting";
+"prefs.general.open_last_files" = "Reopen last files on launch";
 "quit.confirm.title" = "Quit Mindo?";
 "quit.confirm.message" = "Any unsaved changes in open tabs may be lost.";
 "quit.confirm.quit" = "Quit";

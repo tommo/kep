@@ -21,6 +21,8 @@ public enum PrefKeys {
     /// (matches the macOS expectation). Mirrors mindolph's
     /// `GENERAL_CONFIRM_BEFORE_QUITTING`.
     public static let confirmBeforeQuit = "mindo.prefs.confirmBeforeQuit"
+    /// Reopen the tabs from the previous session on launch (default true).
+    public static let openLastFiles = "mindo.prefs.openLastFiles"
     /// Optional preferred monospaced font family for the markdown /
     /// plantuml editors. Empty = use the system default monospaced font.
     public static let editorFontFamily = "mindo.prefs.editorFontFamily"

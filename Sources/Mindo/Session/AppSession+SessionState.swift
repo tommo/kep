@@ -1,4 +1,5 @@
 import Foundation
+import MindoCore
 
 /// Persists which file-backed tabs were open when the app last quit, plus
 /// which one was active. Untitled / unsaved scratch documents aren't
@@ -26,10 +27,15 @@ extension AppSession {
     /// longer exist on disk (the workspace tree has already trimmed
     /// stale workspaces; this does the same for individual files).
     func restoreOpenTabs() {
-        let paths = UserDefaults.standard.stringArray(forKey: Self.openTabsKey) ?? []
+        let saved = UserDefaults.standard.stringArray(forKey: Self.openTabsKey) ?? []
         let activePath = UserDefaults.standard.string(forKey: Self.activeTabKey)
         let fm = FileManager.default
-        for path in paths where fm.fileExists(atPath: path) {
+        // Gated by the "Open Last Files" pref; only reopens files still on disk.
+        let paths = SessionRestore.pathsToReopen(
+            savedPaths: saved,
+            openLastFiles: PrefKeys.bool(PrefKeys.openLastFiles, fallback: true),
+            exists: { fm.fileExists(atPath: $0) })
+        for path in paths {
             open(url: URL(fileURLWithPath: path))
         }
         if let activePath,

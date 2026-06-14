@@ -73,6 +73,33 @@ final class WindowedMindMap {
         click(viewPoint: CGPoint(x: el.frame.midX, y: el.frame.midY), clickCount: clickCount, mods: mods)
     }
 
+    private func mouse(_ type: NSEvent.EventType, _ viewPoint: CGPoint, _ mods: NSEvent.ModifierFlags = []) {
+        let ev = NSEvent.mouseEvent(
+            with: type, location: view.convert(viewPoint, to: nil), modifierFlags: mods,
+            timestamp: 0, windowNumber: window.windowNumber, context: nil,
+            eventNumber: 0, clickCount: 1, pressure: type == .leftMouseDown ? 1 : 0)!
+        window.sendEvent(ev)
+    }
+
+    /// Drag from `from` to `to` (view coordinates) with intermediate steps, so
+    /// the drag passes the start threshold and updates targets en route.
+    func drag(from: CGPoint, to: CGPoint, steps: Int = 6, mods: NSEvent.ModifierFlags = []) {
+        mouse(.leftMouseDown, from, mods)
+        for i in 1...steps {
+            let t = CGFloat(i) / CGFloat(steps)
+            let p = CGPoint(x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t)
+            mouse(.leftMouseDragged, p, mods)
+        }
+        mouse(.leftMouseUp, to, mods)
+    }
+
+    /// Drag one topic's centre onto another's.
+    func drag(topic src: Topic, onto dst: Topic, mods: NSEvent.ModifierFlags = []) {
+        guard let s = view.element(forTopic: src), let d = view.element(forTopic: dst) else { return }
+        drag(from: CGPoint(x: s.frame.midX, y: s.frame.midY),
+             to: CGPoint(x: d.frame.midX, y: d.frame.midY), mods: mods)
+    }
+
     /// The live text in the inline editor's field editor (what the user would
     /// actually see), or nil when no editor is open.
     var editorText: String? {

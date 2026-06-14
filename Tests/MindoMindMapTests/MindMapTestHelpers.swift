@@ -52,6 +52,27 @@ final class WindowedMindMap {
         sendKey(String(Character(UnicodeScalar(functionKey)!)), mods)
     }
 
+    /// Post a real left mouse-down + up at a point given in the view's
+    /// (flipped) coordinate space — routed through the window so hit-testing
+    /// and the view's mouseDown/mouseUp run for real. `clickCount` 2 = a
+    /// double-click (drives begin-inline-edit).
+    func click(viewPoint p: CGPoint, clickCount: Int = 1, mods: NSEvent.ModifierFlags = []) {
+        let inWindow = view.convert(p, to: nil)
+        for phase in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+            let ev = NSEvent.mouseEvent(
+                with: phase, location: inWindow, modifierFlags: mods,
+                timestamp: 0, windowNumber: window.windowNumber, context: nil,
+                eventNumber: 0, clickCount: clickCount, pressure: 1)!
+            window.sendEvent(ev)
+        }
+    }
+
+    /// Click the centre of `topic`'s laid-out element.
+    func click(topic: Topic, clickCount: Int = 1, mods: NSEvent.ModifierFlags = []) {
+        guard let el = view.element(forTopic: topic) else { return }
+        click(viewPoint: CGPoint(x: el.frame.midX, y: el.frame.midY), clickCount: clickCount, mods: mods)
+    }
+
     /// The live text in the inline editor's field editor (what the user would
     /// actually see), or nil when no editor is open.
     var editorText: String? {

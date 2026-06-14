@@ -57,9 +57,14 @@ extension MindMapView {
             selectElement(el)
         }
         if event.clickCount == 2, let el = el {
+            // Double-click edits. beginInlineEdit makes the field editor the
+            // first responder — DON'T steal it back to the canvas below, or
+            // the user couldn't type into the editor they just opened.
             beginInlineEdit(on: el)
-        } else if let el = el, el.topic.parent != nil,
-                  !event.modifierFlags.contains(.command) && !event.modifierFlags.contains(.shift) {
+            return
+        }
+        if let el = el, el.topic.parent != nil,
+           !event.modifierFlags.contains(.command) && !event.modifierFlags.contains(.shift) {
             dragOrigin = p
             dragSourceElement = el
         }

@@ -237,17 +237,22 @@ extension MindMapView {
 
         guard let gap = MindMapDragGap.gapIndex(for: p.y, sortedRanges: ranges) else { return nil }
 
-        // Map gap (in sortedSiblings space) → insertion index in
-        // parent.children (which can include the source itself + other-side
-        // children, neither of which appear in `siblings`).
-        // Find the children-array index of the sibling we're inserting *before*.
+        // Map gap (in sortedSiblings space) → insertion index for
+        // undoableReparent, whose convention is the FINAL index *after* the
+        // source has been removed (it removes-then-appends-then-moves). So the
+        // index must be computed against the children array with the source
+        // EXCLUDED — otherwise dragging a node downward past later siblings
+        // lands it one slot too far (it slid to the end instead of into the
+        // gap). Other-side root children stay in the array; only the source is
+        // dropped.
         let insertBefore: MindMapElement? = gap < sortedSiblings.count ? sortedSiblings[gap] : nil
+        let childrenWithoutSource = parentEl.children.filter { $0 !== source }
         let insertIndex: Int
         if let target = insertBefore,
-           let idx = parentEl.children.firstIndex(where: { $0 === target }) {
+           let idx = childrenWithoutSource.firstIndex(where: { $0 === target }) {
             insertIndex = idx
         } else {
-            insertIndex = parentEl.children.count
+            insertIndex = childrenWithoutSource.count
         }
 
         // Indicator Y: midpoint of the gap (or just above first / below last).

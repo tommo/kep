@@ -14,6 +14,52 @@ func makeHeadlessMindMap(
     return view
 }
 
+/// A MindMapView inside a REAL key window, so the full responder chain and
+/// NSTextField field editor are live. Drive it with `sendKey` to exercise
+/// genuine NSEvent dispatch (performKeyEquivalent → keyDown, and typing into
+/// the inline editor's field editor) — the things the window-less helper
+/// cannot reach. Returns nil-capable via XCTSkip at the call site if the
+/// environment can't host a key window.
+@MainActor
+final class WindowedMindMap {
+    let window: NSWindow
+    let view: MindMapView
+
+    init(map: MindMap, size: NSSize = NSSize(width: 900, height: 640)) {
+        window = NSWindow(
+            contentRect: NSRect(origin: .zero, size: size),
+            styleMask: [.titled], backing: .buffered, defer: false)
+        view = MindMapView(frame: NSRect(origin: .zero, size: size))
+        window.contentView = view
+        window.makeKeyAndOrderFront(nil)
+        view.display(map: map)
+        window.makeFirstResponder(view)
+    }
+
+    /// Post a real key-down event through the window's event dispatch — it
+    /// routes through performKeyEquivalent / keyDown, or into the inline
+    /// editor's field editor when one is first responder.
+    func sendKey(_ chars: String, _ mods: NSEvent.ModifierFlags = []) {
+        let ev = NSEvent.keyEvent(
+            with: .keyDown, location: .zero, modifierFlags: mods,
+            timestamp: 0, windowNumber: window.windowNumber, context: nil,
+            characters: chars, charactersIgnoringModifiers: chars,
+            isARepeat: false, keyCode: 0)!
+        window.sendEvent(ev)
+    }
+
+    func sendArrow(_ functionKey: Int, _ mods: NSEvent.ModifierFlags = []) {
+        sendKey(String(Character(UnicodeScalar(functionKey)!)), mods)
+    }
+
+    /// The live text in the inline editor's field editor (what the user would
+    /// actually see), or nil when no editor is open.
+    var editorText: String? {
+        guard let field = view.inlineEditor else { return nil }
+        return field.currentEditor()?.string ?? field.stringValue
+    }
+}
+
 /// Same as `makeHeadlessMindMap` but with an injected UndoManager so undo
 /// / redo can be driven directly. Setting groupsByEvent=false stops
 /// NSUndoManager from coalescing every test registration into a single

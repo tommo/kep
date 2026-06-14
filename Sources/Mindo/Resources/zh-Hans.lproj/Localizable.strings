@@ -136,6 +136,9 @@
 "sidebar.menu.delete_permanently" = "永久删除…";
 "sidebar.delete_permanently.title" = "永久删除 %@ ？";
 "sidebar.delete_permanently.message" = "该文件或文件夹将被立即移除。此操作不可撤销。";
+"sidebar.rename_collision.title" = "“%@” 已存在";
+"sidebar.rename_collision.message" = "此处已有同名项。改用 “%@” 吗？";
+"sidebar.rename_collision.use_suggestion" = "使用 “%@”";
 "button.delete" = "删除";
 "sidebar.menu.delete" = "移到废纸篓";
 "sidebar.menu.remove_workspace" = "移除工作区";

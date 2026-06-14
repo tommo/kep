@@ -49,14 +49,37 @@ extension AppSession {
         renamingNodeID = node.id
     }
 
-    /// Commit a rename to disk. Empty / unchanged names quietly cancel.
-    /// Always clears `renamingNodeID` so the inline editor closes.
+    /// Commit a rename to disk. Empty / unchanged names quietly cancel. When
+    /// the chosen name is already taken, offer a unique " 2" variant rather
+    /// than failing with a cryptic move error. Always clears `renamingNodeID`
+    /// so the inline editor closes.
     @MainActor
     func renameNode(_ node: NodeData, to newName: String) {
         defer { renamingNodeID = nil }
-        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, trimmed != node.name else { return }
-        let dest = node.url.deletingLastPathComponent().appendingPathComponent(trimmed)
+        let dir = node.url.deletingLastPathComponent()
+        let outcome = RenamePlan.resolve(
+            current: node.name,
+            desired: newName,
+            exists: { FileManager.default.fileExists(atPath: dir.appendingPathComponent($0).path) }
+        )
+        let finalName: String
+        switch outcome {
+        case .unchanged:
+            return
+        case .ok(let name):
+            finalName = name
+        case .collision(let requested, let suggestion):
+            // Offer the unique suggestion or cancel. Replacing the existing
+            // item would be destructive, so it's not the default path.
+            let alert = NSAlert()
+            alert.messageText = String(format: L("sidebar.rename_collision.title"), requested)
+            alert.informativeText = String(format: L("sidebar.rename_collision.message"), suggestion)
+            alert.addButton(withTitle: String(format: L("sidebar.rename_collision.use_suggestion"), suggestion))
+            alert.addButton(withTitle: L("button.cancel"))
+            guard alert.runModal() == .alertFirstButtonReturn else { return }
+            finalName = suggestion
+        }
+        let dest = dir.appendingPathComponent(finalName)
         do {
             try FileManager.default.moveItem(at: node.url, to: dest)
             reloadWorkspace(containing: node)

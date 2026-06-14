@@ -139,6 +139,9 @@
 "sidebar.menu.delete_permanently" = "Delete Permanently…";
 "sidebar.delete_permanently.title" = "Permanently delete %@?";
 "sidebar.delete_permanently.message" = "This file or folder will be removed immediately. You can't undo this action.";
+"sidebar.rename_collision.title" = "“%@” already exists";
+"sidebar.rename_collision.message" = "An item with that name is already here. Rename to “%@” instead?";
+"sidebar.rename_collision.use_suggestion" = "Use “%@”";
 "button.delete" = "Delete";
 "sidebar.menu.delete" = "Move to Trash";
 "sidebar.menu.remove_workspace" = "Remove Workspace";

@@ -123,6 +123,9 @@
 "sidebar.menu.copy_relative_path" = "Copy Relative Path";
 "sidebar.menu.rename" = "Rename…";
 "sidebar.menu.duplicate" = "Duplicate";
+"sidebar.menu.copy_file" = "Copy File";
+"sidebar.menu.paste_file" = "Paste File";
+"sidebar.menu.move_to" = "Move To…";
 "sidebar.menu.new_file.mindmap" = "Mind Map (.mmd)";
 "sidebar.menu.new_file.markdown" = "Markdown (.md)";
 "sidebar.menu.new_file.plantuml" = "PlantUML (.puml)";

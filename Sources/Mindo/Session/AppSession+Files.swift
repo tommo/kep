@@ -121,6 +121,64 @@ extension AppSession {
         }
     }
 
+    // MARK: - Copy / Paste / Move files (cross-workspace)
+
+    /// Put the node's file URL on the general pasteboard so it can be pasted
+    /// into another folder/workspace (or dragged into Finder). Mirrors
+    /// Mindolph's WorkspaceViewEditable "Copy File".
+    @MainActor
+    func copyFileToPasteboard(_ node: NodeData) {
+        guard !node.isWorkspace else { return }
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.writeObjects([node.url as NSURL])
+    }
+
+    /// Copy every file URL on the pasteboard into `node`'s folder (or the
+    /// node's parent folder when it's a file), giving each a collision-safe
+    /// name. No-op when the pasteboard carries no file URLs.
+    @MainActor
+    func pasteFile(into node: NodeData) {
+        let dir = node.isExpandable ? node.url : node.url.deletingLastPathComponent()
+        let pb = NSPasteboard.general
+        guard let urls = pb.readObjects(forClasses: [NSURL.self]) as? [URL], !urls.isEmpty else { return }
+        let fm = FileManager.default
+        var pastedAny = false
+        for src in urls where fm.fileExists(atPath: src.path) {
+            let dest = FileTransfer.destinationURL(
+                forItemNamed: src.lastPathComponent, in: dir,
+                exists: { fm.fileExists(atPath: $0.path) })
+            do { try fm.copyItem(at: src, to: dest); pastedAny = true }
+            catch { lastError = String(format: L("error.create_failed"), error.localizedDescription) }
+        }
+        if pastedAny { reloadWorkspace(containing: node) }
+    }
+
+    /// Relocate the node's file/folder into a directory chosen via an open
+    /// panel — the cross-workspace "Move To…" Mindolph offers. Blocks
+    /// no-op / self-nesting moves and resolves name collisions.
+    @MainActor
+    func moveNodeToFolder(_ node: NodeData) {
+        guard !node.isWorkspace else { return }
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = L("sidebar.menu.move_to")
+        guard panel.runModal() == .OK, let dir = panel.url else { return }
+        guard !FileTransfer.isRedundantOrInvalidMove(source: node.url, intoDirectory: dir) else { return }
+        let fm = FileManager.default
+        let dest = FileTransfer.destinationURL(
+            forItemNamed: node.url.lastPathComponent, in: dir,
+            exists: { fm.fileExists(atPath: $0.path) })
+        do {
+            try fm.moveItem(at: node.url, to: dest)
+            reloadAllWorkspaces()
+        } catch {
+            lastError = String(format: L("error.save_failed"), error.localizedDescription)
+        }
+    }
+
     // MARK: - Create
 
     /// Prompt for a filename and create an empty file inside `node`'s folder.

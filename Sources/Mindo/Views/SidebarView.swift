@@ -245,6 +245,13 @@ struct NodeRow: View {
         Divider()
         if !node.isWorkspace {
             Button(L("sidebar.menu.duplicate")) { session.duplicateNode(node) }
+            Button(L("sidebar.menu.copy_file")) { session.copyFileToPasteboard(node) }
+            Button(L("sidebar.menu.move_to")) { session.moveNodeToFolder(node) }
+        }
+        if node.isExpandable {
+            Button(L("sidebar.menu.paste_file")) { session.pasteFile(into: node) }
+        }
+        if !node.isWorkspace {
             Button(L("sidebar.menu.rename")) { session.renameNode(node) }
             Button(L("sidebar.menu.delete"), role: .destructive) { session.deleteNode(node) }
             Button(L("sidebar.menu.delete_permanently"), role: .destructive) { session.deleteNodePermanently(node) }

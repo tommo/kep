@@ -120,6 +120,9 @@
 "sidebar.menu.copy_relative_path" = "复制相对路径";
 "sidebar.menu.rename" = "重命名…";
 "sidebar.menu.duplicate" = "复制副本";
+"sidebar.menu.copy_file" = "拷贝文件";
+"sidebar.menu.paste_file" = "粘贴文件";
+"sidebar.menu.move_to" = "移动到…";
 "sidebar.menu.new_file.mindmap" = "思维导图 (.mmd)";
 "sidebar.menu.new_file.markdown" = "Markdown (.md)";
 "sidebar.menu.new_file.plantuml" = "PlantUML (.puml)";

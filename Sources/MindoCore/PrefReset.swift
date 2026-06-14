@@ -30,6 +30,8 @@ public enum PrefResetGroup: String, CaseIterable, Sendable {
                 PrefKeys.editorFontSize,
                 PrefKeys.editorFontFamily,
                 PrefKeys.markdownPreviewSyncScroll,
+                PrefKeys.markdownPreviewFont,
+                PrefKeys.markdownPreviewMonoFont,
                 PrefKeys.autosaveOnBlur,
                 PrefKeys.markdownSplitVertical,
                 PrefKeys.markdownViewMode,

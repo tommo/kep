@@ -26,6 +26,10 @@ public enum PrefKeys {
     /// Optional preferred monospaced font family for the markdown /
     /// plantuml editors. Empty = use the system default monospaced font.
     public static let editorFontFamily = "mindo.prefs.editorFontFamily"
+    /// Markdown preview body (sans) + code (mono) font families. Empty =
+    /// system default. Applied to the preview and HTML/PDF export.
+    public static let markdownPreviewFont = "mindo.prefs.markdownPreviewFont"
+    public static let markdownPreviewMonoFont = "mindo.prefs.markdownPreviewMonoFont"
     /// Markdown editor split orientation. true (default) = source on
     /// the left, preview on the right; false = source on top, preview
     /// below. Mirrors mindolph's per-editor Orientation pref.

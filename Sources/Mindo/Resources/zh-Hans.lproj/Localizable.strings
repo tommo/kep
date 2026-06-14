@@ -202,6 +202,9 @@
 "prefs.mindmap.unfold_on_drop" = "拖拽落到折叠话题时自动展开";
 "prefs.mindmap.smart_text_paste" = "纯文本粘贴为话题大纲";
 "prefs.mindmap.grid_step" = "网格间距：%d pt";
+"prefs.editor.section.preview" = "Markdown 预览字体";
+"prefs.editor.preview_font" = "正文字体";
+"prefs.editor.preview_mono_font" = "代码字体";
 "prefs.editor.section.split" = "编辑器分屏方向";
 "prefs.editor.split.markdown" = "Markdown 编辑器";
 "prefs.editor.split.plantuml" = "PlantUML 编辑器";

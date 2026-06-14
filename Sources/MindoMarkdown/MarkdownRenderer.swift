@@ -1,5 +1,6 @@
 import Foundation
 import Markdown
+import MindoCore
 
 /// Converts a Markdown document to standalone HTML using Apple's `swift-markdown`.
 /// Wraps the result in a styled HTML document suitable for `WKWebView`.
@@ -55,16 +56,43 @@ public enum MarkdownRenderer {
     img { max-width: 100%; }
     """
 
-    /// Convert raw Markdown text to a complete HTML document string.
+    /// CSS overriding the body (sans) and code (mono) font families, appended
+    /// after the base stylesheet so the cascade picks the user's choice. Pure
+    /// (no PrefKeys) so the sanitization + emitted rules are unit-testable.
+    /// Empty when neither font is set. Names are stripped of characters that
+    /// could break out of the CSS string.
+    public static func fontOverrideCSS(sans: String?, mono: String?) -> String {
+        var rules: [String] = []
+        if let s = sanitizedFontName(sans) {
+            rules.append("body { font-family: \"\(s)\", -apple-system, system-ui, sans-serif; }")
+        }
+        if let m = sanitizedFontName(mono) {
+            rules.append("code, pre, pre code { font-family: \"\(m)\", ui-monospace, Menlo, monospace; }")
+        }
+        return rules.joined(separator: "\n")
+    }
+
+    static func sanitizedFontName(_ name: String?) -> String? {
+        guard let trimmed = name?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else { return nil }
+        let cleaned = trimmed.filter { $0 != "\"" && $0 != ";" && $0 != "\n" && $0 != "{" && $0 != "}" }
+        return cleaned.isEmpty ? nil : cleaned
+    }
+
+    /// Convert raw Markdown text to a complete HTML document string. Applies
+    /// the user's preview font overrides (PrefKeys) so the preview and the
+    /// HTML/PDF exporters — which both call this — match.
     public static func render(markdown: String) -> String {
         let document = Document(parsing: markdown, options: [.parseBlockDirectives])
         var formatter = HTMLFormatter()
         formatter.visit(document)
         let body = formatter.result
+        let fontCSS = fontOverrideCSS(
+            sans: PrefKeys.string(PrefKeys.markdownPreviewFont),
+            mono: PrefKeys.string(PrefKeys.markdownPreviewMonoFont))
         return """
         <!doctype html>
         <html><head><meta charset="utf-8">
-        <style>\(previewStylesheet)</style>
+        <style>\(previewStylesheet)\n\(fontCSS)</style>
         <script>\(scrollSyncScript)</script>
         </head><body>\(body)</body></html>
         """

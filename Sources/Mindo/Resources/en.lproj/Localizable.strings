@@ -205,6 +205,9 @@
 "prefs.mindmap.unfold_on_drop" = "Unfold collapsed topic when something is dropped on it";
 "prefs.mindmap.smart_text_paste" = "Paste plain text as topic outline";
 "prefs.mindmap.grid_step" = "Grid spacing: %d pt";
+"prefs.editor.section.preview" = "Markdown preview fonts";
+"prefs.editor.preview_font" = "Body font";
+"prefs.editor.preview_mono_font" = "Code font";
 "prefs.editor.section.split" = "Editor split orientation";
 "prefs.editor.split.markdown" = "Markdown editor";
 "prefs.editor.split.plantuml" = "PlantUML editor";

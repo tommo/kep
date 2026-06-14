@@ -82,6 +82,8 @@ private struct EditorPrefs: View {
     @AppStorage(PrefKeys.markdownSplitVertical) private var markdownSplitVertical: Bool = true
     @AppStorage(PrefKeys.plantumlSplitVertical) private var plantumlSplitVertical: Bool = true
     @AppStorage(PrefKeys.plantumlGraphvizPath) private var graphvizPath: String = ""
+    @AppStorage(PrefKeys.markdownPreviewFont) private var previewFont: String = ""
+    @AppStorage(PrefKeys.markdownPreviewMonoFont) private var previewMonoFont: String = ""
 
     var body: some View {
         Form {
@@ -97,6 +99,16 @@ private struct EditorPrefs: View {
                 }
                 Toggle(L("prefs.editor.sync_scroll"), isOn: $syncScroll)
                 Toggle(L("prefs.editor.autosave_on_blur"), isOn: $autosaveOnBlur)
+            }
+            Section(L("prefs.editor.section.preview")) {
+                Picker(L("prefs.editor.preview_font"), selection: $previewFont) {
+                    Text(L("prefs.editor.font_family.system")).tag("")
+                    ForEach(EditorFont.pickerFamilies, id: \.self) { name in Text(name).tag(name) }
+                }
+                Picker(L("prefs.editor.preview_mono_font"), selection: $previewMonoFont) {
+                    Text(L("prefs.editor.font_family.system")).tag("")
+                    ForEach(EditorFont.pickerFamilies, id: \.self) { name in Text(name).tag(name) }
+                }
             }
             Section(L("prefs.editor.section.split")) {
                 Picker(L("prefs.editor.split.markdown"), selection: $markdownSplitVertical) {

@@ -65,6 +65,25 @@ final class MindMapInteractiveReorderTests: XCTestCase {
         _ = c
     }
 
+    /// The reorder must undo to the EXACT original order and redo back — the
+    /// inverse uses the source's captured old index, independent of the
+    /// forward off-by-one fix, so this guards both directions.
+    func testDragReorderUndoRedo() throws {
+        let (h, root, k) = try build()
+        let mgr = UndoManager(); mgr.groupsByEvent = false
+        h.view.injectedUndoManager = mgr
+
+        h.drag(from: center(h, k[0]), to: gapBetween(h, k[2], k[3]), steps: 10)  // A → C|D gap
+        XCTAssertEqual(root.children.map(\.text), ["B", "C", "A", "D"])
+
+        mgr.undo()
+        XCTAssertEqual(root.children.map(\.text), ["A", "B", "C", "D"],
+                       "undo restores the exact original order")
+        mgr.redo()
+        XCTAssertEqual(root.children.map(\.text), ["B", "C", "A", "D"],
+                       "redo re-applies the reorder")
+    }
+
     /// A reorder must keep the root anchored (it's just another relayout).
     func testReorderKeepsRootAnchored() throws {
         let (h, root, k) = try build()

@@ -61,12 +61,12 @@ extension AppSession {
         case .mindMap:
             inDocFindOpen.toggle()
         case .text, .unsupported:
-            // Performing the standard "performFindPanelAction" via the
-            // first responder chain lets NSTextView's built-in find bar
-            // take over (we set usesFindBar=true on the editors).
-            let target: AnyObject? = nil
-            let sender: AnyObject? = nil
-            NSApp.sendAction(Selector(("performFindPanelAction:")), to: target, from: sender)
+            // Route performFindPanelAction: through the responder chain so
+            // NSTextView's built-in find bar (usesFindBar=true) takes over.
+            // The sender MUST carry tag = showFindPanel — performFindPanelAction
+            // reads sender.tag to pick the operation, and the old nil sender's
+            // tag-0 was an invalid action, so ⌘F silently did nothing.
+            TextFindBar.showFindBar()
         }
     }
 

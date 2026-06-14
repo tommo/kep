@@ -149,6 +149,51 @@ public enum MarkdownFormatting {
         prefixLines(text, range: range, with: "> ")
     }
 
+    /// Toggle task checkboxes across the selected line(s) — the Obsidian
+    /// "toggle checkbox status" action. Per line: an existing `- [ ] ` / `- [x] `
+    /// flips its tick; a plain `- ` bullet gains a `[ ] `; any other non-blank
+    /// line becomes a `- [ ] ` task; blank lines are left alone.
+    public static func toggleTask(_ text: String, range: NSRange) -> (String, NSRange) {
+        let nsText = text as NSString
+        let lineRange = nsText.lineRange(for: range)
+        let block = nsText.substring(with: lineRange)
+        let lines = block.split(separator: "\n", omittingEmptySubsequences: false)
+        let trailingEmpty = block.hasSuffix("\n")
+        var rebuilt: [String] = []
+        for (i, sub) in lines.enumerated() {
+            if sub.isEmpty && i == lines.count - 1 && trailingEmpty {
+                rebuilt.append("")
+            } else {
+                rebuilt.append(toggleTaskLine(String(sub)))
+            }
+        }
+        let joined = rebuilt.joined(separator: "\n")
+        let newText = nsText.replacingCharacters(in: lineRange, with: joined)
+        let newRange = NSRange(location: lineRange.location, length: (joined as NSString).length)
+        return (newText, newRange)
+    }
+
+    private static func toggleTaskLine(_ line: String) -> String {
+        let indentCount = line.prefix(while: { $0 == " " || $0 == "\t" }).count
+        let indent = String(line.prefix(indentCount))
+        let rest = String(line.dropFirst(indentCount))
+        let chars = Array(rest)
+        // Existing task: "<bullet> [<state>] rest" → flip the state.
+        if chars.count >= 6, "-*+".contains(chars[0]), chars[1] == " ",
+           chars[2] == "[", chars[4] == "]", chars[5] == " " {
+            let newState: Character = (chars[3] == " ") ? "x" : " "
+            return "\(indent)\(chars[0]) [\(newState)] \(String(chars[6...]))"
+        }
+        // Plain bullet → add an unchecked box.
+        if chars.count >= 2, "-*+".contains(chars[0]), chars[1] == " " {
+            return "\(indent)\(chars[0]) [ ] \(String(chars[2...]))"
+        }
+        // Blank (indent-only) line: leave it be.
+        if rest.isEmpty { return line }
+        // Plain text → promote to a task item.
+        return "\(indent)- [ ] \(rest)"
+    }
+
     public static func link(_ text: String, range: NSRange, url: String) -> (String, NSRange) {
         let nsText = text as NSString
         guard NSMaxRange(range) <= nsText.length else { return (text, range) }

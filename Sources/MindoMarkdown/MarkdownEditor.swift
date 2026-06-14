@@ -149,6 +149,7 @@ public struct MarkdownEditor: NSViewRepresentable {
         stack.addArrangedSubview(makeVerticalDivider())
         stack.addArrangedSubview(iconButton(symbol: "list.bullet", tooltip: "Bullet list", action: #selector(Coordinator.toolbarBullet)))
         stack.addArrangedSubview(iconButton(symbol: "list.number", tooltip: "Numbered list", action: #selector(Coordinator.toolbarNumbered)))
+        stack.addArrangedSubview(iconButton(symbol: "checklist", tooltip: "Toggle task checkbox", action: #selector(Coordinator.toolbarToggleTask)))
         stack.addArrangedSubview(iconButton(symbol: "text.quote", tooltip: "Quote", action: #selector(Coordinator.toolbarQuote)))
         stack.addArrangedSubview(makeVerticalDivider())
         stack.addArrangedSubview(iconButton(symbol: "link", tooltip: "Link", action: #selector(Coordinator.toolbarLink)))
@@ -232,6 +233,7 @@ public struct MarkdownEditor: NSViewRepresentable {
         @objc func toolbarH6()         { applyTransform { MarkdownFormatting.heading($0, range: $1, level: 6) } }
         @objc func toolbarBullet()     { applyTransform(MarkdownFormatting.bulletList) }
         @objc func toolbarNumbered()   { applyTransform(MarkdownFormatting.numberedList) }
+        @objc func toolbarToggleTask() { applyTransform(MarkdownFormatting.toggleTask) }
         @objc func toolbarQuote()      { applyTransform(MarkdownFormatting.blockquote) }
         @objc func toolbarLink() {
             guard let url = promptString(title: "Insert Link", message: "URL:", initial: "https://") else { return }

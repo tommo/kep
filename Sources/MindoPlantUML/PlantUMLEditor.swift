@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import WebKit
+import UniformTypeIdentifiers
 import MindoBase
 import MindoCore
 
@@ -10,10 +11,14 @@ import MindoCore
 public struct PlantUMLEditor: NSViewRepresentable {
     @Binding public var text: String
     public var isDarkMode: Bool
+    /// On-disk URL of the `.puml` being edited, when saved. Used only to
+    /// seed the export save-panel's default filename.
+    public var documentURL: URL?
 
-    public init(text: Binding<String>, isDarkMode: Bool = false) {
+    public init(text: Binding<String>, isDarkMode: Bool = false, documentURL: URL? = nil) {
         self._text = text
         self.isDarkMode = isDarkMode
+        self.documentURL = documentURL
     }
 
     public func makeNSView(context: Context) -> NSView {
@@ -112,6 +117,7 @@ public struct PlantUMLEditor: NSViewRepresentable {
         stack.addArrangedSubview(divider)
         stack.addArrangedSubview(skeletonButton("Copy SVG", tooltip: "Copy rendered diagram as SVG", action: #selector(Coordinator.copyDiagramAsSVG)))
         stack.addArrangedSubview(skeletonButton("Copy PNG", tooltip: "Copy rendered diagram as PNG", action: #selector(Coordinator.copyDiagramAsPNG)))
+        stack.addArrangedSubview(skeletonButton("Export…", tooltip: "Export rendered diagram to an SVG or PNG file", action: #selector(Coordinator.exportDiagram)))
         stack.addArrangedSubview(NSView())  // spacer
         return stack
     }
@@ -300,6 +306,69 @@ public struct PlantUMLEditor: NSViewRepresentable {
             pb.clearContents()
             pb.writeObjects([image])
             flashFooter("Copied PNG to clipboard")
+        }
+
+        /// Export the rendered diagram to an SVG or PNG file. The format is
+        /// driven by the extension the user picks in the save panel (an
+        /// accessory popup), defaulting to the source's base name. No-op with
+        /// feedback when nothing has rendered yet.
+        @objc public func exportDiagram() {
+            guard PlantUMLClipboard.outcome(for: lastSVGData) == .copied else {
+                reportNothingToCopy()
+                return
+            }
+
+            let panel = NSSavePanel()
+            panel.allowedContentTypes = [
+                UTType(filenameExtension: "svg") ?? .svg,
+                UTType.png,
+            ]
+            // Format picker so the user can flip SVG ↔ PNG; keep the panel's
+            // filename extension in sync.
+            let formats = PlantUMLImageExport.Format.allCases
+            let popup = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 90, height: 24))
+            popup.addItems(withTitles: formats.map { $0.fileExtension.uppercased() })
+            popup.target = self
+            popup.action = #selector(exportFormatChanged(_:))
+            let accessory = NSView(frame: NSRect(x: 0, y: 0, width: 240, height: 30))
+            let label = NSTextField(labelWithString: "Format:")
+            label.frame = NSRect(x: 8, y: 4, width: 60, height: 20)
+            popup.frame = NSRect(x: 70, y: 2, width: 90, height: 24)
+            accessory.addSubview(label)
+            accessory.addSubview(popup)
+            panel.accessoryView = accessory
+            exportPanel = panel
+
+            panel.nameFieldStringValue = PlantUMLImageExport.defaultFilename(
+                sourceURL: parent.documentURL, format: formats.first ?? .svg)
+            guard panel.runModal() == .OK, let url = panel.url else { exportPanel = nil; return }
+            exportPanel = nil
+
+            let format = PlantUMLImageExport.Format(rawValue: url.pathExtension.lowercased()) ?? .svg
+            guard let data = PlantUMLImageExport.data(forSVG: lastSVGData, format: format) else {
+                NSSound.beep()
+                flashFooter("Export failed — couldn't encode the diagram")
+                return
+            }
+            do {
+                try data.write(to: url)
+                flashFooter("Exported \(format.fileExtension.uppercased()) to \(url.lastPathComponent)")
+            } catch {
+                NSSound.beep()
+                flashFooter("Export failed — \(error.localizedDescription)")
+            }
+        }
+
+        /// Held only while the export panel is up so the format popup's
+        /// action can retarget its filename extension.
+        private var exportPanel: NSSavePanel?
+
+        @objc private func exportFormatChanged(_ sender: NSPopUpButton) {
+            guard let panel = exportPanel,
+                  let format = PlantUMLImageExport.Format(rawValue: sender.titleOfSelectedItem?.lowercased() ?? "") else { return }
+            // Swap the extension on the current filename stem.
+            let stem = (panel.nameFieldStringValue as NSString).deletingPathExtension
+            panel.nameFieldStringValue = stem + "." + format.fileExtension
         }
 
         /// No rendered diagram yet (or it failed) — beep and say so in the

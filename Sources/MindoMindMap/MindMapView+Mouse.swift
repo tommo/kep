@@ -414,4 +414,33 @@ extension MindMapView {
         let center = convert(event.locationInWindow, from: nil)
         scroll.setMagnification(target, centeredAt: center)
     }
+
+    // MARK: - Mouse-wheel zoom
+
+    /// ⌘ + scroll-wheel zooms, centered on the cursor — the standard mouse
+    /// (non-trackpad) zoom, pairing with drag-to-pan so the whole canvas is
+    /// navigable without a trackpad or the menu. A bare scroll falls through to
+    /// NSScrollView's normal panning.
+    public override func scrollWheel(with event: NSEvent) {
+        guard event.modifierFlags.contains(.command), let scroll = enclosingScrollView else {
+            super.scrollWheel(with: event)
+            return
+        }
+        let factor = Self.scrollZoomFactor(delta: event.scrollingDeltaY)
+        guard factor != 1 else { return }
+        let target = Self.clampedZoom(
+            current: scroll.magnification, factor: factor,
+            min: scroll.minMagnification, max: scroll.maxMagnification)
+        let center = convert(event.locationInWindow, from: nil)
+        scroll.setMagnification(target, centeredAt: center)
+    }
+
+    /// Per-event zoom factor for ⌘+scroll: scroll up (positive delta) zooms in,
+    /// down zooms out, each tick capped to ±20% so a chunky mouse wheel can't
+    /// leap across the whole zoom range in one notch. Pure → unit-testable.
+    static func scrollZoomFactor(delta: CGFloat) -> CGFloat {
+        guard delta != 0 else { return 1 }
+        let step = max(-0.2, min(0.2, delta * 0.01))
+        return 1 + step
+    }
 }

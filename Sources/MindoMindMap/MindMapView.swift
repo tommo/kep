@@ -550,7 +550,9 @@ public final class MindMapView: NSView {
     func deleteSelection() {
         // Multi-select aware: collect every selected non-root topic, walk
         // outermost-children-first so removing one doesn't invalidate the
-        // others' parent pointers.
+        // others' parent pointers. Descendant pruning (drop a victim already
+        // covered by an ancestor victim) lives in the pure MindMapSelection
+        // helper, shared with copy/cut.
         guard let root = rootElement else { return }
         var victims: [Topic] = []
         root.traverse { el in
@@ -558,20 +560,10 @@ public final class MindMapView: NSView {
                 victims.append(el.topic)
             }
         }
-        // De-dupe: drop any victim that's a descendant of another victim, the
-        // ancestor's removal already takes care of it.
-        let descendants = Set(victims.map(ObjectIdentifier.init))
-        let pruned = victims.filter { topic in
-            var t: Topic? = topic.parent
-            while let cur = t {
-                if descendants.contains(ObjectIdentifier(cur)) { return false }
-                t = cur.parent
-            }
-            return true
-        }
+        let pruned = MindMapSelection.topLevel(victims)
         guard !pruned.isEmpty else { return }
-        for topic in pruned {
-            undoableRemove(topic)
+        groupedUndo(name: pruned.count > 1 ? "Delete Topics" : "Delete Topic") {
+            for topic in pruned { undoableRemove(topic) }
         }
         // Selection collapses to the first surviving parent.
         if let firstParent = pruned.first?.parent, let parentEl = element(forTopic: firstParent) {

@@ -432,6 +432,14 @@ extension MindMapView {
 
     @objc func contextDeleteTopic(_ sender: NSMenuItem) {
         guard let element = sender.representedObject as? MindMapElement else { return }
+        // If the right-clicked topic is part of the current multi-selection,
+        // delete the whole selection (matches the Delete key); otherwise just
+        // the clicked one. (The bug: this always removed only the clicked
+        // topic, ignoring a multi-selection.)
+        if selectedTopics.contains(ObjectIdentifier(element.topic)), selectedTopics.count > 1 {
+            deleteSelection()
+            return
+        }
         undoableRemove(element.topic)
         if let parent = element.topic.parent { selectElement(self.element(forTopic: parent)) }
     }

@@ -4,26 +4,60 @@ import MindoModel
 
 extension MindMapView {
 
-    /// ⌘C — serialize the selected topic's subtree to JSON and put it on
-    /// the pasteboard under the custom mindo type. Falls through silently
-    /// when no topic is selected.
+    /// The topics targeted by a copy/cut/delete: every selected topic with
+    /// descendants pruned, in canvas (traversal) order. Falls back to the
+    /// primary `selectedElement` when the multi-selection set is empty (e.g.
+    /// a fresh single click that didn't populate `selectedTopics`).
+    func selectionTopics() -> [Topic] {
+        var topics: [Topic] = []
+        if !selectedTopics.isEmpty, let root = rootElement {
+            root.traverse { el in
+                if selectedTopics.contains(ObjectIdentifier(el.topic)) { topics.append(el.topic) }
+            }
+        }
+        if topics.isEmpty, let primary = selectedElement?.topic {
+            topics = [primary]
+        }
+        return MindMapSelection.topLevel(topics)
+    }
+
+    /// ⌘C — serialize EVERY selected topic's subtree (descendants pruned) to
+    /// JSON and put it on the pasteboard as a forest. Falls through silently
+    /// when nothing is selected. (The bug this fixes: copy only ever took the
+    /// primary topic, dropping the rest of a multi-selection.)
     @objc public func copy(_ sender: Any?) {
-        guard let topic = selectedElement?.topic,
-              let data = try? TopicSubtreeCodec.encode(topic.clone(deep: true)) else { return }
+        let topics = selectionTopics()
+        guard !topics.isEmpty,
+              let data = try? TopicSubtreeCodec.encodeForest(topics.map { $0.clone(deep: true) }) else { return }
         let pb = NSPasteboard.general
         pb.clearContents()
         pb.setData(data, forType: NSPasteboard.PasteboardType(TopicSubtreeCodec.pasteboardType))
-        // Mirror the visible label as plain text so paste into a markdown
-        // editor / external app gets something useful.
-        pb.setString(topic.text, forType: .string)
+        // Mirror the visible labels as newline-joined plain text so paste
+        // into a markdown editor / external app gets something useful.
+        pb.setString(topics.map(\.text).joined(separator: "\n"), forType: .string)
     }
 
-    /// ⌘X — copy then delete the selected topic. Goes through the existing
-    /// undoable delete so undo restores it.
+    /// ⌘X — copy then delete every selected (non-root) topic in ONE undo
+    /// group, so a multi-cut is a single ⌘Z.
     @objc public func cut(_ sender: Any?) {
-        guard let topic = selectedElement?.topic, topic.parent != nil else { return }
+        let topics = selectionTopics().filter { $0.parent != nil }   // can't cut root
+        guard !topics.isEmpty else { return }
         copy(sender)
-        undoableRemove(topic)
+        groupedUndo(name: topics.count > 1 ? "Cut Topics" : "Cut Topic") {
+            for topic in topics { undoableRemove(topic) }
+        }
+    }
+
+    /// Run `body`'s undoable mutations inside a single undo group so a
+    /// batch (multi-cut, multi-paste) collapses to one ⌘Z. `registerUndo`
+    /// only opens its own group when `groupingLevel == 0`, so wrapping here
+    /// makes the inner calls share this group.
+    func groupedUndo(name: String, _ body: () -> Void) {
+        guard let manager = undoManager else { body(); return }
+        manager.beginUndoGrouping()
+        manager.setActionName(name)
+        body()
+        manager.endUndoGrouping()
     }
 
     /// Standard `paste(_:)` responder action — fires on ⌘V when the canvas
@@ -37,9 +71,14 @@ extension MindMapView {
         guard let topic = selectedElement?.topic else { return }
         let pb = NSPasteboard.general
         if let data = pb.data(forType: NSPasteboard.PasteboardType(TopicSubtreeCodec.pasteboardType)),
-           let subtree = try? TopicSubtreeCodec.decode(data) {
-            topic.append(subtree)
-            undoableReparent(subtree, to: topic, at: topic.children.count - 1)
+           let subtrees = try? TopicSubtreeCodec.decodeForest(data), !subtrees.isEmpty {
+            // Graft every copied subtree under the target in one undo group.
+            groupedUndo(name: subtrees.count > 1 ? "Paste Topics" : "Paste Topic") {
+                for subtree in subtrees {
+                    topic.append(subtree)
+                    undoableReparent(subtree, to: topic, at: topic.children.count - 1)
+                }
+            }
             return
         }
         if let base64 = MindMapPasteHelper.imageBase64(from: pb) {

@@ -30,6 +30,15 @@ public enum TopicSubtreeCodec {
         return try JSONSerialization.data(withJSONObject: envelope, options: [.sortedKeys])
     }
 
+    /// Encode a forest (one or more topic subtrees) for a multi-selection
+    /// copy: `{ "v":1, "topics":[<node>...] }`. Pair with `decodeForest`,
+    /// which also accepts the single-topic `"topic"` form so older clipboard
+    /// payloads still paste.
+    public static func encodeForest(_ topics: [Topic]) throws -> Data {
+        let envelope: [String: Any] = ["v": formatVersion, "topics": topics.map(serialize)]
+        return try JSONSerialization.data(withJSONObject: envelope, options: [.sortedKeys])
+    }
+
     private static func serialize(_ topic: Topic) -> [String: Any] {
         var dict: [String: Any] = ["text": topic.text]
         if !topic.attributes.isEmpty {
@@ -60,6 +69,25 @@ public enum TopicSubtreeCodec {
         guard version == formatVersion else { throw CodecError.wrongVersion }
         guard let topicDict = envelope["topic"] as? [String: Any] else { throw CodecError.missingTopic }
         return materialize(topicDict)
+    }
+
+    /// Decode a forest. Accepts the new `"topics"` array form *and* the
+    /// legacy single `"topic"` form (returned as a one-element array), so a
+    /// multi-select paste handler can use one code path for both.
+    public static func decodeForest(_ data: Data) throws -> [Topic] {
+        guard let any = try? JSONSerialization.jsonObject(with: data),
+              let envelope = any as? [String: Any] else {
+            throw CodecError.invalidJSON
+        }
+        let version = (envelope["v"] as? Int) ?? 0
+        guard version == formatVersion else { throw CodecError.wrongVersion }
+        if let dicts = envelope["topics"] as? [[String: Any]] {
+            return dicts.map(materialize)
+        }
+        if let topicDict = envelope["topic"] as? [String: Any] {
+            return [materialize(topicDict)]
+        }
+        throw CodecError.missingTopic
     }
 
     private static func materialize(_ dict: [String: Any]) -> Topic {

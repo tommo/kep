@@ -256,26 +256,37 @@ extension MindMapView {
         undoableSetAttribute(element.topic, key: TopicAttribute.borderColor, value: nil)
     }
 
-    /// Prompt for a hex color via a small alert with a single text field.
-    /// Mirrors Mindolph's color dialog at the input-format level — we accept
-    /// the same `#RRGGBB` strings that javamind writes.
+    /// Pick a topic color with the native macOS color picker. A borderless
+    /// `NSColorWell` accessory (click → system color panel) replaces the old
+    /// type-a-hex-string text field — no more knowing `#RRGGBB`. The OK /
+    /// Clear / Cancel alert frame keeps the edit a single, cancellable,
+    /// undoable change. We still write the same hex form so round-trips with
+    /// javamind stay lossless.
     private func promptForColor(on sender: NSMenuItem, attributeKey: String, label: String) {
         guard let element = sender.representedObject as? MindMapElement else { return }
         let alert = NSAlert()
         alert.messageText = "\(label) Color"
-        alert.informativeText = "Enter a hex color (e.g. #4A90E2). Leave blank to clear."
-        let field = NSTextField(string: element.topic.attribute(attributeKey) ?? "")
-        field.frame = NSRect(x: 0, y: 0, width: 200, height: 24)
-        field.placeholderString = "#RRGGBB"
-        alert.accessoryView = field
+        alert.informativeText = "Pick a color, or Clear to use the theme default."
+
+        let well = NSColorWell(frame: NSRect(x: 0, y: 0, width: 64, height: 32))
+        well.color = MindMapColorPicker.seedColor(
+            currentAttribute: element.topic.attribute(attributeKey),
+            fallback: .labelColor)
+        alert.accessoryView = well
         alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: "Clear")
         alert.addButton(withTitle: "Cancel")
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        let raw = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        if raw.isEmpty {
+
+        let response = alert.runModal()
+        // Closing the alert leaves the shared color panel up otherwise.
+        NSColorPanel.shared.close()
+        switch MindMapColorPicker.result(for: response, chosen: well.color) {
+        case .cancelled:
+            break
+        case .clear:
             undoableSetAttribute(element.topic, key: attributeKey, value: nil)
-        } else if let parsed = MindMapColor.parse(raw) {
-            undoableSetAttribute(element.topic, key: attributeKey, value: MindMapColor.write(parsed))
+        case .pick(let color):
+            undoableSetAttribute(element.topic, key: attributeKey, value: MindMapColor.write(color))
         }
     }
 

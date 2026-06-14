@@ -34,6 +34,28 @@ public struct CSVEditor: NSViewRepresentable {
         table.onClearSelectedCells = { [weak coordinator = context.coordinator] in
             coordinator?.clearSelectedCells()
         }
+        // Right-click context menu — mirrors mindolph csv.menu's row +
+        // cell entries. Items dispatch to the same coordinator selectors
+        // the toolbar buttons already use; NSTableView updates the
+        // selection on right-click before the menu shows so the actions
+        // read the right rows / columns.
+        let menu = NSMenu()
+        let coord = context.coordinator
+        func item(_ title: String, _ action: Selector) -> NSMenuItem {
+            let i = NSMenuItem(title: title, action: action, keyEquivalent: "")
+            i.target = coord
+            return i
+        }
+        menu.addItem(item("Insert Row Above",     #selector(Coordinator.insertRowBefore)))
+        menu.addItem(item("Insert Row Below",     #selector(Coordinator.insertRowAfter)))
+        menu.addItem(item("Delete Selected Rows", #selector(Coordinator.removeRow)))
+        menu.addItem(NSMenuItem.separator())
+        menu.addItem(item("Insert Column Left",   #selector(Coordinator.insertColumnBefore)))
+        menu.addItem(item("Insert Column Right",  #selector(Coordinator.insertColumnAfter)))
+        menu.addItem(item("Delete Selected Cols", #selector(Coordinator.removeColumn)))
+        menu.addItem(NSMenuItem.separator())
+        menu.addItem(item("Clear Selected Cells", #selector(Coordinator.contextClearCells)))
+        table.menu = menu
         scroll.documentView = table
 
         // Status footer — rows × cols, mirrors the markdown / plantuml /
@@ -337,6 +359,10 @@ public struct CSVEditor: NSViewRepresentable {
                 _ = doc.clearCells(cells)
             }
         }
+
+        /// `@objc` shim so the right-click menu can target the same
+        /// clear-cells logic the Delete-key path uses.
+        @objc func contextClearCells() { clearSelectedCells() }
 
         @objc func toggleHeader(_ sender: NSButton) {
             performUndoable(actionName: "Toggle Header", rebuildColumns: true) {

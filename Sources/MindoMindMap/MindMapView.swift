@@ -83,6 +83,12 @@ public final class MindMapView: NSView {
     var panOriginInWindow: CGPoint?
     var panStartScroll: CGPoint?
 
+    /// Marquee (rubber-band) area selection: anchor + live corner. Set on an
+    /// empty-canvas mouseDown, updated during drag, cleared on mouseUp.
+    /// `marqueeCurrent == nil` means "pressed but not yet dragged" (a click).
+    var marqueeStart: CGPoint?
+    var marqueeCurrent: CGPoint?
+
     // MARK: - Init
 
     public override init(frame frameRect: NSRect) {
@@ -392,6 +398,16 @@ public final class MindMapView: NSView {
             ctx.setStrokeColor(NSColor.systemBlue.cgColor)
             ctx.setLineWidth(1.5)
             ctx.addPath(path); ctx.strokePath()
+        }
+
+        // Marquee rubber-band rectangle (area selection in progress).
+        if let start = marqueeStart, let current = marqueeCurrent {
+            let rect = MindMapAreaSelection.rect(from: start, to: current)
+            ctx.setFillColor(theme.selectionColor.withAlphaComponent(0.12).cgColor)
+            ctx.fill(rect)
+            ctx.setStrokeColor(theme.selectionColor.withAlphaComponent(0.8).cgColor)
+            ctx.setLineWidth(1)
+            ctx.stroke(rect)
         }
     }
 

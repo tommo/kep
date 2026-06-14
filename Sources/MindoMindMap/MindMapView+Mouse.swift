@@ -47,6 +47,12 @@ extension MindMapView {
                 selectedElement = el
                 needsDisplay = true
             }
+        } else if el == nil {
+            // Empty-canvas press with no modifier: begin a marquee. Don't
+            // clear the selection yet — wait for mouseUp to tell a click
+            // (clears) from a drag (selects the enclosed topics).
+            marqueeStart = p
+            marqueeCurrent = nil
         } else {
             selectElement(el)
         }
@@ -70,6 +76,15 @@ extension MindMapView {
             let target = NSPoint(x: panStart.x - dx, y: panStart.y + dy)
             scroll.contentView.scroll(to: target)
             scroll.reflectScrolledClipView(scroll.contentView)
+            return
+        }
+        // Marquee area-select: update the live corner and select every topic
+        // the rubber-band rect catches.
+        if let start = marqueeStart {
+            let p = convert(event.locationInWindow, from: nil)
+            marqueeCurrent = p
+            updateMarqueeSelection(start: start, current: p)
+            needsDisplay = true
             return
         }
         guard let origin = dragOrigin, let source = dragSourceElement else { return }
@@ -119,10 +134,30 @@ extension MindMapView {
         scroll.reflectScrolledClipView(scroll.contentView)
     }
 
+    /// Set the selection to the topics enclosed by the current marquee rect.
+    private func updateMarqueeSelection(start: CGPoint, current: CGPoint) {
+        guard let root = rootElement else { return }
+        let rect = MindMapAreaSelection.rect(from: start, to: current)
+        var all: [MindMapElement] = []
+        root.traverse { all.append($0) }
+        let hits = MindMapAreaSelection.enclosed(all, frame: { $0.frame }, in: rect)
+        selectedTopics = Set(hits.map { ObjectIdentifier($0.topic) })
+        selectedElement = hits.last
+    }
+
     public override func mouseUp(with event: NSEvent) {
         if panOriginInWindow != nil {
             panOriginInWindow = nil
             panStartScroll = nil
+            return
+        }
+        // Finish a marquee: a real drag already set the selection; a bare
+        // click (no drag) on empty canvas clears it.
+        if let start = marqueeStart {
+            if marqueeCurrent == nil { selectElement(nil) }
+            marqueeStart = nil
+            marqueeCurrent = nil
+            needsDisplay = true
             return
         }
         defer { resetDragState() }

@@ -56,6 +56,7 @@ final class PrefResetTests: XCTestCase {
         // Guard against a pref being added to the UI but forgotten here.
         let all = Set(PrefResetGroup.allCases.flatMap { $0.keys })
         XCTAssertTrue(all.contains(PrefKeys.theme))
+        XCTAssertTrue(all.contains(PrefKeys.sidebarVisible))
         XCTAssertTrue(all.contains(PrefKeys.editorFontSize))
         XCTAssertTrue(all.contains(PrefKeys.mindmapConnectorStyle))
         XCTAssertTrue(all.contains(PrefKeys.aiStreamingEnabled))

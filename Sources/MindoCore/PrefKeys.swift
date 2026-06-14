@@ -27,6 +27,9 @@ public enum PrefKeys {
     /// Markdown editor split orientation. true (default) = source on
     /// the left, preview on the right; false = source on top, preview
     /// below. Mirrors mindolph's per-editor Orientation pref.
+    /// Whether the sidebar (workspace tree) column is shown. Toggled from
+    /// the View menu (⌃⌘S); persisted so it survives relaunch.
+    public static let sidebarVisible = "mindo.prefs.sidebarVisible"
     public static let markdownSplitVertical = "mindo.prefs.markdownSplitVertical"
     /// Markdown view mode — editor / split / preview. Raw value of
     /// `MarkdownViewMode`. Remembered across launches and documents.

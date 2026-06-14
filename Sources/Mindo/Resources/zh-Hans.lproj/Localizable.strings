@@ -51,6 +51,8 @@
 "menu.view.theme.light" = "浅色";
 "menu.view.theme.dark" = "深色";
 "menu.view.theme.classic" = "经典";
+"menu.view.show_sidebar" = "显示边栏";
+"menu.view.hide_sidebar" = "隐藏边栏";
 "menu.view.zoom_in" = "放大";
 "menu.view.zoom_out" = "缩小";
 "menu.view.reset_zoom" = "实际大小";

@@ -8,8 +8,18 @@ struct ContentView: View {
     @Binding var session: AppSession
     @State private var sidebarSelection: NodeData?
 
+    /// Maps the persisted `sidebarVisible` bool to the split view's
+    /// column-visibility, and writes back when the user collapses the
+    /// column by dragging so the menu state + persistence stay in sync.
+    private var columnVisibility: Binding<NavigationSplitViewVisibility> {
+        Binding(
+            get: { session.sidebarVisible ? .all : .detailOnly },
+            set: { session.sidebarVisible = ($0 != .detailOnly) }
+        )
+    }
+
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: columnVisibility) {
             SidebarView(session: $session, selection: $sidebarSelection)
                 .navigationSplitViewColumnWidth(min: 200, ideal: 280)
         } detail: {

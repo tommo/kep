@@ -237,6 +237,11 @@ struct MindoApp: App {
                     Text(L("menu.view.theme.classic")).tag(ThemeChoice.classic)
                 }
                 Divider()
+                Button(session.sidebarVisible ? L("menu.view.hide_sidebar") : L("menu.view.show_sidebar")) {
+                    session.sidebarVisible.toggle()
+                }
+                .keyboardShortcut("s", modifiers: [.control, .command])
+                Divider()
                 Button(L("menu.view.zoom_in")) { session.zoomCommand = .in; session.zoomCommandTick &+= 1 }
                     .keyboardShortcut("=", modifiers: .command)
                 Button(L("menu.view.zoom_out")) { session.zoomCommand = .out; session.zoomCommandTick &+= 1 }
@@ -388,6 +393,12 @@ final class AppSession {
             config: .fromPreferences()
         )
     }
+    /// Whether the sidebar column is shown. Persisted (PrefKeys.sidebarVisible)
+    /// so collapse state survives relaunch. Toggled from the View menu (⌃⌘S).
+    var sidebarVisible: Bool = PrefKeys.bool(PrefKeys.sidebarVisible, fallback: true) {
+        didSet { UserDefaults.standard.set(sidebarVisible, forKey: PrefKeys.sidebarVisible) }
+    }
+
     /// Native CSV find/replace bar visible (CSV editor only — its
     /// NSTableView can't use the standard text find bar). Toggled by ⌘F.
     var csvFindOpen: Bool = false

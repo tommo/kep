@@ -54,6 +54,8 @@
 "menu.view.theme.light" = "Light";
 "menu.view.theme.dark" = "Dark";
 "menu.view.theme.classic" = "Classic";
+"menu.view.show_sidebar" = "Show Sidebar";
+"menu.view.hide_sidebar" = "Hide Sidebar";
 "menu.view.zoom_in" = "Zoom In";
 "menu.view.zoom_out" = "Zoom Out";
 "menu.view.reset_zoom" = "Actual Size";

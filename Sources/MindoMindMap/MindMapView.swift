@@ -554,6 +554,25 @@ public final class MindMapView: NSView {
         dst.setAttribute(TopicAttribute.leftSide, srcIsLeft ? "true" : "false")
     }
 
+    /// XMind ⌘Return: insert a new topic *between* the selection and its
+    /// parent, making the selection a child of the new topic. No-op on the
+    /// root (it has no parent to splice under). One undo step.
+    func addParentTopic() {
+        guard let sel = selectedElement, let oldParent = sel.topic.parent else { return }
+        let target = sel.topic
+        let idx = oldParent.children.firstIndex(where: { $0 === target }) ?? oldParent.children.endIndex
+        var newTopic: Topic?
+        groupedUndo(name: "Add Parent Topic") {
+            let new = undoableAddChild(to: oldParent, text: "Topic")
+            oldParent.move(child: new, to: idx)
+            inheritRootSide(from: target, to: new)
+            undoableReparent(target, to: new, at: 0)
+            newTopic = new
+        }
+        rebuildElementsPublic()
+        if let new = newTopic { selectAndEdit(new) }
+    }
+
     /// Resolve `topic` to an element, select it, and open the inline editor.
     /// No-op when the element hasn't been laid out yet (shouldn't happen for
     /// freshly-added topics since callers re-layout first).
@@ -589,7 +608,16 @@ public final class MindMapView: NSView {
 
     // MARK: - Inline edit
 
-    func beginInlineEdit(on element: MindMapElement) {
+    /// Open the inline editor on `element`.
+    ///
+    /// `initialText` drives the "type to edit" flow (XMind/MindNode parity):
+    /// when a character is supplied the field starts with just that character
+    /// and the caret at the end, so typing on a selected topic replaces its
+    /// text. With no `initialText` (F2 / double-click / a freshly-created
+    /// node) the existing text is shown fully selected, so the first keystroke
+    /// likewise replaces it — fixing the "new node says 'Topic' and typing
+    /// appends to it" complaint.
+    func beginInlineEdit(on element: MindMapElement, initialText: String? = nil) {
         // Tear down a previously-installed editor first. Without this,
         // repeated Tab keystrokes (each one starts a new child + a new
         // inline edit) accumulated NSTextField subviews on the canvas —
@@ -598,7 +626,7 @@ public final class MindMapView: NSView {
         commitInlineEdit()
 
         let textField = InlineEditField(frame: element.frame)
-        textField.stringValue = element.topic.text
+        textField.stringValue = initialText ?? element.topic.text
         textField.font = theme.font(forLevel: element.level)
         textField.alignment = .center
         textField.bezelStyle = .roundedBezel
@@ -607,6 +635,14 @@ public final class MindMapView: NSView {
         textField.onCancel = { [weak self] in self?.cancelInlineEdit() }
         addSubview(textField)
         window?.makeFirstResponder(textField)
+        if let editor = textField.currentEditor() {
+            let length = (textField.stringValue as NSString).length
+            // type-to-edit → caret after the typed char; otherwise select all
+            // so the next keystroke overwrites the existing text.
+            editor.selectedRange = initialText != nil
+                ? NSRange(location: length, length: 0)
+                : NSRange(location: 0, length: length)
+        }
         inlineEditor = textField
         inlineEditTarget = element.topic
     }

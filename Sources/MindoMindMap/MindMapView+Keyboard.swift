@@ -78,10 +78,16 @@ extension MindMapView {
             return
         }
 
+        let isCommand = event.modifierFlags.contains(.command)
+
         switch chars {
         case "\t": addChild()
         case "\r":
-            if isShift { addPreviousSibling() } else { addNextSibling() }
+            // XMind parity: ⌘Return inserts a PARENT of the selection, plain
+            // Return a following sibling, ⇧Return a preceding one.
+            if isCommand { addParentTopic() }
+            else if isShift { addPreviousSibling() }
+            else { addNextSibling() }
         case "\u{7F}", "\u{08}": deleteSelection()
         case "-":
             toggleCollapse(toCollapsed: true)
@@ -92,8 +98,25 @@ extension MindMapView {
             if dragSourceElement != nil { resetDragState() }
             else { super.keyDown(with: event) }
         default:
-            super.keyDown(with: event)
+            // Type-to-edit: a printable character (no ⌘/⌃/⌥) on a selected
+            // topic starts editing with that character — the XMind "click and
+            // type to replace" flow. Shift is allowed (capital letters).
+            if let sel = selectedElement, inlineEditor == nil,
+               !isCommand, !isOption, !event.modifierFlags.contains(.control),
+               Self.isPrintable(chars) {
+                beginInlineEdit(on: sel, initialText: chars)
+            } else {
+                super.keyDown(with: event)
+            }
         }
+    }
+
+    /// A single, printable character suitable for type-to-edit — excludes
+    /// control chars, Delete, and the function-key private-use range (arrows,
+    /// F-keys) that arrive as high unichars.
+    static func isPrintable(_ chars: String) -> Bool {
+        guard chars.count == 1, let scalar = chars.unicodeScalars.first else { return false }
+        return scalar.value >= 0x20 && scalar.value != 0x7F && scalar.value < 0xF700
     }
 
     public override func keyUp(with event: NSEvent) {

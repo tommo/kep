@@ -41,21 +41,39 @@ final class MindoMindMapTests: XCTestCase {
         }
     }
 
-    /// Root children should split between the two sides (one on each at minimum,
-    /// when there are >= 2 children).
-    func testRootBalancesChildrenLeftAndRight() {
+    /// Root-child side is decided by the explicit `leftSide` attribute, not
+    /// auto-balanced by position: children without it all land on the right;
+    /// only those stamped `leftSide=true` (creation default is right, the
+    /// user drags some to the left) populate the left list.
+    func testRootChildSidesFollowExplicitAttribute() {
         let map = MindMap()
         let root = Topic(text: "Root")
         map.root = root
         for i in 0..<6 {
-            _ = root.addChild(text: "Child \(i)")
+            let c = root.addChild(text: "Child \(i)")
+            // Stamp two of them left, as a drag-to-left would.
+            if i == 1 || i == 4 { c.setAttribute(TopicAttribute.leftSide, "true") }
         }
         let element = MindMapElement.build(from: root)
         let layout = MindMapLayout(theme: .light)
         _ = layout.layout(element)
-        XCTAssertFalse(element.leftChildren.isEmpty)
-        XCTAssertFalse(element.rightChildren.isEmpty)
+        XCTAssertEqual(element.leftChildren.count, 2, "only the two stamped-left children go left")
+        XCTAssertEqual(element.rightChildren.count, 4, "the rest stay on the right")
         XCTAssertEqual(element.leftChildren.count + element.rightChildren.count, 6)
+    }
+
+    /// With no `leftSide` attributes at all (e.g. a legacy/imported map),
+    /// every root child defaults to the right — no positional alternation.
+    func testRootChildrenWithoutAttributeAllGoRight() {
+        let map = MindMap()
+        let root = Topic(text: "Root")
+        map.root = root
+        for i in 0..<6 { _ = root.addChild(text: "Child \(i)") }
+        let element = MindMapElement.build(from: root)
+        let layout = MindMapLayout(theme: .light)
+        _ = layout.layout(element)
+        XCTAssertTrue(element.leftChildren.isEmpty)
+        XCTAssertEqual(element.rightChildren.count, 6)
     }
 
     /// A collapsed subtree should not contribute to layout: collapsing a parent

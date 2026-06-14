@@ -35,14 +35,14 @@ final class MultiSelectTests: XCTestCase {
     }
 
     func testExtendSelectionDownAddsSibling() {
-        // With 3 root children, layout balances them: A right, B left, C right.
-        // A's same-side siblings are therefore [A, C], so .down from A picks C.
-        let (view, _, a, _, c, _) = makeView()
+        // New root children all go to the right side (no auto-balance), so
+        // A, B, C stack vertically on the right. A's next sibling down is B.
+        let (view, _, a, b, _, _) = makeView()
         view.selectElement(view.element(forTopic: a))
         view.extendSelection(.down)
         XCTAssertTrue(view.selectedTopics.contains(ObjectIdentifier(a)))
-        XCTAssertTrue(view.selectedTopics.contains(ObjectIdentifier(c)))
-        XCTAssertTrue(view.selectedElement?.topic === c)
+        XCTAssertTrue(view.selectedTopics.contains(ObjectIdentifier(b)))
+        XCTAssertTrue(view.selectedElement?.topic === b)
     }
 
     func testDeleteSelectionRemovesAllAndCollapsesToParent() {

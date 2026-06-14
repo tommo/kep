@@ -60,21 +60,24 @@ public final class MindMapLayout {
 
     private func balanceRoot(_ root: MindMapElement) {
         guard root.level == 0 else { return }
-        // Honor an explicit `leftSide` topic attribute (true → left,
-        // false → right). If absent we alternate by index — but that can
-        // flip a sibling's side when the user inserts mid-list, so the
-        // editor stamps the attribute when adding root-level siblings.
+        // Honor the explicit `leftSide` topic attribute (true → left,
+        // false → right). The editor stamps it on every root child at
+        // creation (new children go right) and on drag, so the side is
+        // decided once and persisted — never recomputed from list position.
+        // Only legacy/imported children that predate the stamp arrive without
+        // it; they default to the right side rather than an index-parity rule
+        // that would reshuffle the whole map on any insert or delete.
         var left: [MindMapElement] = []
         var right: [MindMapElement] = []
-        for (idx, child) in root.children.enumerated() {
+        for child in root.children {
+            let isLeft: Bool
             if let v = child.topic.attribute(TopicAttribute.leftSide), let explicit = Bool(v) {
-                child.isLeftSide = explicit
-                if explicit { left.append(child) } else { right.append(child) }
+                isLeft = explicit
             } else {
-                let isLeft = (idx % 2 == 1)
-                child.isLeftSide = isLeft
-                if isLeft { left.append(child) } else { right.append(child) }
+                isLeft = false
             }
+            child.isLeftSide = isLeft
+            if isLeft { left.append(child) } else { right.append(child) }
         }
         root.leftChildren = left
         root.rightChildren = right

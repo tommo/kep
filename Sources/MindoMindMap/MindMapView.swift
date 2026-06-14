@@ -577,11 +577,27 @@ public final class MindMapView: NSView {
     func addChild() {
         guard let sel = selectedElement else {
             if let root = mindMap?.root {
-                selectAndEdit(undoableAddChild(to: root, text: "Topic"))
+                let new = undoableAddChild(to: root, text: "Topic")
+                stampRootSideForNewChild(new)
+                selectAndEdit(new)
             }
             return
         }
-        selectAndEdit(undoableAddChild(to: sel.topic, text: "Topic"))
+        let new = undoableAddChild(to: sel.topic, text: "Topic")
+        stampRootSideForNewChild(new)
+        selectAndEdit(new)
+    }
+
+    /// New direct children of the root go to the RIGHT side (the user moves
+    /// any they want on the left by dragging, which stamps `leftSide=true`).
+    /// Stamping the side explicitly at creation — rather than leaving it to a
+    /// positional rule at layout time — is what keeps the map stable: without
+    /// it, `balanceRoot`'s legacy index fallback would re-pick sides whenever
+    /// a sibling was inserted or deleted, swapping half the map across the
+    /// root. No-op unless `topic`'s parent is the root.
+    private func stampRootSideForNewChild(_ topic: Topic) {
+        guard topic.parent === mindMap?.root else { return }
+        topic.setAttribute(TopicAttribute.leftSide, "false")
     }
 
     func addNextSibling() {

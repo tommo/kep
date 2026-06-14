@@ -23,7 +23,15 @@ struct ContentView: View {
                 }
         }
         .onChange(of: sidebarSelection) { _, new in
-            if let node = new, node.isFile {
+            // Open on selection (single-click, Obsidian-style) but only when
+            // the rule says so — skips folders and the already-active file
+            // so the reverse active-doc→selection sync can't loop back into
+            // a redundant re-open. See SidebarOpenDecision.
+            if SidebarOpenDecision.shouldOpen(
+                isFile: new?.isFile ?? false,
+                selectedURL: new?.url,
+                activeURL: session.activeDocument?.fileURL
+            ), let node = new {
                 session.open(url: node.url)
             }
         }

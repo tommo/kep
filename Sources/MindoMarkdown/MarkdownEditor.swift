@@ -390,6 +390,26 @@ public struct MarkdownEditor: NSViewRepresentable {
             web.loadHTMLString(html, baseURL: nil)
         }
 
+        /// Intercept link clicks in the preview. Without this, clicking any
+        /// link navigated the WKWebView away from the rendered markdown
+        /// (the preview "swallowed" the click). External links open in the
+        /// system browser; file links open in the default app; in-page
+        /// anchors and the initial render still load in place.
+        public func webView(
+            _ webView: WKWebView,
+            decidePolicyFor navigationAction: WKNavigationAction,
+            decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+        ) {
+            let isClick = navigationAction.navigationType == .linkActivated
+            switch MarkdownLinkPolicy.decide(url: navigationAction.request.url, isLinkActivation: isClick) {
+            case .allow:
+                decisionHandler(.allow)
+            case .openExternally(let url), .openFile(let url):
+                NSWorkspace.shared.open(url)
+                decisionHandler(.cancel)
+            }
+        }
+
         // MARK: - Scroll sync
 
         /// Compute the current code-area scroll fraction (0…1).

@@ -140,44 +140,44 @@ final class ZoomMathTests: XCTestCase {
 
     // MARK: - Free-canvas pan bounds (CanvasClipView.constrainBoundsRect)
 
-    func testCanvasAllowsPanningAScreenfulPastContent() {
-        // Free-canvas feel: you can pan one viewport beyond the document edges
-        // (not clamped to the doc like a scroll view).
-        let doc = CGSize(width: 1000, height: 800)
+    func testViewportCannotParkOnEmptyCanvasAwayFromContent() {
+        // The bug: content sits in part of a larger document; the viewport got
+        // stuck in the empty padding. Constraining against the CONTENT rect
+        // pulls a far-away proposed origin back so content stays visible.
+        let content = CGRect(x: 500, y: 400, width: 300, height: 300)
         let viewport = CGSize(width: 400, height: 300)
-        let margin = viewport
-        // Push hard negative → clamps to -margin, not 0.
-        let near = CanvasScroll.constrainedOrigin(
-            proposed: CGPoint(x: -9999, y: -9999), viewport: viewport, doc: doc, margin: margin)
-        XCTAssertEqual(near.x, -400, accuracy: 1e-9)
-        XCTAssertEqual(near.y, -300, accuracy: 1e-9)
-        // Push hard positive → clamps to (doc − viewport) + margin.
-        let far = CanvasScroll.constrainedOrigin(
-            proposed: CGPoint(x: 9999, y: 9999), viewport: viewport, doc: doc, margin: margin)
-        XCTAssertEqual(far.x, (1000 - 400) + 400, accuracy: 1e-9)
-        XCTAssertEqual(far.y, (800 - 300) + 300, accuracy: 1e-9)
+        let keep: CGFloat = 96
+        // Proposing the top-left empty corner (0,0) must snap to where content
+        // is at least `keep` visible — i.e. origin ≥ content.minX + keep - vp.
+        let o = CanvasScroll.constrainedOrigin(
+            proposed: .zero, viewport: viewport, content: content, keepVisible: keep)
+        XCTAssertEqual(o.x, content.minX + keep - viewport.width, accuracy: 1e-9) // 500+96-400 = 196
+        XCTAssertEqual(o.y, content.minY + keep - viewport.height, accuracy: 1e-9) // 400+96-300 = 196
+        // At that origin, the viewport really does overlap content by keep.
+        let visibleRight = o.x + viewport.width
+        XCTAssertGreaterThanOrEqual(visibleRight - content.minX, keep - 1e-6)
     }
 
-    func testCanvasPanIsFreeEvenWhenContentFitsViewport() {
-        // Content smaller than the viewport still pans within the margin —
-        // a plain scroll view would refuse to move at all ("scrolls like a doc").
-        let doc = CGSize(width: 300, height: 200)
-        let viewport = CGSize(width: 800, height: 600)
-        let margin = viewport
-        let o = CanvasScroll.constrainedOrigin(
-            proposed: CGPoint(x: -100, y: -80), viewport: viewport, doc: doc, margin: margin)
-        XCTAssertEqual(o.x, -100, accuracy: 1e-9, "can pan a fitting map around")
-        XCTAssertEqual(o.y, -80, accuracy: 1e-9)
+    func testCanvasOverPanKeepsContentVisibleAtExtremes() {
+        let content = CGRect(x: 0, y: 0, width: 1000, height: 800)
+        let viewport = CGSize(width: 400, height: 300)
+        let keep: CGFloat = 96
+        let near = CanvasScroll.constrainedOrigin(
+            proposed: CGPoint(x: -9999, y: -9999), viewport: viewport, content: content, keepVisible: keep)
+        XCTAssertEqual(near.x, keep - viewport.width, accuracy: 1e-9)   // -304
+        XCTAssertEqual(near.y, keep - viewport.height, accuracy: 1e-9)  // -204
+        let far = CanvasScroll.constrainedOrigin(
+            proposed: CGPoint(x: 9999, y: 9999), viewport: viewport, content: content, keepVisible: keep)
+        XCTAssertEqual(far.x, content.width - keep, accuracy: 1e-9)   // 904
+        XCTAssertEqual(far.y, content.height - keep, accuracy: 1e-9)  // 704
     }
 
     func testCanvasConstrainIsPerAxisIndependent() {
         // The X clamp must not touch Y (the original cross-axis reset bug).
-        let doc = CGSize(width: 800, height: 2000)
+        let content = CGRect(x: 0, y: 0, width: 800, height: 2000)
         let viewport = CGSize(width: 800, height: 600)
-        let margin = viewport
         let o = CanvasScroll.constrainedOrigin(
-            proposed: CGPoint(x: 50, y: 900), viewport: viewport, doc: doc, margin: margin)
+            proposed: CGPoint(x: 50, y: 900), viewport: viewport, content: content, keepVisible: 96)
         XCTAssertEqual(o.y, 900, accuracy: 1e-9, "Y preserved while X is constrained")
-        XCTAssertEqual(o.x, 50, accuracy: 1e-9, "x within margin passes through")
     }
 }

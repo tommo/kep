@@ -7,19 +7,29 @@ import CoreGraphics
 /// something you grab and move (Figma / Miro / Obsidian-canvas style), while
 /// still being bounded (not infinite). Pure so it's unit-testable.
 public enum CanvasScroll {
-    /// Clamp `proposed` clip origin to the document (origin (0,0), `doc` size)
-    /// expanded by `margin` on every edge — each axis independently, so panning
-    /// one axis can never disturb the other.
+    /// Clamp `proposed` clip origin so the canvas pans freely but the viewport
+    /// always overlaps the **content** by at least `keepVisible` points on each
+    /// axis. Constraining against the content rect (not the document frame) is
+    /// what stops the view getting parked in the empty padding around the graph
+    /// — you can never scroll the content out of sight or lock onto blank space.
+    /// Each axis independent.
     public static func constrainedOrigin(
-        proposed: CGPoint, viewport: CGSize, doc: CGSize, margin: CGSize
+        proposed: CGPoint, viewport: CGSize, content: CGRect, keepVisible: CGFloat
     ) -> CGPoint {
         func clamp(_ v: CGFloat, _ lo: CGFloat, _ hi: CGFloat) -> CGFloat {
             min(max(v, lo), max(lo, hi))
         }
-        let minX = -margin.width
-        let maxX = (doc.width - viewport.width) + margin.width
-        let minY = -margin.height
-        let maxY = (doc.height - viewport.height) + margin.height
+        // Keep ≥ keepX of the content's x-extent inside the viewport (and never
+        // require more than the content actually has).
+        let keepX = min(keepVisible, content.width)
+        let keepY = min(keepVisible, content.height)
+        // Visible x-range [origin.x, origin.x+vp] must overlap [content.minX,
+        // content.maxX] by ≥ keepX → origin.x ∈ [content.minX + keepX - vp,
+        // content.maxX - keepX].
+        let minX = content.minX + keepX - viewport.width
+        let maxX = content.maxX - keepX
+        let minY = content.minY + keepY - viewport.height
+        let maxY = content.maxY - keepY
         return CGPoint(x: clamp(proposed.x, minX, maxX), y: clamp(proposed.y, minY, maxY))
     }
 }
@@ -33,25 +43,22 @@ public enum CanvasScroll {
 /// infinite-NSScrollView fix for the AppKit smooth-scroll bug (override
 /// `scroll(to:)` to set the bounds origin directly).
 final class CanvasClipView: NSClipView {
+    /// Keep at least this much of the content on screen when over-panning.
+    static let keepVisible: CGFloat = 96
+
     override func constrainBoundsRect(_ proposedBounds: NSRect) -> NSRect {
         guard let doc = documentView else { return super.constrainBoundsRect(proposedBounds) }
-        // One visible screenful of slack on each edge.
-        let margin = CGSize(width: proposedBounds.width, height: proposedBounds.height)
+        // Constrain against the actual content extent, not the (padded /
+        // viewport-filling) document frame, so the viewport can't park on empty
+        // canvas. Fall back to the doc frame before the first layout.
+        let content = (doc as? MindMapView).map { $0.contentBounds }
+            .flatMap { $0.width > 0 && $0.height > 0 ? $0 : nil }
+            ?? CGRect(origin: .zero, size: doc.frame.size)
         let origin = CanvasScroll.constrainedOrigin(
             proposed: proposedBounds.origin,
             viewport: proposedBounds.size,
-            doc: doc.frame.size,
-            margin: margin)
+            content: content,
+            keepVisible: Self.keepVisible)
         return NSRect(origin: origin, size: proposedBounds.size)
-    }
-
-    /// AppKit's mouse-wheel "smooth scrolling" can't cope with the bounds
-    /// origin moving mid-scroll — it fights/ignores the change, which is what
-    /// made panning feel like a stuck document. Forwarding straight to
-    /// `setBoundsOrigin` (after applying our own constraint) bypasses that
-    /// path so every scroll tick pans immediately. (Helftone's fix.)
-    override func scroll(to newOrigin: NSPoint) {
-        let constrained = constrainBoundsRect(NSRect(origin: newOrigin, size: bounds.size)).origin
-        setBoundsOrigin(constrained)
     }
 }

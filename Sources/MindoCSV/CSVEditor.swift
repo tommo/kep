@@ -41,6 +41,9 @@ public struct CSVEditor: NSViewRepresentable {
         table.onClearSelectedCells = { [weak coordinator = context.coordinator] in
             coordinator?.clearSelectedCells()
         }
+        table.onCopy  = { [weak coordinator = context.coordinator] in coordinator?.copyCells() }
+        table.onCut   = { [weak coordinator = context.coordinator] in coordinator?.cutCells() }
+        table.onPaste = { [weak coordinator = context.coordinator] in coordinator?.pasteCells() }
         // Right-click context menu — mirrors mindolph csv.menu's row +
         // cell entries. Items dispatch to the same coordinator selectors
         // the toolbar buttons already use; NSTableView updates the
@@ -60,6 +63,10 @@ public struct CSVEditor: NSViewRepresentable {
         menu.addItem(item("Insert Column Left",   #selector(Coordinator.insertColumnBefore)))
         menu.addItem(item("Insert Column Right",  #selector(Coordinator.insertColumnAfter)))
         menu.addItem(item("Delete Selected Cols", #selector(Coordinator.removeColumn)))
+        menu.addItem(NSMenuItem.separator())
+        menu.addItem(item("Copy",  #selector(Coordinator.copyCells)))
+        menu.addItem(item("Cut",   #selector(Coordinator.cutCells)))
+        menu.addItem(item("Paste", #selector(Coordinator.pasteCells)))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(item("Clear Selected Cells", #selector(Coordinator.contextClearCells)))
         table.menu = menu
@@ -372,6 +379,63 @@ public struct CSVEditor: NSViewRepresentable {
         /// `@objc` shim so the right-click menu can target the same
         /// clear-cells logic the Delete-key path uses.
         @objc func contextClearCells() { clearSelectedCells() }
+
+        // MARK: - Copy / Cut / Paste (multi-cell blocks)
+
+        /// Cells under the current selection, as document coordinates — the
+        /// same resolver Delete uses, reused so copy/cut/clear all agree.
+        private func selectedCells() -> [(row: Int, column: Int)] {
+            guard let table = tableView else { return [] }
+            return CSVCellSelection.cellsToClear(
+                selectedViewRows: table.selectedRowIndexes,
+                selectedColumns: table.selectedColumnIndexes,
+                bodyRowCount: doc.bodyRows.count,
+                columnCount: doc.columnCount,
+                hasHeader: doc.hasHeader
+            )
+        }
+
+        /// Copy the selected block to the pasteboard as TSV. No-op (and no
+        /// pasteboard write) when nothing is selected.
+        @objc func copyCells() {
+            let cells = selectedCells()
+            guard !cells.isEmpty else { return }
+            let block = CSVBlock.extract(from: doc.rows, cells: cells)
+            let pb = NSPasteboard.general
+            pb.clearContents()
+            pb.setString(CSVClipboard.serialize(block), forType: .string)
+        }
+
+        /// Copy then blank the selected cells — one undo step. Skips the undo
+        /// entry when nothing actually changes (already-empty cells).
+        @objc func cutCells() {
+            let cells = selectedCells()
+            guard !cells.isEmpty else { return }
+            copyCells()
+            performUndoable(actionName: cells.count > 1 ? "Cut Cells" : "Cut Cell") {
+                _ = doc.clearCells(cells)
+            }
+        }
+
+        /// Paste a TSV block from the pasteboard, anchored at the selected
+        /// cell (top-left of the selection, or row 0 / col 0 with none).
+        /// Grows the grid to fit.
+        @objc func pasteCells() {
+            guard let raw = NSPasteboard.general.string(forType: .string) else { return }
+            let block = CSVClipboard.parse(raw)
+            guard !block.isEmpty else { return }
+            let table = tableView
+            let viewRow = table?.selectedRowIndexes.first ?? 0
+            let anchorRow = doc.hasHeader ? viewRow + 1 : viewRow
+            let anchorCol = table?.selectedColumnIndexes.first ?? 0
+            let plan = CSVPaste.plan(
+                block: block, anchorRow: anchorRow, anchorColumn: anchorCol,
+                currentRowCount: doc.rows.count, currentColumnCount: doc.columnCount)
+            let willGrowColumns = plan.requiredColumnCount > doc.columnCount
+            performUndoable(actionName: "Paste", rebuildColumns: willGrowColumns) {
+                doc.applyPaste(plan)
+            }
+        }
 
         @objc func toggleHeader(_ sender: NSButton) {
             performUndoable(actionName: "Toggle Header", rebuildColumns: true) {

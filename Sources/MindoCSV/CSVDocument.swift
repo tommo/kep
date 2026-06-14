@@ -147,6 +147,32 @@ public final class CSVDocument {
         rows = header + body
     }
 
+    // MARK: - Block paste / replace (apply a pure plan)
+
+    /// Grow the grid to the plan's required size, then apply every cell
+    /// write. Returns true when the column count increased so the editor
+    /// knows to rebuild its NSTableView columns.
+    @discardableResult
+    public func applyPaste(_ plan: CSVPastePlan) -> Bool {
+        let oldColumnCount = columnCount
+        while rows.count < plan.requiredRowCount { appendRow() }
+        while columnCount < plan.requiredColumnCount { appendColumn() }
+        for w in plan.writes {
+            setCell(row: w.row, column: w.column, to: w.value)
+        }
+        return columnCount > oldColumnCount
+    }
+
+    /// Apply a list of replace writes. Returns the number applied (0 lets the
+    /// editor skip burning an undo entry on a no-op replace-all).
+    @discardableResult
+    public func applyReplacements(_ writes: [CSVCellWrite]) -> Int {
+        for w in writes {
+            setCell(row: w.row, column: w.column, to: w.value)
+        }
+        return writes.count
+    }
+
     // MARK: - Parsing & serialization
 
     /// Parse RFC-4180 CSV text into a `CSVDocument`. Always succeeds; malformed

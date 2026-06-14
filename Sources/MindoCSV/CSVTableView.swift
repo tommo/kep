@@ -12,6 +12,17 @@ public final class CSVTableView: NSTableView {
     /// selection, runs the clear through its undo stack, and reloads.
     public var onClearSelectedCells: (() -> Void)?
 
+    /// Standard clipboard hooks. Routed through the responder-chain
+    /// selectors below so ⌘C/⌘X/⌘V get their system key equivalents for
+    /// free (no manual scalar checks) and the menu items validate normally.
+    public var onCopy: (() -> Void)?
+    public var onCut: (() -> Void)?
+    public var onPaste: (() -> Void)?
+
+    @objc func copy(_ sender: Any?)  { onCopy?() }
+    @objc func cut(_ sender: Any?)   { onCut?() }
+    @objc func paste(_ sender: Any?) { onPaste?() }
+
     public override func keyDown(with event: NSEvent) {
         // Already-editing cells route deleteForward / deleteBackward
         // straight to the field editor, so we only catch the keys when

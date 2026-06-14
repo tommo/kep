@@ -3,10 +3,19 @@ import XCTest
 
 final class PreviewContextMenuTests: XCTestCase {
 
-    func testPlantUMLMenuHasAllFourActions() {
+    func testPlantUMLMenuActions() {
         let items = PreviewContextMenu.plantUML(hasRenderedDiagram: true)
         XCTAssertEqual(items.map { $0.action },
-                       [.refresh, .copySVG, .copyPNG, .export])
+                       [.refresh, .copySVG, .copyPNG, .copyScript, .export])
+    }
+
+    func testCopyScriptAlwaysEnabledEvenBeforeRender() {
+        // The raw source is always available, so Copy Script never greys out.
+        for rendered in [true, false] {
+            let item = PreviewContextMenu.plantUML(hasRenderedDiagram: rendered)
+                .first { $0.action == .copyScript }
+            XCTAssertEqual(item?.isEnabled, true)
+        }
     }
 
     func testPlantUMLRefreshAlwaysEnabled() {

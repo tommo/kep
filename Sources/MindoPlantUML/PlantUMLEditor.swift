@@ -177,6 +177,7 @@ public struct PlantUMLEditor: NSViewRepresentable {
             case .refresh:    scheduleRender(immediate: true)
             case .copySVG:    copyDiagramAsSVG()
             case .copyPNG:    copyDiagramAsPNG()
+            case .copyScript: copyScript()
             case .export:     exportDiagram()
             case .viewSource: textView?.window?.makeFirstResponder(textView)
             }
@@ -391,6 +392,22 @@ public struct PlantUMLEditor: NSViewRepresentable {
             // Swap the extension on the current filename stem.
             let stem = (panel.nameFieldStringValue as NSString).deletingPathExtension
             panel.nameFieldStringValue = stem + "." + format.fileExtension
+        }
+
+        /// Copy the raw PlantUML source to the pasteboard — useful for
+        /// sharing the script without exporting an image. Available even
+        /// before a render (the source always exists).
+        @objc public func copyScript() {
+            let source = parent.text
+            guard !source.isEmpty else {
+                NSSound.beep()
+                flashFooter("Nothing to copy — the script is empty")
+                return
+            }
+            let pb = NSPasteboard.general
+            pb.clearContents()
+            pb.setString(source, forType: .string)
+            flashFooter("Copied PlantUML script to clipboard")
         }
 
         /// No rendered diagram yet (or it failed) — beep and say so in the

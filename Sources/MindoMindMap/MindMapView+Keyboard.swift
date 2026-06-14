@@ -202,16 +202,18 @@ extension MindMapView {
             guard let parent = from.topic.parent else { return nil }
             return element(forTopic: parent)
         }
-        // First *visible* child on `from`'s side (children inherit the side).
-        let firstChild = from.children.first
+        // First child to navigate INTO. `visibleChildren` is empty when the
+        // node is collapsed, so inward navigation can't land the selection on
+        // a hidden topic (the "my selection vanished" instability).
+        let firstChild = from.visibleChildren.first
 
         switch direction {
         case .right:
-            if from === root { return root.rightChildren.first }
+            if from === root { return from.isCollapsed ? nil : root.rightChildren.first }
             // Right-side: inward toward children. Left-side: back toward root.
             return from.isLeftSide ? towardParent() : firstChild
         case .left:
-            if from === root { return root.leftChildren.first }
+            if from === root { return from.isCollapsed ? nil : root.leftChildren.first }
             return from.isLeftSide ? firstChild : towardParent()
         case .up, .down:
             guard let parent = from.topic.parent, let parentEl = element(forTopic: parent) else { return nil }

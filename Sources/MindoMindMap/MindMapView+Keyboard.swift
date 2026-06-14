@@ -165,16 +165,31 @@ extension MindMapView {
 
     /// Resolve the topic in `direction` of `from`. Used by both the single-
     /// select arrow handler and the multi-select extender.
+    ///
+    /// Direction is SIDE-AWARE: the map is mirrored about the root, so on the
+    /// left half "outward" (toward leaf) is LEFT and "inward" (toward root) is
+    /// RIGHT — the reverse of the right half. The old code ignored this and
+    /// always treated Right as "into children", so on the left side Right
+    /// dived deeper instead of heading back to the parent, and you could never
+    /// navigate left-side topics back toward the root — the instability.
     func element(in direction: Direction, of from: MindMapElement) -> MindMapElement? {
         guard let root = rootElement else { return nil }
+
+        func towardParent() -> MindMapElement? {
+            guard let parent = from.topic.parent else { return nil }
+            return element(forTopic: parent)
+        }
+        // First *visible* child on `from`'s side (children inherit the side).
+        let firstChild = from.children.first
+
         switch direction {
         case .right:
-            if let target = from.children.first(where: { !$0.isLeftSide }) ?? from.children.first { return target }
             if from === root { return root.rightChildren.first }
+            // Right-side: inward toward children. Left-side: back toward root.
+            return from.isLeftSide ? towardParent() : firstChild
         case .left:
-            if let target = from.children.first(where: { $0.isLeftSide }) { return target }
             if from === root { return root.leftChildren.first }
-            if let parent = from.topic.parent, let parentEl = element(forTopic: parent) { return parentEl }
+            return from.isLeftSide ? firstChild : towardParent()
         case .up, .down:
             guard let parent = from.topic.parent, let parentEl = element(forTopic: parent) else { return nil }
             let siblings = parentEl.children.filter { $0.isLeftSide == from.isLeftSide }
@@ -182,8 +197,8 @@ extension MindMapView {
                 let next = direction == .up ? idx - 1 : idx + 1
                 if siblings.indices.contains(next) { return siblings[next] }
             }
+            return nil
         }
-        return nil
     }
 
     func move(_ direction: Direction) {

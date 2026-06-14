@@ -4,6 +4,10 @@
 "menu.file.new_mindmap" = "新建思维导图";
 "menu.file.open_workspace" = "打开工作区…";
 "menu.file.open_file" = "打开文件…";
+"menu.file.quick_open" = "快速打开…";
+"switcher.placeholder" = "输入以搜索文件…";
+"switcher.empty.prompt" = "开始输入以查找文件";
+"switcher.empty.nomatch" = "没有匹配的文件";
 "menu.file.save" = "保存";
 "menu.file.save_as" = "另存为…";
 "menu.file.save_all" = "全部保存";

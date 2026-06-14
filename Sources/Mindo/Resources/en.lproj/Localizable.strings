@@ -7,6 +7,10 @@
 "menu.file.new_mindmap" = "New Mind Map";
 "menu.file.open_workspace" = "Open Workspace…";
 "menu.file.open_file" = "Open File…";
+"menu.file.quick_open" = "Quick Open…";
+"switcher.placeholder" = "Type to search files…";
+"switcher.empty.prompt" = "Start typing to find a file";
+"switcher.empty.nomatch" = "No matching files";
 "menu.file.save" = "Save";
 "menu.file.save_as" = "Save As…";
 "menu.file.save_all" = "Save All";

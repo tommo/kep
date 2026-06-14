@@ -103,6 +103,13 @@ struct MindoApp: App {
                     }
                 }
                 .sheet(isPresented: $session.aboutOpen) { AboutView() }
+                .sheet(isPresented: $session.quickSwitcherOpen) {
+                    QuickSwitcherView(
+                        files: session.quickSwitcherFiles(),
+                        onOpen: { url in session.open(url: url) },
+                        onClose: { session.quickSwitcherOpen = false }
+                    )
+                }
         }
         .commands {
             CommandGroup(replacing: .appInfo) {
@@ -119,10 +126,13 @@ struct MindoApp: App {
                 Button(L("menu.file.new_mindmap")) { session.newMindMap() }
                     .keyboardShortcut("n", modifiers: .command)
                 Divider()
+                Button(L("menu.file.quick_open")) { session.quickSwitcherOpen = true }
+                    .keyboardShortcut("o", modifiers: .command)
+                    .disabled(session.workspaceRoots.isEmpty)
                 Button(L("menu.file.open_workspace")) { session.openWorkspace() }
                     .keyboardShortcut("o", modifiers: [.command, .shift])
                 Button(L("menu.file.open_file")) { session.openFile() }
-                    .keyboardShortcut("o", modifiers: .command)
+                    .keyboardShortcut("o", modifiers: [.command, .option])
                 Button(L("menu.file.save")) { session.saveActive() }
                     .keyboardShortcut("s", modifiers: .command)
                 Button(L("menu.file.save_as")) { session.saveActiveAs() }
@@ -356,6 +366,18 @@ final class AppSession {
 
     /// Find-in-files sheet flag.
     var findInFilesOpen: Bool = false
+    /// Obsidian-style ⌘O quick switcher sheet flag.
+    var quickSwitcherOpen: Bool = false
+
+    /// Flat index of every file across open workspaces — data source for
+    /// the quick switcher. Rebuilt each time the switcher opens so it
+    /// reflects files added since launch.
+    func quickSwitcherFiles() -> [WorkspaceFile] {
+        WorkspaceFileIndex.index(
+            roots: workspaceRoots.map { ($0.url, $0.name) },
+            config: .fromPreferences()
+        )
+    }
     /// In-document Find bar visible (mindmap canvas only — text editors
     /// route ⌘F to NSTextView's built-in find bar).
     var inDocFindOpen: Bool = false

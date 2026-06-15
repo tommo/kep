@@ -476,7 +476,10 @@ extension MindMapView {
 
     public override func mouseExited(with event: NSEvent) {
         super.mouseExited(with: event)
-        hideNotePopover()
+        // Don't hide outright — moving the cursor ONTO the popover counts as
+        // exiting the canvas's tracking area. Schedule the grace-period check,
+        // which keeps the popover open while the cursor is over it.
+        if notePopover?.isShown == true { scheduleNoteHoverDismiss() }
     }
 
     /// True when `point` is empty canvas — no topic, extra icon, collapsator,
@@ -559,7 +562,12 @@ extension MindMapView {
         hideNotePopover()
         guard let rect = element.extraIconRects.first(where: { $0.0 == .note })?.1 else { return }
         let pop = NSPopover()
-        pop.behavior = .semitransient
+        // .applicationDefined: AppKit must NOT auto-close it. A .transient /
+        // .semitransient popover is dismissed by AppKit the instant the mouse
+        // moves outside it, which fired before our grace-period logic could run
+        // — so moving toward the popover killed it and it was impossible to
+        // interact with. We own open/close entirely (hover-intent + keep-alive).
+        pop.behavior = .applicationDefined
         pop.animates = false
         pop.contentViewController = NoteHoverController(markdown: markdown)
         pop.show(relativeTo: rect, of: self, preferredEdge: .maxY)

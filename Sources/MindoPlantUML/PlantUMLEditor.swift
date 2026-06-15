@@ -23,7 +23,13 @@ public struct PlantUMLEditor: NSViewRepresentable {
 
     public func makeNSView(context: Context) -> NSView {
         let container = NSView()
+        // Same frame behaviour as every other editor: compress horizontally
+        // (toolbar clips) rather than forcing a wide minimum that collapses the
+        // sidebar in this mode.
+        container.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         let toolbar = makeToolbar(coordinator: context.coordinator)
+        toolbar.clipsToBounds = true
+        toolbar.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         let split = NSSplitView()
         split.isVertical = PrefKeys.bool(PrefKeys.plantumlSplitVertical, fallback: true)

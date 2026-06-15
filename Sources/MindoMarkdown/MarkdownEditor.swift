@@ -28,7 +28,13 @@ public struct MarkdownEditor: NSViewRepresentable {
 
     public func makeNSView(context: Context) -> NSView {
         let container = NSView()
+        // Same frame behaviour as every other editor: let the pane compress
+        // horizontally (toolbar clips) instead of forcing a wide minimum that
+        // makes the NavigationSplitView collapse the sidebar in this mode.
+        container.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         let toolbar = makeToolbar(coordinator: context.coordinator)
+        toolbar.clipsToBounds = true
+        toolbar.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         let split = NSSplitView()
         split.isVertical = PrefKeys.bool(PrefKeys.markdownSplitVertical, fallback: true)

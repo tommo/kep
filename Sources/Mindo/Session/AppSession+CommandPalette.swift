@@ -28,6 +28,11 @@ extension AppSession {
             // File
             cmd("file.newMindMap", L("menu.file.new_mindmap"), category: L("palette.cat.file"),
                 shortcut: "⌘N") { self.newMindMap() },
+            cmd("file.newMarkdown", L("menu.file.new_markdown"), category: L("palette.cat.file"),
+                shortcut: "⇧⌘N") { self.newMarkdown() },
+            cmd("file.newCSV", L("menu.file.new_csv"), category: L("palette.cat.file")) { self.newCSV() },
+            cmd("file.newPlantUML", L("menu.file.new_plantuml"), category: L("palette.cat.file")) { self.newPlantUML() },
+            cmd("file.newText", L("menu.file.new_text"), category: L("palette.cat.file")) { self.newTextFile() },
             cmd("file.quickOpen", L("menu.file.quick_open"), category: L("palette.cat.file"),
                 shortcut: "⌘O", enabled: hasWorkspaces) { self.quickSwitcherOpen = true },
             cmd("file.openWorkspace", L("menu.file.open_workspace"), category: L("palette.cat.file"),

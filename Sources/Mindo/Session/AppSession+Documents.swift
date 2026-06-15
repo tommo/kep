@@ -44,6 +44,20 @@ extension AppSession {
         activeDocumentID = doc.id
     }
 
+    /// Open a fresh, untitled text-backed document (markdown / csv / plantuml /
+    /// plain text). Save (⌘S) prompts for a path since fileURL is nil.
+    func newTextDocument(_ type: SupportedFileType) {
+        let doc = OpenDocument(kind: .text("", fileType: type), fileURL: nil,
+                               title: "Untitled.\(type.rawValue)")
+        openDocuments.append(doc)
+        activeDocumentID = doc.id
+    }
+
+    func newMarkdown() { newTextDocument(.markdown) }
+    func newCSV()      { newTextDocument(.csv) }
+    func newPlantUML() { newTextDocument(.plantUML) }
+    func newTextFile() { newTextDocument(.plainText) }
+
     func closeActive() {
         guard let id = activeDocumentID,
               let idx = openDocuments.firstIndex(where: { $0.id == id }) else { return }

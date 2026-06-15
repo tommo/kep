@@ -131,6 +131,11 @@ struct MindoApp: App {
             CommandGroup(replacing: .newItem) {
                 Button(L("menu.file.new_mindmap")) { session.newMindMap() }
                     .keyboardShortcut("n", modifiers: .command)
+                Button(L("menu.file.new_markdown")) { session.newMarkdown() }
+                    .keyboardShortcut("n", modifiers: [.command, .shift])
+                Button(L("menu.file.new_csv")) { session.newCSV() }
+                Button(L("menu.file.new_plantuml")) { session.newPlantUML() }
+                Button(L("menu.file.new_text")) { session.newTextFile() }
                 Divider()
                 Button(L("menu.file.quick_open")) { session.quickSwitcherOpen = true }
                     .keyboardShortcut("o", modifiers: .command)
@@ -364,6 +369,11 @@ final class AppSession {
     /// scroll/center on change. Reset to nil after a brief debounce so the
     /// same target can fire again.
     var outlineNavigationTarget: String?
+
+    /// The outline index-path of the topic currently selected in the mind-map
+    /// canvas. Published by the canvas on selection change so the outline panel
+    /// highlights the matching row (graph → outline selection sync).
+    var selectedOutlineTarget: String?
 
     /// View > Zoom command + monotonically-increasing tick so the canvas
     /// observes any new request even when the same enum case repeats.

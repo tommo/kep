@@ -2,6 +2,10 @@
 
 /* MARK: - 文件菜单 */
 "menu.file.new_mindmap" = "新建思维导图";
+"menu.file.new_markdown" = "新建 Markdown";
+"menu.file.new_csv" = "新建 CSV";
+"menu.file.new_plantuml" = "新建 PlantUML";
+"menu.file.new_text" = "新建文本文件";
 "menu.file.open_workspace" = "打开工作区…";
 "menu.file.open_file" = "打开文件…";
 "menu.file.quick_open" = "快速打开…";

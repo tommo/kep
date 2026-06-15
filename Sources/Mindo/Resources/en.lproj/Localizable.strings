@@ -5,6 +5,10 @@
 
 /* MARK: - File menu */
 "menu.file.new_mindmap" = "New Mind Map";
+"menu.file.new_markdown" = "New Markdown";
+"menu.file.new_csv" = "New CSV";
+"menu.file.new_plantuml" = "New PlantUML";
+"menu.file.new_text" = "New Text File";
 "menu.file.open_workspace" = "Open Workspace…";
 "menu.file.open_file" = "Open File…";
 "menu.file.quick_open" = "Quick Open…";

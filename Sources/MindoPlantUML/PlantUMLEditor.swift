@@ -101,6 +101,16 @@ public struct PlantUMLEditor: NSViewRepresentable {
         stack.spacing = 4
         stack.edgeInsets = NSEdgeInsets(top: 4, left: 8, bottom: 4, right: 8)
         stack.alignment = .centerY
+        // CRITICAL for layout stability: a horizontal stack of buttons reports
+        // a minimum width = the sum of all button widths, and NSStackView
+        // resists clipping that content at high priority by default. Pinned
+        // edge-to-edge inside the editor, that minimum propagates up through the
+        // NSHostingController and forces the (SwiftUI) detail pane wider —
+        // squeezing the sidebar whenever a .puml tab is shown. Letting the stack
+        // be clipped (low clipping resistance) means the toolbar yields instead
+        // of the sidebar, so pane widths stay stable across document modes.
+        stack.setClippingResistancePriority(.defaultLow, for: .horizontal)
+        stack.setHuggingPriority(.defaultLow, for: .horizontal)
 
         func skeletonButton(_ title: String, tooltip: String, action: Selector) -> NSButton {
             let b = NSButton(title: title, target: coordinator, action: action)

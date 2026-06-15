@@ -199,6 +199,11 @@ public struct CSVEditor: NSViewRepresentable {
         stack.orientation = .horizontal
         stack.spacing = 6
         stack.edgeInsets = NSEdgeInsets(top: 4, left: 8, bottom: 4, right: 8)
+        // Let the toolbar clip rather than force the editor (and thus the whole
+        // detail pane) wider — keeps the sidebar width stable across modes.
+        // See the longer note in PlantUMLEditor.makeToolbar.
+        stack.setClippingResistancePriority(.defaultLow, for: .horizontal)
+        stack.setHuggingPriority(.defaultLow, for: .horizontal)
 
         func button(_ title: String, _ tooltip: String, _ action: Selector) -> NSButton {
             let b = NSButton(title: title, target: coordinator, action: action)

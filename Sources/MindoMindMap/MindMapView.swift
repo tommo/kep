@@ -665,6 +665,8 @@ public final class MindMapView: NSView {
 
     func toggleCollapse(toCollapsed: Bool) {
         guard let sel = selectedElement, !sel.children.isEmpty else { return }
+        // Never fold the root — collapsing it would hide the entire map.
+        guard sel.topic.parent != nil else { return }
         undoableSetAttribute(sel.topic, key: TopicAttribute.collapsed, value: toCollapsed ? "true" : nil)
     }
 

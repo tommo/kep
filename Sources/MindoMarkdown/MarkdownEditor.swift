@@ -28,37 +28,26 @@ public struct MarkdownEditor: NSViewRepresentable {
 
     public func makeNSView(context: Context) -> NSView {
         let container = NSView()
-        // Same frame behaviour as every other editor: let the pane compress
-        // horizontally (toolbar clips) instead of forcing a wide minimum that
-        // makes the NavigationSplitView collapse the sidebar in this mode.
         container.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        let toolbar = makeToolbar(coordinator: context.coordinator)
-        toolbar.clipsToBounds = true
-        toolbar.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         let split = NSSplitView()
         split.isVertical = PrefKeys.bool(PrefKeys.markdownSplitVertical, fallback: true)
         split.dividerStyle = .thin
 
-        // Status footer — words / chars / cursor position. Right-aligned so it
-        // doesn't compete with the toolbar buttons visually.
+        // Status footer — words / chars / cursor position.
         let footer = NSTextField(labelWithString: "")
         footer.font = .monospacedDigitSystemFont(ofSize: 10, weight: .regular)
         footer.textColor = .secondaryLabelColor
         footer.alignment = .right
         footer.translatesAutoresizingMaskIntoConstraints = false
 
-        toolbar.translatesAutoresizingMaskIntoConstraints = false
         split.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(toolbar)
         container.addSubview(split)
         container.addSubview(footer)
+        // No format toolbar — it was visual clutter; bold/italic/code/link stay
+        // on ⌘B / ⌘I / ⌘E / ⌘K. The editor fills from the top.
         NSLayoutConstraint.activate([
-            toolbar.topAnchor.constraint(equalTo: container.topAnchor),
-            toolbar.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            toolbar.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            toolbar.heightAnchor.constraint(equalToConstant: 32),
-            split.topAnchor.constraint(equalTo: toolbar.bottomAnchor),
+            split.topAnchor.constraint(equalTo: container.topAnchor),
             split.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             split.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             split.bottomAnchor.constraint(equalTo: footer.topAnchor),

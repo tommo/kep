@@ -1,11 +1,13 @@
 import SwiftUI
 import MindoBase
 import MindoCore
+import MindoMarkdown
 
 /// Top-level window content: split view (sidebar | detail with outline
 /// inspector), plus the global error alert. Owned by `MindoApp.body`.
 struct ContentView: View {
     @Binding var session: AppSession
+    @Environment(\.colorScheme) private var colorScheme
     @State private var sidebarSelection: NodeData?
     /// What drove the pending selection change. Arrow keys set this to
     /// `.keyboardNavigation` just before the List moves the highlight, so the
@@ -87,13 +89,24 @@ struct ContentView: View {
             .frame(minHeight: 100, idealHeight: 260)
 
             NodePropertyView(properties: session.selectedNodeProperties)
-                .frame(minHeight: 100)
+                .frame(minHeight: 90)
 
-            if let content = session.selectedNodeContent {
-                MarkdownContentPreview(markdown: content)
-                    .frame(minHeight: 120, maxHeight: .infinity)
+            // Node content editor — the SAME markdown widget the .md document
+            // view uses, bound to the selected node's content (its Note).
+            if session.selectedNodeProperties != nil {
+                MarkdownEditor(text: nodeContentBinding, isDarkMode: colorScheme == .dark)
+                    .id(session.selectedOutlineTarget)
+                    .frame(minHeight: 160, maxHeight: .infinity)
             }
         }
+    }
+
+    /// Two-way binding to the selected node's markdown content (its Note).
+    private var nodeContentBinding: Binding<String> {
+        Binding(
+            get: { session.selectedNodeContent ?? "" },
+            set: { session.setSelectedNodeContent($0) }
+        )
     }
 
     /// Open the currently-highlighted sidebar file (Return key, R6). Honours

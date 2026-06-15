@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 import MindoBase
 import MindoCore
+import MindoMindMap
 import MindoModel
 
 extension AppSession {
@@ -30,6 +31,35 @@ extension AppSession {
               !note.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         else { return nil }
         return note.text
+    }
+
+    /// The MindMapView backing the active mindmap document (found by walking
+    /// the key window's tree, like the zoom commands do).
+    @MainActor var activeMindMapView: MindMapView? {
+        let win = NSApp.keyWindow ?? NSApp.mainWindow ?? NSApp.windows.first { $0.isVisible }
+        return win?.contentView?
+            .firstSubview(ofType: NSScrollView.self, where: { $0.documentView is MindMapView })?
+            .documentView as? MindMapView
+    }
+
+    /// Write the selected node's markdown content (its Note). Empty clears it.
+    /// The note BADGE only changes when content appears/disappears, so we only
+    /// rebuild the canvas then — typing into existing content just updates the
+    /// model + marks the doc dirty (no per-keystroke canvas churn).
+    @MainActor func setSelectedNodeContent(_ text: String) {
+        guard case .mindMap(let map)? = activeDocument?.kind,
+              let path = selectedOutlineTarget,
+              let topic = map.topic(atOutlinePath: path) else { return }
+        let had = topic.extra(.note) != nil
+        if text.isEmpty {
+            topic.removeExtra(.note)
+        } else {
+            topic.setExtra(ExtraNote(text: text))
+        }
+        if let id = activeDocumentID, let idx = openDocuments.firstIndex(where: { $0.id == id }) {
+            openDocuments[idx].isDirty = true
+        }
+        if had != !text.isEmpty { activeMindMapView?.rebuildElementsPublic() }
     }
 
     var selectedNodeProperties: NodeProperties? {

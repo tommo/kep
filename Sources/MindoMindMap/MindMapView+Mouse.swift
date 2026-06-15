@@ -544,10 +544,14 @@ extension MindMapView {
         if let (el, type) = elementExtra(at: point), type == .note,
            let note = el.topic.extra(.note)?.value,
            !note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            // Over a note icon: keep it open (cancel any pending dismissal).
+            cancelNoteHoverDismiss()
             if notePopoverElement === el, notePopover?.isShown == true { return }
             showNotePopover(for: el, markdown: note)
-        } else {
-            hideNotePopover()
+        } else if notePopover?.isShown == true {
+            // Left the icon: don't slam it shut — give the cursor time to reach
+            // the popover, and keep it alive while the cursor is over it.
+            scheduleNoteHoverDismiss()
         }
     }
 
@@ -564,9 +568,34 @@ extension MindMapView {
     }
 
     func hideNotePopover() {
+        cancelNoteHoverDismiss()
         notePopover?.performClose(nil)
         notePopover = nil
         notePopoverElement = nil
+    }
+
+    func cancelNoteHoverDismiss() {
+        noteHoverDismiss?.cancel()
+        noteHoverDismiss = nil
+    }
+
+    /// Close the popover after a short grace period — unless the cursor is now
+    /// over the popover itself, in which case keep it open and re-check soon.
+    /// This is what lets the user move off the icon and into the note to scroll
+    /// it or click a link without it vanishing.
+    private func scheduleNoteHoverDismiss() {
+        noteHoverDismiss?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            if let win = self.notePopover?.contentViewController?.view.window,
+               win.frame.contains(NSEvent.mouseLocation) {
+                self.scheduleNoteHoverDismiss()   // still hovering the note — recheck
+                return
+            }
+            self.hideNotePopover()
+        }
+        noteHoverDismiss = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: work)
     }
 
     /// Resolve an `ExtraTopic` jump-link UID to its target node and select it —

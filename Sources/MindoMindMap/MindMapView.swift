@@ -27,6 +27,10 @@ public final class MindMapView: NSView {
     /// so we don't rebuild it every mouseMoved. Managed in MindMapView+Mouse.
     var notePopover: NSPopover?
     weak var notePopoverElement: MindMapElement?
+    /// Pending delayed dismissal of the note popover. Gives the cursor time to
+    /// travel from the icon into the popover (and keeps it open while there) so
+    /// the note is actually interactable — scroll, select, follow links.
+    var noteHoverDismiss: DispatchWorkItem?
 
     public override var undoManager: UndoManager? {
         injectedUndoManager ?? super.undoManager

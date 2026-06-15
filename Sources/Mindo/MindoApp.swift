@@ -306,7 +306,10 @@ struct MindoApp: App {
                 .keyboardShortcut("0", modifiers: [.command, .option])
             }
         }
-        Settings { PreferencesView() }
+        // Settings is a separate scene, so it doesn't inherit the main window's
+        // environment — inject the session explicitly or PreferencesView's
+        // @Environment(AppSession.self) crashes ("No Observable object…").
+        Settings { PreferencesView().environment(session) }
     }
 }
 

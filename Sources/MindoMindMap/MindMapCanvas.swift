@@ -113,16 +113,6 @@ public struct MindMapCanvas: NSViewRepresentable {
         ])
         minimap.attach(to: scroll, mapView: view)
 
-        // DIAG: confirm the custom clip view actually got installed + initial geometry.
-        DispatchQueue.main.async {
-            NSLog("DIAG setup: contentView=%@ isCanvasClip=%@ docFrame=%@ clipBounds=%@ visRect=%@",
-                  String(describing: type(of: scroll.contentView)),
-                  scroll.contentView is CanvasClipView ? "YES" : "NO",
-                  NSStringFromRect(view.frame),
-                  NSStringFromRect(scroll.contentView.bounds),
-                  NSStringFromRect(scroll.documentVisibleRect))
-        }
-
         // Track magnification changes so the footer's zoom-percent stays
         // current. NSScrollView.willStartLiveMagnify isn't enough — we want
         // the value after every change, not just at gesture start.

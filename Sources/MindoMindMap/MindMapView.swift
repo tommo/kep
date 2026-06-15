@@ -58,6 +58,9 @@ public final class MindMapView: NSView {
     /// File-internal so MindMapView+Mouse / +Keyboard extensions in this
     /// module can read + reset the inline edit field.
     var inlineEditor: NSTextField?
+    /// Whether the canvas has been centred + revealed for the current map (it
+    /// starts hidden on load to avoid the lay-out-then-jump flash).
+    private var didInitialReveal = false
     /// Topic the inlineEditor is currently editing. Set in beginInlineEdit
     /// so commitInlineEdit applies the text to the right node even when
     /// the selection moved on (e.g. Tab created a child mid-edit).
@@ -161,14 +164,36 @@ public final class MindMapView: NSView {
             selectElement(root)
         }
         needsDisplay = true
-        // Centre the viewport on the root + grab focus on the next runloop pass
-        // (once the scroll view has a real size). A freshly-shown map must not
-        // inherit the previous document's pan offset — that left a new map's
-        // root stranded in the top-left instead of centred.
+        // Avoid the load-time flash: when hosted in a scroll view the first
+        // layout runs before the clip has its real size, so content lands in
+        // the wrong place and then jumps once the size arrives. Hide the canvas
+        // until it's laid out + centred at the real size, then reveal. Offscreen
+        // / headless renders (no scroll view, e.g. image export) stay visible.
+        if enclosingScrollView != nil {
+            didInitialReveal = false
+            alphaValue = 0
+        } else {
+            alphaValue = 1
+        }
+        // Reveal only AFTER a real-size relayout has positioned + centred the
+        // content — via clipViewDidResize when the size arrives, or this async
+        // fallback for an already-sized canvas (switching maps). Centring
+        // synchronously here ran before layout settled and stranded the root.
         DispatchQueue.main.async { [weak self] in
-            self?.centerOnRoot()
+            self?.revealWhenLaidOut()
             self?.grabFocus()
         }
+    }
+
+    /// Once the scroll view has a real size, centre the root and reveal the
+    /// canvas (once). No-op until sized; harmless without a scroll view.
+    private func revealWhenLaidOut() {
+        guard !didInitialReveal, let scroll = enclosingScrollView else { return }
+        let vp = scroll.documentVisibleRect.size
+        guard vp.width > 0, vp.height > 0 else { return }
+        centerOnRoot()
+        didInitialReveal = true
+        alphaValue = 1
     }
 
     /// Scroll so the root topic sits in the middle of the viewport. Clamped by
@@ -389,6 +414,7 @@ public final class MindMapView: NSView {
     /// size — keeps the document view filling the viewport on window resize.
     @objc private func clipViewDidResize(_ note: Notification) {
         relayout()
+        revealWhenLaidOut()   // first real size on load → centre + reveal
     }
 
     // MARK: - Hit testing

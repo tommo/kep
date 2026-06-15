@@ -78,6 +78,14 @@ struct ContentView: View {
                   sidebarSelection?.url != node.url else { return }
             sidebarSelection = node
         }
+        // Initial sync: .onChange doesn't fire for the value restored at launch,
+        // so seed the selection from the active document once the tree exists.
+        .onAppear {
+            guard sidebarSelection == nil,
+                  let url = session.activeDocument?.fileURL,
+                  let node = sidebarNode(for: url) else { return }
+            sidebarSelection = node
+        }
         .alert(L("error.alert_title"), isPresented: Binding(
             get: { session.lastError != nil },
             set: { if !$0 { session.lastError = nil } }

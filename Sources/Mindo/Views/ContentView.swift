@@ -35,6 +35,20 @@ struct ContentView: View {
             inspector: { inspectorPane }
         )
         .onChange(of: sidebarSelection) { _, new in
+            // A nil here is almost never a real user deselect — SwiftUI's List
+            // clears its selection binding when it resigns first responder, and
+            // opening a file does exactly that: the mindmap canvas (and the
+            // text editors) grab focus on appear via makeFirstResponder. Treat
+            // it as a focus blip and restore the row for the active document so
+            // the tree keeps showing where you are (Finder / VS Code behaviour).
+            if new == nil {
+                if let url = session.activeDocument?.fileURL,
+                   let node = sidebarNode(for: url) {
+                    sidebarSelection = node
+                }
+                selectionSource = .pointer
+                return
+            }
             // Open on selection (single-click, Obsidian-style) but only when
             // the rule says so — skips folders, the already-active file (so
             // the reverse active-doc→selection sync can't loop back into a

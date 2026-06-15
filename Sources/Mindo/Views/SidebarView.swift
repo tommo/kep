@@ -216,9 +216,24 @@ struct NodeRow: View {
             }
             .font(.system(size: 12))
             .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 4))
+            // Always-visible highlight for the file that's open in the editor.
+            // SwiftUI's List hides its built-in selection when it isn't the
+            // focused responder — and opening a file moves focus to the editor,
+            // so the row "deselected". A row background tied to the active
+            // document survives focus loss (Finder / VS Code behaviour). nil
+            // keeps the default so keyboard-nav selection still shows.
+            .listRowBackground(isActiveDocument ? Color.accentColor.opacity(0.20) : nil)
             .tag(node)
             .contextMenu { menuItems }
         }
+    }
+
+    /// True when this file is the document currently shown in the editor.
+    /// Drives an always-visible row highlight (see listRowBackground) so the
+    /// open file stays marked even when the sidebar isn't focused.
+    private var isActiveDocument: Bool {
+        guard node.isFile, let active = session.activeDocument?.fileURL else { return false }
+        return active.standardizedFileURL == node.url.standardizedFileURL
     }
 
     /// True when this node's URL is in the workspace's recents list.

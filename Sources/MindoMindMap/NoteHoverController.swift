@@ -2,8 +2,9 @@ import AppKit
 
 /// Content for the note hover popover: the node's note rendered as Markdown.
 /// Uses Foundation's built-in Markdown→AttributedString so bold / italic /
-/// code / links render without pulling in the full editor stack. Sized to its
-/// content (capped width) so the popover hugs the text.
+/// code / links render without pulling in the full editor stack. Sized
+/// explicitly from the text's bounding rect (autolayout fittingSize inside a
+/// popover was unreliable and produced an empty box).
 final class NoteHoverController: NSViewController {
     private let markdown: String
 
@@ -14,46 +15,52 @@ final class NoteHoverController: NSViewController {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    private static let maxWidth: CGFloat = 320
+    private static let textWidth: CGFloat = 300
+    private static let hPad: CGFloat = 10
+    private static let vPad: CGFloat = 8
 
     override func loadView() {
-        let label = NSTextField(wrappingLabelWithString: "")
-        label.attributedStringValue = Self.render(markdown)
-        label.isEditable = false
-        label.isSelectable = false
-        label.drawsBackground = false
-        label.translatesAutoresizingMaskIntoConstraints = false
-        label.preferredMaxLayoutWidth = Self.maxWidth - 20
+        let attr = Self.render(markdown)
+        let bounding = attr.boundingRect(
+            with: NSSize(width: Self.textWidth, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading])
+        let w = max(ceil(bounding.width), 40)
+        let h = max(ceil(bounding.height), 16)
 
-        let container = NSView()
+        let label = NSTextField(labelWithAttributedString: attr)
+        label.lineBreakMode = .byWordWrapping
+        label.maximumNumberOfLines = 0
+        label.preferredMaxLayoutWidth = Self.textWidth
+        label.frame = NSRect(x: Self.hPad, y: Self.vPad, width: w, height: h)
+
+        let container = NSView(frame: NSRect(x: 0, y: 0,
+                                             width: w + Self.hPad * 2,
+                                             height: h + Self.vPad * 2))
         container.addSubview(label)
-        NSLayoutConstraint.activate([
-            label.topAnchor.constraint(equalTo: container.topAnchor, constant: 8),
-            label.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -8),
-            label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 10),
-            label.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -10),
-            label.widthAnchor.constraint(lessThanOrEqualToConstant: Self.maxWidth - 20),
-        ])
         view = container
+        preferredContentSize = container.frame.size
     }
 
     /// Render markdown to an attributed string, preserving line breaks (a note
-    /// is usually multi-line prose, not a single paragraph). Falls back to the
-    /// raw text if parsing fails.
+    /// is usually multi-line prose, not a single paragraph). Forces a concrete
+    /// base font + label color wherever markdown left them unset, so the text
+    /// is actually visible. Falls back to the raw text if parsing fails.
     private static func render(_ source: String) -> NSAttributedString {
+        let base = NSFont.systemFont(ofSize: 12)
         let options = AttributedString.MarkdownParsingOptions(
             interpretedSyntax: .inlineOnlyPreservingWhitespace)
-        if let attributed = try? AttributedString(markdown: source, options: options) {
-            let ns = NSMutableAttributedString(attributed)
-            // Ensure a concrete base font where markdown left none, without
-            // clobbering the bold / italic / code fonts it did apply.
-            let base = NSFont.systemFont(ofSize: 12)
-            ns.enumerateAttribute(.font, in: NSRange(location: 0, length: ns.length)) { value, range, _ in
-                if value == nil { ns.addAttribute(.font, value: base, range: range) }
-            }
-            return ns
+        guard let attributed = try? AttributedString(markdown: source, options: options) else {
+            return NSAttributedString(string: source,
+                                      attributes: [.font: base, .foregroundColor: NSColor.labelColor])
         }
-        return NSAttributedString(string: source,
-                                  attributes: [.font: NSFont.systemFont(ofSize: 12)])
+        let ns = NSMutableAttributedString(attributedString: NSAttributedString(attributed))
+        let full = NSRange(location: 0, length: ns.length)
+        ns.enumerateAttribute(.font, in: full) { value, range, _ in
+            if value == nil { ns.addAttribute(.font, value: base, range: range) }
+        }
+        ns.enumerateAttribute(.foregroundColor, in: full) { value, range, _ in
+            if value == nil { ns.addAttribute(.foregroundColor, value: NSColor.labelColor, range: range) }
+        }
+        return ns
     }
 }

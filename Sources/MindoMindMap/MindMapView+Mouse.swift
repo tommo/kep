@@ -62,6 +62,7 @@ extension MindMapView {
 
     public override func mouseDown(with event: NSEvent) {
         commitInlineEdit()
+        hideNotePopover()
         let p = convert(event.locationInWindow, from: nil)
         // Space-drag wins over everything — it's a temporary "pan" mode.
         if isSpaceDown, let scroll = enclosingScrollView {
@@ -455,7 +456,7 @@ extension MindMapView {
         for area in trackingAreas { removeTrackingArea(area) }
         addTrackingArea(NSTrackingArea(
             rect: .zero,
-            options: [.activeInKeyWindow, .mouseMoved, .inVisibleRect],
+            options: [.activeInKeyWindow, .mouseMoved, .mouseEnteredAndExited, .inVisibleRect],
             owner: self, userInfo: nil))
     }
 
@@ -470,6 +471,12 @@ extension MindMapView {
         } else {
             NSCursor.arrow.set()
         }
+        updateNoteHover(at: p)
+    }
+
+    public override func mouseExited(with event: NSEvent) {
+        super.mouseExited(with: event)
+        hideNotePopover()
     }
 
     /// True when `point` is empty canvas — no topic, extra icon, collapsator,
@@ -514,10 +521,9 @@ extension MindMapView {
             followTopicLink(uid: extra.value)
             onExtraTopicTap?(extra.value)
         case .note:
-            // The note text is shown on hover (native tooltip — see
-            // refreshNoteTooltips). A click just selects the node so its note
-            // opens in the inspector's editor; the old modal NSAlert popup was
-            // needless friction.
+            // The note is peeked on hover (a popover — see updateNoteHover). A
+            // click just selects the node so its note opens in the inspector's
+            // editor; the old modal NSAlert popup was needless friction.
             if let custom = onExtraNoteTap {
                 custom(element.topic, extra.value)
             } else {
@@ -528,18 +534,39 @@ extension MindMapView {
         }
     }
 
-    // MARK: - Note hover tooltips
+    // MARK: - Note hover popover
 
-    /// Register a native tooltip over every note icon so hovering peeks the
-    /// note text. Called after each relayout because the icon rects move.
-    func refreshNoteTooltips() {
-        removeAllToolTips()
-        guard let root = rootElement else { return }
-        root.traverse { el in
-            for (type, rect) in el.extraIconRects where type == .note {
-                addToolTip(rect, owner: self, userData: nil)
-            }
+    /// Show/hide the note-preview popover based on the cursor position. Driven
+    /// from mouseMoved so hovering a note icon reliably pops a rendered preview
+    /// (a native tooltip was inconsistent and plain-text only). Idempotent: the
+    /// popover for an already-hovered note isn't rebuilt.
+    func updateNoteHover(at point: CGPoint) {
+        if let (el, type) = elementExtra(at: point), type == .note,
+           let note = el.topic.extra(.note)?.value,
+           !note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            if notePopoverElement === el, notePopover?.isShown == true { return }
+            showNotePopover(for: el, markdown: note)
+        } else {
+            hideNotePopover()
         }
+    }
+
+    private func showNotePopover(for element: MindMapElement, markdown: String) {
+        hideNotePopover()
+        guard let rect = element.extraIconRects.first(where: { $0.0 == .note })?.1 else { return }
+        let pop = NSPopover()
+        pop.behavior = .semitransient
+        pop.animates = false
+        pop.contentViewController = NoteHoverController(markdown: markdown)
+        pop.show(relativeTo: rect, of: self, preferredEdge: .maxY)
+        notePopover = pop
+        notePopoverElement = element
+    }
+
+    func hideNotePopover() {
+        notePopover?.performClose(nil)
+        notePopover = nil
+        notePopoverElement = nil
     }
 
     /// Resolve an `ExtraTopic` jump-link UID to its target node and select it —
@@ -550,18 +577,6 @@ extension MindMapView {
               let target = map.findTopic(uid: uid),
               let el = element(forTopic: target) else { return }
         selectElement(el)
-    }
-
-    /// Tooltip text for a hovered note icon. Hit-tests the hover point against
-    /// the note icons and returns that node's note (raw markdown is plenty for
-    /// a peek). Empty string when the point isn't over a note icon.
-    public func view(_ view: NSView, stringForToolTip tag: NSView.ToolTipTag,
-                     point: NSPoint, userData data: UnsafeMutableRawPointer?) -> String {
-        if let (el, type) = elementExtra(at: point), type == .note,
-           let note = el.topic.extra(.note)?.value {
-            return note
-        }
-        return ""
     }
 
     // MARK: - Trackpad pinch

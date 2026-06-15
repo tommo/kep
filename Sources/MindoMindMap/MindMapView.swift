@@ -4,7 +4,7 @@ import MindoModel
 
 /// AppKit canvas that renders a mind map and handles mouse + keyboard editing.
 /// Mirrors a small slice of `mindmap-panel`'s `MindMapPanel`/`MindMapViewSkin`.
-public final class MindMapView: NSView, NSViewToolTipOwner {
+public final class MindMapView: NSView {
     public var theme: MindMapTheme = .light {
         didSet { needsDisplay = true }
     }
@@ -22,6 +22,11 @@ public final class MindMapView: NSView, NSViewToolTipOwner {
     /// responder-chain default (`super.undoManager`). Useful for tests and for
     /// callers that want a per-document undo stack.
     public var injectedUndoManager: UndoManager?
+
+    /// Hover-preview popover for a node's note + the element it's anchored to,
+    /// so we don't rebuild it every mouseMoved. Managed in MindMapView+Mouse.
+    var notePopover: NSPopover?
+    weak var notePopoverElement: MindMapElement?
 
     public override var undoManager: UndoManager? {
         injectedUndoManager ?? super.undoManager
@@ -391,7 +396,9 @@ public final class MindMapView: NSView, NSViewToolTipOwner {
         contentBounds.origin = CGPoint(x: ox, y: oy)
         anchoredRootCenter = CGPoint(x: rcx + ox, y: rcy + oy)
 
-        refreshNoteTooltips()
+        // Icon positions just moved — drop any open note hover so it can't
+        // float over the wrong spot.
+        hideNotePopover()
         needsDisplay = true
     }
 

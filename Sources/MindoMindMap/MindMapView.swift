@@ -101,6 +101,16 @@ public final class MindMapView: NSView {
     var marqueeStart: CGPoint?
     var marqueeCurrent: CGPoint?
 
+    /// Right-mouse "drag to link" state. A right-press on a node arms it; a real
+    /// drag (past `dragThreshold`) draws a connector to the cursor and, on
+    /// release over another node, creates a topic jump-link. A right-press with
+    /// NO drag falls back to the context menu. `linkDragCurrent == nil` means
+    /// "pressed but not yet dragged".
+    var linkDragSource: MindMapElement?
+    var linkDragOrigin: CGPoint?
+    var linkDragCurrent: CGPoint?
+    var linkDragTarget: MindMapElement?
+
     // MARK: - Init
 
     public override init(frame frameRect: NSRect) {
@@ -151,17 +161,54 @@ public final class MindMapView: NSView {
             selectElement(root)
         }
         needsDisplay = true
-        // Try to grab focus on the next runloop pass so any sidebar List
-        // that's currently first responder gives way once the canvas appears.
+        // Centre the viewport on the root + grab focus on the next runloop pass
+        // (once the scroll view has a real size). A freshly-shown map must not
+        // inherit the previous document's pan offset — that left a new map's
+        // root stranded in the top-left instead of centred.
         DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            self.window?.makeFirstResponder(self)
+            self?.centerOnRoot()
+            self?.grabFocus()
         }
+    }
+
+    /// Scroll so the root topic sits in the middle of the viewport. Clamped by
+    /// the clip view's constraint. No-op without a scroll view / root.
+    public func centerOnRoot() {
+        guard let scroll = enclosingScrollView, let root = rootElement else { return }
+        let vp = scroll.documentVisibleRect.size
+        guard vp.width > 0, vp.height > 0 else { return }
+        let c = CGPoint(x: root.frame.midX, y: root.frame.midY)
+        let origin = CGPoint(x: c.x - vp.width / 2, y: c.y - vp.height / 2)
+        let clip = scroll.contentView
+        clip.scroll(to: clip.constrainBoundsRect(NSRect(origin: origin, size: clip.bounds.size)).origin)
+        scroll.reflectScrolledClipView(clip)
+    }
+
+    /// Index-path ("", "0", "0/2") of the currently-selected topic, in the same
+    /// scheme `Outline.fromMindMap` uses as each row's `target`. Lets the SwiftUI
+    /// outline panel highlight the row matching the canvas selection (and vice
+    /// versa). `nil` when nothing is selected.
+    public var selectedOutlinePath: String? {
+        guard let topic = selectedElement?.topic else { return nil }
+        var indices: [Int] = []
+        var node = topic
+        while let parent = node.parent {
+            guard let idx = parent.children.firstIndex(where: { $0 === node }) else { return nil }
+            indices.append(idx)
+            node = parent
+        }
+        return indices.reversed().map(String.init).joined(separator: "/")
     }
 
     /// Called by the SwiftUI bridge whenever the canvas is shown / re-shown.
     /// Idempotent.
     public func grabFocus() {
+        // Never steal first responder from an open inline editor. Enter/Tab/F2
+        // create a node and immediately begin editing it; the model change then
+        // triggers a SwiftUI re-render whose updateNSView calls grabFocus on the
+        // next runloop — without this guard that async call yanked focus back to
+        // the canvas, so the new node opened in edit mode but couldn't be typed.
+        guard inlineEditor == nil else { return }
         window?.makeFirstResponder(self)
     }
 
@@ -177,9 +224,7 @@ public final class MindMapView: NSView {
         if window != nil {
             installKeyMonitor()
             installClipResizeWatcher()
-            DispatchQueue.main.async { [weak self] in
-                self?.window?.makeFirstResponder(self)
-            }
+            DispatchQueue.main.async { [weak self] in self?.grabFocus() }
         } else {
             removeKeyMonitor()
             removeClipResizeWatcher()
@@ -450,6 +495,27 @@ public final class MindMapView: NSView {
             ctx.setStrokeColor(theme.selectionColor.withAlphaComponent(0.8).cgColor)
             ctx.setLineWidth(1)
             ctx.stroke(rect)
+        }
+
+        // Right-drag "create link" connector + target highlight.
+        if let source = linkDragSource, let current = linkDragCurrent {
+            let from = CGPoint(x: source.frame.midX, y: source.frame.midY)
+            ctx.setStrokeColor(NSColor.controlAccentColor.cgColor)
+            ctx.setLineWidth(2)
+            ctx.setLineDash(phase: 0, lengths: [5, 4])
+            ctx.move(to: from); ctx.addLine(to: current); ctx.strokePath()
+            ctx.setLineDash(phase: 0, lengths: [])
+            // Arrowhead-ish dot at the cursor.
+            let dot = CGRect(x: current.x - 3, y: current.y - 3, width: 6, height: 6)
+            ctx.setFillColor(NSColor.controlAccentColor.cgColor)
+            ctx.fillEllipse(in: dot)
+            if let target = linkDragTarget {
+                let r = target.frame.insetBy(dx: -2, dy: -2)
+                let path = CGPath(roundedRect: r, cornerWidth: theme.cornerRadius, cornerHeight: theme.cornerRadius, transform: nil)
+                ctx.setStrokeColor(NSColor.controlAccentColor.cgColor)
+                ctx.setLineWidth(2)
+                ctx.addPath(path); ctx.strokePath()
+            }
         }
     }
 

@@ -13,8 +13,51 @@ extension MindMapView {
         let p = convert(event.locationInWindow, from: nil)
         guard let element = element(at: p) else { return }
         selectElement(element)
-        let menu = makeContextMenu(for: element)
-        NSMenu.popUpContextMenu(menu, with: event, for: self)
+        // Arm a potential link-drag. Whether this becomes a link (dragged onto
+        // another node) or a context menu (no drag) is decided on rightMouseUp.
+        linkDragSource = element
+        linkDragOrigin = p
+        linkDragCurrent = nil
+        linkDragTarget = nil
+    }
+
+    public override func rightMouseDragged(with event: NSEvent) {
+        guard let source = linkDragSource, let origin = linkDragOrigin else { return }
+        let p = convert(event.locationInWindow, from: nil)
+        if linkDragCurrent == nil, hypot(p.x - origin.x, p.y - origin.y) < dragThreshold { return }
+        linkDragCurrent = p
+        // Candidate target = a different node under the cursor.
+        linkDragTarget = element(at: p).flatMap { $0 === source ? nil : $0 }
+        needsDisplay = true
+    }
+
+    public override func rightMouseUp(with event: NSEvent) {
+        defer {
+            linkDragSource = nil; linkDragOrigin = nil
+            linkDragCurrent = nil; linkDragTarget = nil
+            needsDisplay = true
+        }
+        let p = convert(event.locationInWindow, from: nil)
+        if linkDragCurrent != nil {
+            // It was a drag → make a jump-link if released over another node.
+            if let source = linkDragSource { completeLinkDrag(from: source, at: p) }
+            return
+        }
+        // No drag → the classic right-click context menu.
+        if let source = linkDragSource {
+            NSMenu.popUpContextMenu(makeContextMenu(for: source), with: event, for: self)
+        }
+    }
+
+    /// Create a topic jump-link from `source` to whatever node is under `p`.
+    /// Returns whether a link was made (false if `p` isn't over a different
+    /// node). Selects the target so the user sees where the link points.
+    @discardableResult
+    func completeLinkDrag(from source: MindMapElement, at p: CGPoint) -> Bool {
+        guard let target = element(at: p), target !== source else { return false }
+        undoableLinkTopic(source.topic, to: target.topic)
+        selectElement(target)
+        return true
     }
 
     public override func mouseDown(with event: NSEvent) {
@@ -103,8 +146,11 @@ extension MindMapView {
             let dy = event.locationInWindow.y - panOrigin.y
             // isFlipped → AppKit's bounds y grows downward inside the clip view.
             let target = NSPoint(x: panStart.x - dx, y: panStart.y + dy)
-            scroll.contentView.scroll(to: target)
-            scroll.reflectScrolledClipView(scroll.contentView)
+            let clip = scroll.contentView
+            // Apply the clip's bounds constraint (direct scroll(to:) bypasses it)
+            // so drag-pan keeps the content visible like scroll-pan does.
+            clip.scroll(to: clip.constrainBoundsRect(NSRect(origin: target, size: clip.bounds.size)).origin)
+            scroll.reflectScrolledClipView(clip)
             return
         }
         // Marquee area-select: update the live corner and select every topic
@@ -257,9 +303,52 @@ extension MindMapView {
     func candidateInsertionTarget(under p: CGPoint, source: MindMapElement)
         -> (parent: MindMapElement, index: Int, lineY: CGFloat, lineMinX: CGFloat, lineMaxX: CGFloat)?
     {
-        guard let parentTopic = source.topic.parent,
-              let parentEl = element(forTopic: parentTopic) else { return nil }
-        let siblings = parentEl.children.filter { $0.isLeftSide == source.isLeftSide && $0 !== source }
+        // 1. Reorder among the source's OWN siblings (same side).
+        if let parentTopic = source.topic.parent,
+           let parentEl = element(forTopic: parentTopic),
+           let r = insertionGap(in: parentEl, under: p, source: source, sideFilter: source.isLeftSide) {
+            return r
+        }
+        // 2. Insert into ANOTHER parent: scan every parent whose children form
+        //    a gap under the cursor. Unlike a node hit-test, this works over the
+        //    empty space *between* a branch's children, so you can drop into a
+        //    precise slot. Pick the closest matching gap.
+        var best: (result: (parent: MindMapElement, index: Int, lineY: CGFloat, lineMinX: CGFloat, lineMaxX: CGFloat), dist: CGFloat)?
+        rootElement?.traverse { el in
+            guard !el.children.isEmpty, el !== source else { return }
+            // Skip the source's own parent (case 1 handles reorder there) and
+            // any parent inside the source's own subtree (can't drop into self).
+            if el.topic === source.topic.parent { return }
+            if isInSubtree(el.topic, of: source.topic) { return }
+            let side: Bool? = el.level == 0 ? (p.x < el.frame.midX) : nil
+            if let r = insertionGap(in: el, under: p, source: source, sideFilter: side) {
+                let dist = abs(r.lineY - p.y)
+                if best == nil || dist < best!.dist { best = (r, dist) }
+            }
+        }
+        return best?.result
+    }
+
+    /// True when `node` is `ancestor` or lies within `ancestor`'s subtree.
+    private func isInSubtree(_ node: Topic, of ancestor: Topic) -> Bool {
+        var t: Topic? = node
+        while let cur = t {
+            if cur === ancestor { return true }
+            t = cur.parent
+        }
+        return false
+    }
+
+    /// Gap-insertion target among `parentEl`'s children (excluding `source`).
+    /// `sideFilter` limits to one side (for root, whose children split L/R);
+    /// nil considers all children. Returns nil when the cursor isn't in a valid
+    /// gap / X-band, so the caller can fall back to reparent-onto.
+    private func insertionGap(
+        in parentEl: MindMapElement, under p: CGPoint, source: MindMapElement, sideFilter: Bool?
+    ) -> (parent: MindMapElement, index: Int, lineY: CGFloat, lineMinX: CGFloat, lineMaxX: CGFloat)? {
+        let siblings = parentEl.children.filter {
+            $0 !== source && (sideFilter == nil || $0.isLeftSide == sideFilter)
+        }
         guard !siblings.isEmpty else { return nil }
         let sortedSiblings = siblings.sorted { $0.frame.minY < $1.frame.minY }
         let ranges = sortedSiblings.map { MindMapDragGap.YRange($0.frame.minY, $0.frame.maxY) }
@@ -270,6 +359,15 @@ extension MindMapView {
         let maxX = sortedSiblings.map(\.frame.maxX).max() ?? 0
         let hPad: CGFloat = 60
         guard p.x >= minX - hPad, p.x <= maxX + hPad else { return nil }
+
+        // Stay within this parent's children Y-band (+ small margin). Without
+        // this, sibling columns that share an X (e.g. two parents stacked
+        // vertically) would all claim the cursor — dragging down into a lower
+        // branch's gap wrongly counted as "append to the upper branch".
+        let topY = sortedSiblings.first!.frame.minY
+        let botY = sortedSiblings.last!.frame.maxY
+        let vPad: CGFloat = 28
+        guard p.y >= topY - vPad, p.y <= botY + vPad else { return nil }
 
         guard let gap = MindMapDragGap.gapIndex(for: p.y, sortedRanges: ranges) else { return nil }
 
@@ -498,7 +596,11 @@ extension MindMapView {
         guard dx != 0 || dy != 0 else { return }
         let clip = scroll.contentView
         let o = clip.bounds.origin
-        clip.scroll(to: NSPoint(x: o.x - dx, y: o.y - dy))
+        // IMPORTANT: a direct clip.scroll(to:) bypasses constrainBoundsRect, so
+        // we must apply the constraint ourselves — otherwise the pan is
+        // unbounded and the content can be flung off into empty space.
+        let proposed = NSRect(origin: NSPoint(x: o.x - dx, y: o.y - dy), size: clip.bounds.size)
+        clip.scroll(to: clip.constrainBoundsRect(proposed).origin)
         scroll.reflectScrolledClipView(clip)
     }
 

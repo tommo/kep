@@ -124,6 +124,28 @@ final class MindMapInteractiveScrollPanTests: XCTestCase {
         XCTAssertGreaterThan(h.origin.y, 0, "mouse-wheel line scroll pans the canvas")
     }
 
+    /// Regression for the user's "locked in empty corner": hammering the scroll
+    /// in one diagonal direction (real events) must NOT push the content off to
+    /// a sliver — the content stays substantially visible no matter how hard you
+    /// pan, and you can always pan back.
+    func testAggressivePanNeverStrandsContent() throws {
+        let h = Harness()
+        try XCTSkipUnless(h.hasVerticalRoom || h.hasHorizontalRoom, "fixture needs scroll room")
+        let content = h.view.contentBounds
+        // Hammer up-left (toward the empty corner) 40 times.
+        for _ in 0..<40 { h.scroll(dx: 40, dy: 40, precise: true) }
+        let vis = h.scroll.documentVisibleRect
+        let overlap = vis.intersection(content)
+        // A meaningful chunk of content is still on screen (not a thin sliver) —
+        // ≈ keepFraction(0.6) of the (zoom-shrunk) viewport on each axis.
+        XCTAssertGreaterThan(overlap.width, vis.width * 0.4, "content not stranded horizontally")
+        XCTAssertGreaterThan(overlap.height, vis.height * 0.4, "content not stranded vertically")
+        // And panning back the other way recovers — origin moves toward content.
+        let before = h.origin
+        for _ in 0..<40 { h.scroll(dx: -40, dy: -40, precise: true) }
+        XCTAssertNotEqual(h.origin, before, "can always pan back out of the corner")
+    }
+
     /// Mouse wheel + Shift: pans HORIZONTALLY (the wheel delta moves the X
     /// axis), and leaves the vertical offset untouched. This is the
     /// "mouse-scroll(+shift) should use the panning code" case.

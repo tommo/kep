@@ -14,6 +14,9 @@ public struct MindMapCanvas: NSViewRepresentable {
     /// Substring to highlight on every topic whose text contains it
     /// (case-insensitive). Drives the post-Find-in-Files visual marker.
     public var searchHighlight: String?
+    /// Fires with the selected topic's outline index-path whenever the canvas
+    /// selection changes — lets the outline panel highlight the matching row.
+    public var onSelectionPath: ((String?) -> Void)?
 
     public init(
         map: MindMap,
@@ -21,7 +24,8 @@ public struct MindMapCanvas: NSViewRepresentable {
         onChange: @escaping (MindMap) -> Void = { _ in },
         onExtraFileTap: ((URL) -> Void)? = nil,
         navigationTarget: String? = nil,
-        searchHighlight: String? = nil
+        searchHighlight: String? = nil,
+        onSelectionPath: ((String?) -> Void)? = nil
     ) {
         self.map = map
         self.theme = theme
@@ -29,6 +33,7 @@ public struct MindMapCanvas: NSViewRepresentable {
         self.onExtraFileTap = onExtraFileTap
         self.navigationTarget = navigationTarget
         self.searchHighlight = searchHighlight
+        self.onSelectionPath = onSelectionPath
     }
 
     public func makeNSView(context: Context) -> NSView {
@@ -60,8 +65,13 @@ public struct MindMapCanvas: NSViewRepresentable {
             context.coordinator.refreshFooter()
         }
         view.onExtraFileTap = onExtraFileTap
-        view.onSelectionChange = { [weak coordinator = context.coordinator] in
+        let reportSelection = onSelectionPath
+        view.onSelectionChange = { [weak coordinator = context.coordinator, weak view] in
             coordinator?.refreshFooter()
+            // Defer to break out of any in-progress SwiftUI update (selection
+            // can change during display()/updateNSView).
+            let path = view?.selectedOutlinePath
+            DispatchQueue.main.async { reportSelection?(path) }
         }
         view.display(map: map)
         scroll.documentView = view
@@ -102,6 +112,16 @@ public struct MindMapCanvas: NSViewRepresentable {
             minimap.heightAnchor.constraint(equalToConstant: MinimapView.preferredSize.height),
         ])
         minimap.attach(to: scroll, mapView: view)
+
+        // DIAG: confirm the custom clip view actually got installed + initial geometry.
+        DispatchQueue.main.async {
+            NSLog("DIAG setup: contentView=%@ isCanvasClip=%@ docFrame=%@ clipBounds=%@ visRect=%@",
+                  String(describing: type(of: scroll.contentView)),
+                  scroll.contentView is CanvasClipView ? "YES" : "NO",
+                  NSStringFromRect(view.frame),
+                  NSStringFromRect(scroll.contentView.bounds),
+                  NSStringFromRect(scroll.documentVisibleRect))
+        }
 
         // Track magnification changes so the footer's zoom-percent stays
         // current. NSScrollView.willStartLiveMagnify isn't enough — we want

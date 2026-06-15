@@ -259,6 +259,21 @@ extension MindMapView {
 
 extension MindMapView: NSTextFieldDelegate {
 
+    /// Grow the inline editor to fit the text as the user types, keeping it
+    /// centered on the node being edited — so the box visibly expands instead
+    /// of clipping the text behind the original (small) node size.
+    public func controlTextDidChange(_ obj: Notification) {
+        guard let field = inlineEditor, field === (obj.object as? NSTextField),
+              let topic = inlineEditTarget, let el = element(forTopic: topic) else { return }
+        let font = field.font ?? theme.font(forLevel: el.level)
+        let size = InlineEditSizing.fittingSize(
+            text: field.stringValue, font: font, insets: theme.textInsets)
+        let center = CGPoint(x: el.frame.midX, y: el.frame.midY)
+        field.frame = CGRect(
+            x: center.x - size.width / 2, y: center.y - size.height / 2,
+            width: size.width, height: size.height)
+    }
+
     /// While the inline editor is up, Return commits and creates a following
     /// sibling, Tab commits and creates a child, ⇧Tab just commits, and Esc
     /// cancels — the fast XMind/MindNode outlining flow where you never leave

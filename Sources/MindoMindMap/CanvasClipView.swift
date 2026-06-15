@@ -7,25 +7,26 @@ import CoreGraphics
 /// something you grab and move (Figma / Miro / Obsidian-canvas style), while
 /// still being bounded (not infinite). Pure so it's unit-testable.
 public enum CanvasScroll {
-    /// Clamp `proposed` clip origin so the canvas pans freely but the viewport
-    /// always overlaps the **content** by at least `keepVisible` points on each
-    /// axis. Constraining against the content rect (not the document frame) is
-    /// what stops the view getting parked in the empty padding around the graph
-    /// — you can never scroll the content out of sight or lock onto blank space.
-    /// Each axis independent.
+    /// Clamp `proposed` clip origin so the canvas pans freely (immediate, 2D,
+    /// grab-the-canvas feel) but always keeps at least `keepFraction` of the
+    /// content-or-viewport (whichever is smaller) visible on each axis — so the
+    /// graph can never be stranded in a corner or lock onto blank space.
+    /// Constrains against the content rect (not the padded document frame).
+    ///
+    /// `keepFraction` is a FRACTION (0…1), not a fixed length: a fixed margin
+    /// breaks under zoom/small viewports (when the viewport shrinks below the
+    /// margin, nothing stays visible). Proportional keep never collapses to 0.
     public static func constrainedOrigin(
-        proposed: CGPoint, viewport: CGSize, content: CGRect, keepVisible: CGFloat
+        proposed: CGPoint, viewport: CGSize, content: CGRect, keepFraction: CGFloat
     ) -> CGPoint {
         func clamp(_ v: CGFloat, _ lo: CGFloat, _ hi: CGFloat) -> CGFloat {
             min(max(v, lo), max(lo, hi))
         }
-        // Keep ≥ keepX of the content's x-extent inside the viewport (and never
-        // require more than the content actually has).
-        let keepX = min(keepVisible, content.width)
-        let keepY = min(keepVisible, content.height)
+        let f = min(max(keepFraction, 0), 1)
+        let keepX = min(content.width, viewport.width) * f
+        let keepY = min(content.height, viewport.height) * f
         // Visible x-range [origin.x, origin.x+vp] must overlap [content.minX,
-        // content.maxX] by ≥ keepX → origin.x ∈ [content.minX + keepX - vp,
-        // content.maxX - keepX].
+        // content.maxX] by ≥ keepX.
         let minX = content.minX + keepX - viewport.width
         let maxX = content.maxX - keepX
         let minY = content.minY + keepY - viewport.height
@@ -43,8 +44,9 @@ public enum CanvasScroll {
 /// infinite-NSScrollView fix for the AppKit smooth-scroll bug (override
 /// `scroll(to:)` to set the bounds origin directly).
 final class CanvasClipView: NSClipView {
-    /// Keep at least this much of the content on screen when over-panning.
-    static let keepVisible: CGFloat = 96
+    /// Fraction of the content (or viewport, whichever is smaller) kept visible
+    /// on each axis — you can pan ~40% off for the grab-feel, never lose it.
+    static let keepFraction: CGFloat = 0.6
 
     override func constrainBoundsRect(_ proposedBounds: NSRect) -> NSRect {
         guard let doc = documentView else { return super.constrainBoundsRect(proposedBounds) }
@@ -58,7 +60,7 @@ final class CanvasClipView: NSClipView {
             proposed: proposedBounds.origin,
             viewport: proposedBounds.size,
             content: content,
-            keepVisible: Self.keepVisible)
+            keepFraction: Self.keepFraction)
         return NSRect(origin: origin, size: proposedBounds.size)
     }
 }

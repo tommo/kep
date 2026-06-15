@@ -140,36 +140,33 @@ final class ZoomMathTests: XCTestCase {
 
     // MARK: - Free-canvas pan bounds (CanvasClipView.constrainBoundsRect)
 
-    func testViewportCannotParkOnEmptyCanvasAwayFromContent() {
-        // The bug: content sits in part of a larger document; the viewport got
-        // stuck in the empty padding. Constraining against the CONTENT rect
-        // pulls a far-away proposed origin back so content stays visible.
-        let content = CGRect(x: 500, y: 400, width: 300, height: 300)
-        let viewport = CGSize(width: 400, height: 300)
-        let keep: CGFloat = 96
-        // Proposing the top-left empty corner (0,0) must snap to where content
-        // is at least `keep` visible — i.e. origin ≥ content.minX + keep - vp.
-        let o = CanvasScroll.constrainedOrigin(
-            proposed: .zero, viewport: viewport, content: content, keepVisible: keep)
-        XCTAssertEqual(o.x, content.minX + keep - viewport.width, accuracy: 1e-9) // 500+96-400 = 196
-        XCTAssertEqual(o.y, content.minY + keep - viewport.height, accuracy: 1e-9) // 400+96-300 = 196
-        // At that origin, the viewport really does overlap content by keep.
-        let visibleRight = o.x + viewport.width
-        XCTAssertGreaterThanOrEqual(visibleRight - content.minX, keep - 1e-6)
+    /// Hard-panning toward the corner must keep most of the content visible
+    /// (≈ keepFraction of it), never a thin sliver — on a normal viewport.
+    func testHardPanKeepsMostContentVisible() {
+        let content = CGRect(x: 32, y: 32, width: 441, height: 375)
+        let viewport = CGSize(width: 452, height: 617)
+        let f: CGFloat = 0.6
+        let corner = CanvasScroll.constrainedOrigin(
+            proposed: CGPoint(x: -9999, y: -9999), viewport: viewport, content: content, keepFraction: f)
+        let visibleW = (corner.x + viewport.width) - content.minX
+        let expected = min(content.width, viewport.width) * f   // 441*0.6 = 264.6
+        XCTAssertEqual(visibleW, expected, accuracy: 0.5, "≈60% of content stays visible")
+        XCTAssertGreaterThan(visibleW, 200, "not a sliver")
     }
 
-    func testCanvasOverPanKeepsContentVisibleAtExtremes() {
-        let content = CGRect(x: 0, y: 0, width: 1000, height: 800)
-        let viewport = CGSize(width: 400, height: 300)
-        let keep: CGFloat = 96
-        let near = CanvasScroll.constrainedOrigin(
-            proposed: CGPoint(x: -9999, y: -9999), viewport: viewport, content: content, keepVisible: keep)
-        XCTAssertEqual(near.x, keep - viewport.width, accuracy: 1e-9)   // -304
-        XCTAssertEqual(near.y, keep - viewport.height, accuracy: 1e-9)  // -204
-        let far = CanvasScroll.constrainedOrigin(
-            proposed: CGPoint(x: 9999, y: 9999), viewport: viewport, content: content, keepVisible: keep)
-        XCTAssertEqual(far.x, content.width - keep, accuracy: 1e-9)   // 904
-        XCTAssertEqual(far.y, content.height - keep, accuracy: 1e-9)  // 704
+    /// The fixed-margin bug: under zoom the viewport shrinks; a proportional
+    /// keep must still leave content visible (a fixed 120pt margin left 0).
+    func testKeepIsProportionalSoZoomedViewportStillShowsContent() {
+        let content = CGRect(x: 32, y: 32, width: 580, height: 990)
+        let viewport = CGSize(width: 150, height: 112.5)   // 240×180 at 1.6× zoom
+        let f: CGFloat = 0.6
+        let corner = CanvasScroll.constrainedOrigin(
+            proposed: CGPoint(x: -9999, y: -9999), viewport: viewport, content: content, keepFraction: f)
+        let visW = (corner.x + viewport.width) - content.minX
+        let visH = (corner.y + viewport.height) - content.minY
+        XCTAssertEqual(visW, viewport.width * f, accuracy: 0.5)   // 90, not 30
+        XCTAssertEqual(visH, viewport.height * f, accuracy: 0.5)  // 67.5, not 0
+        XCTAssertGreaterThan(visH, 0, "content can't fully vanish vertically under zoom")
     }
 
     func testCanvasConstrainIsPerAxisIndependent() {
@@ -177,7 +174,7 @@ final class ZoomMathTests: XCTestCase {
         let content = CGRect(x: 0, y: 0, width: 800, height: 2000)
         let viewport = CGSize(width: 800, height: 600)
         let o = CanvasScroll.constrainedOrigin(
-            proposed: CGPoint(x: 50, y: 900), viewport: viewport, content: content, keepVisible: 96)
+            proposed: CGPoint(x: 50, y: 900), viewport: viewport, content: content, keepFraction: 0.6)
         XCTAssertEqual(o.y, 900, accuracy: 1e-9, "Y preserved while X is constrained")
     }
 }

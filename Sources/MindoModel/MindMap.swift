@@ -72,6 +72,20 @@ public final class MindMap {
         if let v = value { attributes[key] = v } else { attributes.removeValue(forKey: key) }
     }
 
+    /// Resolve an outline index-path ("", "0", "0/2") back to its topic, in the
+    /// same scheme `Outline.fromMindMap` produces. Used by the property panel to
+    /// turn the selected outline target into the live topic.
+    public func topic(atOutlinePath path: String) -> Topic? {
+        guard let root = root else { return nil }
+        if path.isEmpty { return root }
+        var current = root
+        for component in path.split(separator: "/") {
+            guard let index = Int(component), index >= 0, index < current.children.count else { return nil }
+            current = current.children[index]
+        }
+        return current
+    }
+
     /// Find the topic with the given `topicLinkUID` attribute. Used by
     /// ExtraTopic jump rendering to resolve a UID back to a node.
     public func findTopic(uid: String) -> Topic? {

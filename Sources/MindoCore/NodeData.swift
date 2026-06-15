@@ -112,10 +112,21 @@ public final class NodeData: Identifiable {
     }
 }
 
+// Identity is by standardized file URL, NOT object identity. The sidebar tree
+// rebuilds NodeData instances whenever a workspace reloads (e.g. an FSEvents
+// burst fired by opening a file), so an instance-based identity would silently
+// drop the List selection on every reload — the node "moves" to a fresh object
+// the selection binding no longer matches. A filesystem path uniquely names a
+// node, so URL identity is both correct and what callers (findNode dedupe,
+// the watcher comment) already assume.
 extension NodeData: Equatable {
-    public static func == (lhs: NodeData, rhs: NodeData) -> Bool { lhs === rhs }
+    public static func == (lhs: NodeData, rhs: NodeData) -> Bool {
+        lhs.url.standardizedFileURL == rhs.url.standardizedFileURL
+    }
 }
 
 extension NodeData: Hashable {
-    public func hash(into hasher: inout Hasher) { hasher.combine(ObjectIdentifier(self)) }
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(url.standardizedFileURL)
+    }
 }

@@ -3,8 +3,8 @@ import AppKit
 import MindoModel
 @testable import MindoMindMap
 
-/// Real-event coverage of the remaining single-key commands that flow through
-/// performKeyEquivalent → keyDown: collapse/expand (-, =, +), ⌘D duplicate,
+/// Real-event coverage of the key commands that flow through
+/// performKeyEquivalent → keyDown: fold/unfold (⌘/, XMind-style), ⌘D duplicate,
 /// F2 edit, ⌥Space jump-to-root, and Delete. These were previously only
 /// exercised by direct method calls.
 @MainActor
@@ -26,17 +26,14 @@ final class MindMapInteractiveKeyCommandTests: XCTestCase {
 
     // MARK: - Collapse / expand
 
-    func testMinusCollapsesAndPlusExpands() throws {
+    func testCmdSlashTogglesFold() throws {
+        // XMind shortcut: ⌘/ folds the selected topic, ⌘/ again unfolds.
         let (h, _, a, _) = try build()
         h.view.selectElement(h.view.element(forTopic: a))
-        h.sendKey("-")
-        XCTAssertEqual(a.attribute(TopicAttribute.collapsed), "true", "minus collapses")
-        h.sendKey("=")
-        XCTAssertNil(a.attribute(TopicAttribute.collapsed), "equals expands")
-        h.sendKey("-")
-        XCTAssertEqual(a.attribute(TopicAttribute.collapsed), "true")
-        h.sendKey("+")
-        XCTAssertNil(a.attribute(TopicAttribute.collapsed), "plus expands")
+        h.sendKeyEquivalent("/", [.command])
+        XCTAssertEqual(a.attribute(TopicAttribute.collapsed), "true", "⌘/ folds")
+        h.sendKeyEquivalent("/", [.command])
+        XCTAssertNil(a.attribute(TopicAttribute.collapsed), "⌘/ unfolds")
     }
 
     // MARK: - ⌘D duplicate

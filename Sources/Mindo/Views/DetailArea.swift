@@ -6,8 +6,20 @@ struct DetailArea: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            DocumentTabBar(session: $session)
-                .frame(height: 32)
+            HStack(spacing: 0) {
+                DocumentTabBar(session: $session)
+                Divider()
+                Button {
+                    session.outlineOpen.toggle()
+                } label: {
+                    Image(systemName: "sidebar.trailing")
+                        .foregroundStyle(session.outlineOpen ? Color.accentColor : .secondary)
+                }
+                .buttonStyle(.plain)
+                .help(session.outlineOpen ? L("menu.window.hide_outline") : L("menu.window.show_outline"))
+                .padding(.horizontal, 8)
+            }
+            .frame(height: 32)
             Divider()
             if let doc = session.activeDocument {
                 EditorPane(session: $session, documentID: doc.id, theme: session.theme.theme)

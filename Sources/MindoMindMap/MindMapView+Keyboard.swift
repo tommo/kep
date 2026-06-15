@@ -25,8 +25,17 @@ extension MindMapView {
             moveSelected(direction)
             return true
         }
+        // XMind fold/unfold: ⌘/ toggles the selected topic, ⇧⌘/ toggles all
+        // sub-branches under the selection.
         if window?.firstResponder === self,
-           ["\t", "\r", "-", "=", "+", " "].contains(chars) || Self.arrowKeyChars.contains(chars) {
+           chars == "/", event.modifierFlags.contains(.command),
+           !event.modifierFlags.contains(.option) {
+            if event.modifierFlags.contains(.shift) { toggleFoldAllUnderSelection() }
+            else { toggleCollapseSelected() }
+            return true
+        }
+        if window?.firstResponder === self,
+           ["\t", "\r", " "].contains(chars) || Self.arrowKeyChars.contains(chars) {
             self.keyDown(with: event)
             return true
         }
@@ -89,10 +98,6 @@ extension MindMapView {
             else if isShift { addPreviousSibling() }
             else { addNextSibling() }
         case "\u{7F}", "\u{08}": deleteSelection()
-        case "-":
-            toggleCollapse(toCollapsed: true)
-        case "=", "+":
-            toggleCollapse(toCollapsed: false)
         case "\u{1B}":
             // Esc cancels an in-flight reorder/reparent drag without committing.
             if dragSourceElement != nil { resetDragState() }
@@ -227,8 +232,27 @@ extension MindMapView {
     }
 
     func move(_ direction: Direction) {
-        guard let sel = selectedElement, let target = element(in: direction, of: sel) else { return }
+        guard let sel = selectedElement else { return }
+        // Arrow INTO a collapsed node auto-expands it, then steps onto a child
+        // (XMind behaviour) — otherwise navigating inward to a folded branch
+        // would just stall.
+        if sel.isCollapsed, !sel.children.isEmpty, isInwardDirection(direction, for: sel) {
+            undoableSetAttribute(sel.topic, key: TopicAttribute.collapsed, value: nil)
+            if let selAfter = element(forTopic: sel.topic),
+               let target = element(in: direction, of: selAfter) {
+                selectElement(target)
+            }
+            return
+        }
+        guard let target = element(in: direction, of: sel) else { return }
         selectElement(target)
+    }
+
+    /// Whether `direction` heads INTO `el`'s children (vs back toward the root).
+    /// Right-side topics open with Right, left-side topics with Left.
+    private func isInwardDirection(_ direction: Direction, for el: MindMapElement) -> Bool {
+        guard el !== rootElement else { return false }   // root is never collapsed
+        return el.isLeftSide ? (direction == .left) : (direction == .right)
     }
 
     /// ⌘ + arrow: structurally move the selected topic (reorder among

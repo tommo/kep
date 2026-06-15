@@ -670,6 +670,27 @@ public final class MindMapView: NSView {
         undoableSetAttribute(sel.topic, key: TopicAttribute.collapsed, value: toCollapsed ? "true" : nil)
     }
 
+    /// XMind ⌘/ : fold the selected topic if expanded, unfold if collapsed.
+    /// No-op on the root or a childless leaf.
+    func toggleCollapseSelected() {
+        guard let sel = selectedElement, !sel.children.isEmpty, sel.topic.parent != nil else { return }
+        let collapsed = sel.topic.attribute(TopicAttribute.collapsed) == "true"
+        undoableSetAttribute(sel.topic, key: TopicAttribute.collapsed, value: collapsed ? nil : "true")
+    }
+
+    /// XMind ⇧⌘/ : fold/unfold ALL sub-branches under the selection (root
+    /// excluded by the subtree helper). Folds when anything below is still
+    /// expanded, otherwise unfolds.
+    func toggleFoldAllUnderSelection() {
+        guard let sel = selectedElement else { return }
+        var anyExpanded = false
+        sel.topic.traverse { t in
+            if t !== mindMap?.root, !t.children.isEmpty,
+               t.attribute(TopicAttribute.collapsed) != "true" { anyExpanded = true }
+        }
+        undoableSetSubtreeCollapsed(rootedAt: sel.topic, collapsed: anyExpanded)
+    }
+
     /// Fold (or unfold) every topic in the map in a single undoable step.
     /// Backs the Fold All / Unfold All menu commands.
     public func setAllCollapsed(_ collapsed: Bool) {

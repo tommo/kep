@@ -16,29 +16,24 @@ struct ContentView: View {
     @State private var selectionSource: SidebarSelectionSource = .pointer
 
     var body: some View {
-        // A plain HSplitView (not NavigationSplitView) so the layout is the
-        // SAME across every document mode: the panes never auto-collapse based
-        // on the editor's content width. Sidebar / inspector visibility is
-        // driven explicitly by the user's toggles, nothing else.
-        HSplitView {
-            if session.sidebarVisible {
+        // AppKit NSSplitView-backed (via ThreePaneSplit) so pane widths PERSIST
+        // (autosaveName) and the layout stays the SAME across document modes —
+        // no auto-collapse. Sidebar / inspector visibility = user toggles only;
+        // the detail pane holds the bulk of the width.
+        ThreePaneSplit(
+            showSidebar: session.sidebarVisible,
+            showInspector: session.outlineOpen,
+            sidebar: {
                 SidebarView(
                     session: $session,
                     selection: $sidebarSelection,
                     onSelectionSource: { selectionSource = $0 },
                     onConfirm: openSelectedFile
                 )
-                .frame(minWidth: 180, idealWidth: 250, maxWidth: 420)
-            }
-
-            DetailArea(session: $session)
-                .frame(minWidth: 360, maxWidth: .infinity, maxHeight: .infinity)
-
-            if session.outlineOpen {
-                inspectorPane
-                    .frame(minWidth: 200, idealWidth: 260, maxWidth: 400)
-            }
-        }
+            },
+            detail: { DetailArea(session: $session) },
+            inspector: { inspectorPane }
+        )
         .onChange(of: sidebarSelection) { _, new in
             // Open on selection (single-click, Obsidian-style) but only when
             // the rule says so — skips folders, the already-active file (so

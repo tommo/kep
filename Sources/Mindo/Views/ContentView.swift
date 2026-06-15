@@ -14,6 +14,9 @@ struct ContentView: View {
     /// open-on-selection rule below can skip them; reset to `.pointer` after
     /// each change so the next click opens as usual.
     @State private var selectionSource: SidebarSelectionSource = .pointer
+    /// Presents the node-note editor in a roomy sheet (the inspector strip is
+    /// cramped for anything longer than a line or two).
+    @State private var noteExpanded = false
 
     var body: some View {
         // AppKit NSSplitView-backed (via ThreePaneSplit) so pane widths PERSIST
@@ -103,10 +106,32 @@ struct ContentView: View {
             // Node content editor — the SAME markdown widget the .md document
             // view uses, bound to the selected node's content (its Note).
             if session.selectedNodeProperties != nil {
-                MarkdownEditor(text: nodeContentBinding, isDarkMode: colorScheme == .dark)
-                    .id(session.selectedOutlineTarget)
-                    .frame(minHeight: 160, maxHeight: .infinity)
+                VStack(spacing: 0) {
+                    HStack(spacing: 6) {
+                        Text(L("inspector.note")).font(.caption).foregroundStyle(.secondary)
+                        Spacer()
+                        Button { noteExpanded = true } label: {
+                            Image(systemName: "arrow.up.left.and.arrow.down.right")
+                        }
+                        .buttonStyle(.plain)
+                        .help(L("inspector.note.expand"))
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    Divider()
+                    MarkdownEditor(text: nodeContentBinding, isDarkMode: colorScheme == .dark)
+                        .id(session.selectedOutlineTarget)
+                        .frame(maxHeight: .infinity)
+                }
+                .frame(minHeight: 160, maxHeight: .infinity)
             }
+        }
+        .sheet(isPresented: $noteExpanded) {
+            NoteEditorSheet(
+                text: nodeContentBinding,
+                isDarkMode: colorScheme == .dark,
+                title: session.selectedNodeProperties?.title
+            )
         }
     }
 

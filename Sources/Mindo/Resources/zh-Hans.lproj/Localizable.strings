@@ -71,6 +71,12 @@
 "menu.window.show_outline" = "显示大纲";
 "menu.window.hide_outline" = "隐藏大纲";
 
+/* MARK: - Inspector */
+"inspector.note" = "笔记";
+"inspector.note.expand" = "展开笔记编辑器";
+"inspector.note.title_fmt" = "笔记 — %@";
+"common.done" = "完成";
+
 /* MARK: - 编辑菜单 */
 "menu.edit.copy_mindmap_as" = "拷贝思维导图为";
 "menu.edit.copy_mindmap_as_markdown" = "Markdown";

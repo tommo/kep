@@ -514,13 +514,31 @@ extension MindMapView {
             followTopicLink(uid: extra.value)
             onExtraTopicTap?(extra.value)
         case .note:
+            // The note text is shown on hover (native tooltip — see
+            // refreshNoteTooltips). A click just selects the node so its note
+            // opens in the inspector's editor; the old modal NSAlert popup was
+            // needless friction.
             if let custom = onExtraNoteTap {
                 custom(element.topic, extra.value)
             } else {
-                showNoteAlert(text: extra.value)
+                selectElement(element)
             }
         case .unknown:
             break
+        }
+    }
+
+    // MARK: - Note hover tooltips
+
+    /// Register a native tooltip over every note icon so hovering peeks the
+    /// note text. Called after each relayout because the icon rects move.
+    func refreshNoteTooltips() {
+        removeAllToolTips()
+        guard let root = rootElement else { return }
+        root.traverse { el in
+            for (type, rect) in el.extraIconRects where type == .note {
+                addToolTip(rect, owner: self, userData: nil)
+            }
         }
     }
 
@@ -534,13 +552,16 @@ extension MindMapView {
         selectElement(el)
     }
 
-    func showNoteAlert(text: String) {
-        let alert = NSAlert()
-        alert.messageText = "Note"
-        alert.informativeText = text
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "OK")
-        alert.runModal()
+    /// Tooltip text for a hovered note icon. Hit-tests the hover point against
+    /// the note icons and returns that node's note (raw markdown is plenty for
+    /// a peek). Empty string when the point isn't over a note icon.
+    public func view(_ view: NSView, stringForToolTip tag: NSView.ToolTipTag,
+                     point: NSPoint, userData data: UnsafeMutableRawPointer?) -> String {
+        if let (el, type) = elementExtra(at: point), type == .note,
+           let note = el.topic.extra(.note)?.value {
+            return note
+        }
+        return ""
     }
 
     // MARK: - Trackpad pinch

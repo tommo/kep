@@ -4,7 +4,7 @@ import MindoModel
 
 /// AppKit canvas that renders a mind map and handles mouse + keyboard editing.
 /// Mirrors a small slice of `mindmap-panel`'s `MindMapPanel`/`MindMapViewSkin`.
-public final class MindMapView: NSView {
+public final class MindMapView: NSView, NSViewToolTipOwner {
     public var theme: MindMapTheme = .light {
         didSet { needsDisplay = true }
     }
@@ -391,6 +391,7 @@ public final class MindMapView: NSView {
         contentBounds.origin = CGPoint(x: ox, y: oy)
         anchoredRootCenter = CGPoint(x: rcx + ox, y: rcy + oy)
 
+        refreshNoteTooltips()
         needsDisplay = true
     }
 

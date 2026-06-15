@@ -74,6 +74,12 @@
 "menu.window.show_outline" = "Show Outline";
 "menu.window.hide_outline" = "Hide Outline";
 
+/* MARK: - Inspector */
+"inspector.note" = "Note";
+"inspector.note.expand" = "Expand note editor";
+"inspector.note.title_fmt" = "Note — %@";
+"common.done" = "Done";
+
 /* MARK: - Edit menu */
 "menu.edit.copy_mindmap_as" = "Copy Mind Map As";
 "menu.edit.copy_mindmap_as_markdown" = "Markdown";

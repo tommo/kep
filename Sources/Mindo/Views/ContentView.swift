@@ -74,7 +74,8 @@ struct ContentView: View {
         }
     }
 
-    /// The right-hand inspector pane: outline on top, node properties below.
+    /// The right-hand inspector pane: outline, node properties, and — when the
+    /// selected node has markdown content (its Note) — a rendered preview.
     private var inspectorPane: some View {
         VSplitView {
             OutlinePanel(
@@ -83,10 +84,15 @@ struct ContentView: View {
             ) { item in
                 session.requestOutlineNavigation(target: item.target)
             }
-            .frame(minHeight: 120, idealHeight: 320)
+            .frame(minHeight: 100, idealHeight: 260)
 
             NodePropertyView(properties: session.selectedNodeProperties)
-                .frame(minHeight: 120, maxHeight: .infinity)
+                .frame(minHeight: 100)
+
+            if let content = session.selectedNodeContent {
+                MarkdownContentPreview(markdown: content)
+                    .frame(minHeight: 120, maxHeight: .infinity)
+            }
         }
     }
 

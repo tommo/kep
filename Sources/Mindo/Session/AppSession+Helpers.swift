@@ -17,6 +17,21 @@ extension AppSession {
     /// Properties of the topic currently selected in the mind-map canvas (via
     /// `selectedOutlineTarget`), for the inspector's property panel. nil when
     /// the active doc isn't a mind map or nothing is selected.
+    /// The selected mind-map node's long-form markdown content (its Note
+    /// extra). nil when nothing's selected, the note is empty, or it's
+    /// encrypted (we don't preview ciphertext). Authored via the node's
+    /// right-click → Note; rendered in the inspector's content pane.
+    var selectedNodeContent: String? {
+        guard case .mindMap(let map)? = activeDocument?.kind,
+              let path = selectedOutlineTarget,
+              let topic = map.topic(atOutlinePath: path),
+              let note = topic.extra(.note) as? ExtraNote,
+              !NoteEncryption.looksEncrypted(note.text),
+              !note.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else { return nil }
+        return note.text
+    }
+
     var selectedNodeProperties: NodeProperties? {
         guard case .mindMap(let map)? = activeDocument?.kind,
               let path = selectedOutlineTarget,

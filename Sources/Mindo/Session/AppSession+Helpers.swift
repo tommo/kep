@@ -56,8 +56,9 @@ extension AppSession {
         } else {
             topic.setExtra(ExtraNote(text: text))
         }
-        if let id = activeDocumentID, let idx = openDocuments.firstIndex(where: { $0.id == id }) {
-            openDocuments[idx].isDirty = true
+        if let id = activeDocumentID, let idx = openDocuments.firstIndex(where: { $0.id == id }),
+           !openDocuments[idx].isDirty {
+            openDocuments[idx].isDirty = true   // only when it flips, to avoid extra re-renders
         }
         if had != !text.isEmpty { activeMindMapView?.rebuildElementsPublic() }
     }

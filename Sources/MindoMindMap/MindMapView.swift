@@ -209,6 +209,14 @@ public final class MindMapView: NSView {
         // next runloop — without this guard that async call yanked focus back to
         // the canvas, so the new node opened in edit mode but couldn't be typed.
         guard inlineEditor == nil else { return }
+        // Don't yank focus away from ANY active text-editing session — not just
+        // our own inline editor. The inspector's node-content markdown editor
+        // lives in the same window; updateNSView fires grabFocus on every
+        // keystroke's re-render, which was stealing focus back to the canvas
+        // after each character typed into that editor.
+        // (NSTextView is an NSText subclass, so this catches field editors and
+        // the markdown editor's text view alike.)
+        if window?.firstResponder is NSText { return }
         window?.makeFirstResponder(self)
     }
 

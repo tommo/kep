@@ -205,21 +205,40 @@ public struct CSVEditor: NSViewRepresentable {
         stack.setClippingResistancePriority(.defaultLow, for: .horizontal)
         stack.setHuggingPriority(.defaultLow, for: .horizontal)
 
-        func button(_ title: String, _ tooltip: String, _ action: Selector) -> NSButton {
-            let b = NSButton(title: title, target: coordinator, action: action)
-            b.bezelStyle = .rounded
-            b.toolTip = tooltip
-            return b
+        // Row / Column operations collapse into two pull-downs — eight text
+        // buttons were both wide and visually noisy. The leading symbol on each
+        // pull-down stays visible; the named actions live in the menu.
+        func pullDown(symbol: String, tooltip: String,
+                      items: [(String, Selector)]) -> NSPopUpButton {
+            let p = NSPopUpButton(title: "", target: nil, action: nil)
+            p.pullsDown = true
+            p.bezelStyle = .accessoryBarAction
+            let menu = NSMenu()
+            let title = NSMenuItem()
+            title.image = NSImage(systemSymbolName: symbol, accessibilityDescription: tooltip)
+            menu.addItem(title)
+            for (label, action) in items {
+                let it = NSMenuItem(title: label, action: action, keyEquivalent: "")
+                it.target = coordinator
+                menu.addItem(it)
+            }
+            p.menu = menu
+            p.toolTip = tooltip
+            return p
         }
 
-        stack.addArrangedSubview(button("+ Row", "Append a new row", #selector(Coordinator.addRow)))
-        stack.addArrangedSubview(button("↑ Row", "Insert row above selection", #selector(Coordinator.insertRowBefore)))
-        stack.addArrangedSubview(button("↓ Row", "Insert row below selection", #selector(Coordinator.insertRowAfter)))
-        stack.addArrangedSubview(button("− Row", "Remove the selected row", #selector(Coordinator.removeRow)))
-        stack.addArrangedSubview(button("+ Column", "Append a new column", #selector(Coordinator.addColumn)))
-        stack.addArrangedSubview(button("← Col", "Insert column left of selection", #selector(Coordinator.insertColumnBefore)))
-        stack.addArrangedSubview(button("→ Col", "Insert column right of selection", #selector(Coordinator.insertColumnAfter)))
-        stack.addArrangedSubview(button("− Column", "Remove the selected column", #selector(Coordinator.removeColumn)))
+        stack.addArrangedSubview(pullDown(symbol: "rectangle.grid.1x2", tooltip: "Row operations", items: [
+            ("Append Row",       #selector(Coordinator.addRow)),
+            ("Insert Above",     #selector(Coordinator.insertRowBefore)),
+            ("Insert Below",     #selector(Coordinator.insertRowAfter)),
+            ("Delete Row",       #selector(Coordinator.removeRow)),
+        ]))
+        stack.addArrangedSubview(pullDown(symbol: "rectangle.split.3x1", tooltip: "Column operations", items: [
+            ("Append Column",    #selector(Coordinator.addColumn)),
+            ("Insert Left",      #selector(Coordinator.insertColumnBefore)),
+            ("Insert Right",     #selector(Coordinator.insertColumnAfter)),
+            ("Delete Column",    #selector(Coordinator.removeColumn)),
+        ]))
         stack.addArrangedSubview(NSView())
         let header = NSButton(checkboxWithTitle: "First row is header", target: coordinator, action: #selector(Coordinator.toggleHeader))
         header.state = .on

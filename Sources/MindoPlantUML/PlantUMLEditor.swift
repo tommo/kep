@@ -112,34 +112,58 @@ public struct PlantUMLEditor: NSViewRepresentable {
         stack.setClippingResistancePriority(.defaultLow, for: .horizontal)
         stack.setHuggingPriority(.defaultLow, for: .horizontal)
 
-        func skeletonButton(_ title: String, tooltip: String, action: Selector) -> NSButton {
-            let b = NSButton(title: title, target: coordinator, action: action)
+        // Compact icon button — image-only with a tooltip. A row of wide text
+        // labels ("Use Case", "Copy SVG", …) was both unpolished and a big
+        // chunk of the width that used to shove the sidebar aside.
+        func iconButton(_ symbol: String, tooltip: String, action: Selector) -> NSButton {
+            let img = NSImage(systemSymbolName: symbol, accessibilityDescription: tooltip)
+            let b = NSButton(title: "", target: coordinator, action: action)
+            if let img { b.image = img; b.imagePosition = .imageOnly } else { b.title = tooltip }
             b.bezelStyle = .accessoryBarAction
+            b.isBordered = false
             b.toolTip = tooltip
             return b
         }
-        stack.addArrangedSubview(skeletonButton("Sequence", tooltip: "Insert sequence diagram skeleton", action: #selector(Coordinator.insertSequence)))
-        stack.addArrangedSubview(skeletonButton("Class",    tooltip: "Insert class diagram skeleton",   action: #selector(Coordinator.insertClass)))
-        stack.addArrangedSubview(skeletonButton("Activity", tooltip: "Insert activity diagram skeleton", action: #selector(Coordinator.insertActivity)))
-        stack.addArrangedSubview(skeletonButton("State",    tooltip: "Insert state diagram skeleton",   action: #selector(Coordinator.insertState)))
-        stack.addArrangedSubview(skeletonButton("Use Case", tooltip: "Insert use case diagram skeleton", action: #selector(Coordinator.insertUseCase)))
-        stack.addArrangedSubview(skeletonButton("Mind Map", tooltip: "Insert mind map skeleton",        action: #selector(Coordinator.insertMindMap)))
-        let commentDivider = NSBox(); commentDivider.boxType = .separator
-        commentDivider.translatesAutoresizingMaskIntoConstraints = false
-        commentDivider.widthAnchor.constraint(equalToConstant: 1).isActive = true
-        commentDivider.heightAnchor.constraint(equalToConstant: 18).isActive = true
-        stack.addArrangedSubview(commentDivider)
-        stack.addArrangedSubview(skeletonButton("Comment",  tooltip: "Toggle line comment (⌘/)",       action: #selector(Coordinator.toggleLineComment)))
-        stack.addArrangedSubview(skeletonButton("Block",    tooltip: "Insert block comment /' '/",    action: #selector(Coordinator.insertBlockComment)))
-        // Spacer between insert + copy clusters.
-        let divider = NSBox(); divider.boxType = .separator
-        divider.translatesAutoresizingMaskIntoConstraints = false
-        divider.widthAnchor.constraint(equalToConstant: 1).isActive = true
-        divider.heightAnchor.constraint(equalToConstant: 18).isActive = true
-        stack.addArrangedSubview(divider)
-        stack.addArrangedSubview(skeletonButton("Copy SVG", tooltip: "Copy rendered diagram as SVG", action: #selector(Coordinator.copyDiagramAsSVG)))
-        stack.addArrangedSubview(skeletonButton("Copy PNG", tooltip: "Copy rendered diagram as PNG", action: #selector(Coordinator.copyDiagramAsPNG)))
-        stack.addArrangedSubview(skeletonButton("Export…", tooltip: "Export rendered diagram to an SVG or PNG file", action: #selector(Coordinator.exportDiagram)))
+        func divider() -> NSBox {
+            let d = NSBox(); d.boxType = .separator
+            d.translatesAutoresizingMaskIntoConstraints = false
+            d.widthAnchor.constraint(equalToConstant: 1).isActive = true
+            d.heightAnchor.constraint(equalToConstant: 18).isActive = true
+            return d
+        }
+
+        // Six diagram-skeleton buttons collapse into one pull-down — names read
+        // clearer in a menu than as cryptic icons, and it's a single slot wide.
+        let insert = NSPopUpButton(title: "", target: nil, action: nil)
+        insert.pullsDown = true
+        insert.bezelStyle = .accessoryBarAction
+        let insertMenu = NSMenu()
+        let titleItem = NSMenuItem()
+        titleItem.image = NSImage(systemSymbolName: "plus.rectangle.on.rectangle",
+                                  accessibilityDescription: "Insert diagram")
+        insertMenu.addItem(titleItem)
+        func insertItem(_ title: String, _ action: Selector) {
+            let it = NSMenuItem(title: title, action: action, keyEquivalent: "")
+            it.target = coordinator
+            insertMenu.addItem(it)
+        }
+        insertItem("Sequence", #selector(Coordinator.insertSequence))
+        insertItem("Class",    #selector(Coordinator.insertClass))
+        insertItem("Activity", #selector(Coordinator.insertActivity))
+        insertItem("State",    #selector(Coordinator.insertState))
+        insertItem("Use Case", #selector(Coordinator.insertUseCase))
+        insertItem("Mind Map", #selector(Coordinator.insertMindMap))
+        insert.menu = insertMenu
+        insert.toolTip = "Insert diagram skeleton"
+        stack.addArrangedSubview(insert)
+
+        stack.addArrangedSubview(divider())
+        stack.addArrangedSubview(iconButton("text.bubble", tooltip: "Toggle line comment (⌘/)", action: #selector(Coordinator.toggleLineComment)))
+        stack.addArrangedSubview(iconButton("note.text", tooltip: "Insert block comment /' '/", action: #selector(Coordinator.insertBlockComment)))
+        stack.addArrangedSubview(divider())
+        stack.addArrangedSubview(iconButton("doc.on.doc", tooltip: "Copy rendered diagram as SVG", action: #selector(Coordinator.copyDiagramAsSVG)))
+        stack.addArrangedSubview(iconButton("photo", tooltip: "Copy rendered diagram as PNG", action: #selector(Coordinator.copyDiagramAsPNG)))
+        stack.addArrangedSubview(iconButton("square.and.arrow.up", tooltip: "Export rendered diagram to an SVG or PNG file", action: #selector(Coordinator.exportDiagram)))
         stack.addArrangedSubview(NSView())  // spacer
         return stack
     }

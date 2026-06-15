@@ -64,6 +64,8 @@ struct SidebarView: View {
                     }
                 }
                 .listStyle(.sidebar)
+                .environment(\.defaultMinListRowHeight, 18)
+                .controlSize(.small)
                 // Arrow keys move the highlight only — flag the source so the
                 // open-on-selection wiring skips them (#21). `.ignored` lets
                 // the List perform its own arrow navigation afterwards.
@@ -188,15 +190,17 @@ struct NodeRow: View {
                     NodeRow(node: child, session: $session, selection: $selection)
                 }
             } label: {
-                HStack {
+                HStack(spacing: 4) {
                     Image(systemName: node.isWorkspace ? "shippingbox" : "folder")
                     label
                 }
+                .font(.system(size: 12))
                 .tag(node)
+                .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 4))
                 .contextMenu { menuItems }
             }
         } else {
-            HStack(spacing: 6) {
+            HStack(spacing: 4) {
                 Image(systemName: icon(for: node))
                     .foregroundStyle(.secondary)
                 label
@@ -210,6 +214,8 @@ struct NodeRow: View {
                         .help(L("sidebar.recently_opened"))
                 }
             }
+            .font(.system(size: 12))
+            .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 4))
             .tag(node)
             .contextMenu { menuItems }
         }

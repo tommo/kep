@@ -5,22 +5,38 @@ import SwiftUI
 /// stays out of the way since the indentation already shows hierarchy.
 public struct OutlinePanel: View {
     public let items: [OutlineItem]
+    /// The `target` of the row to show as selected — driven by the editor's
+    /// own selection (e.g. the mind-map canvas) so the outline highlight stays
+    /// in sync with the graph. `nil` = no external selection.
+    public var selectedTarget: String?
     public let onSelect: (OutlineItem) -> Void
     @State private var selection: OutlineItem.ID?
     @State private var filter: String = ""
+    /// True while pushing the external `selectedTarget` into `selection`, so the
+    /// selection `onChange` doesn't echo it back as a navigation request.
+    @State private var syncing = false
 
-    public init(items: [OutlineItem], onSelect: @escaping (OutlineItem) -> Void) {
+    public init(items: [OutlineItem], selectedTarget: String? = nil, onSelect: @escaping (OutlineItem) -> Void) {
         self.items = items
+        self.selectedTarget = selectedTarget
         self.onSelect = onSelect
+    }
+
+    /// Map the external `selectedTarget` to the (per-render, UUID) row id so the
+    /// List highlights it. Recomputed whenever the target or the items change
+    /// (the ids are regenerated each time the outline is rebuilt).
+    private func syncSelectionFromTarget() {
+        syncing = true
+        selection = items.first { $0.target == selectedTarget }?.id
+        DispatchQueue.main.async { syncing = false }
     }
 
     public var body: some View {
         if items.isEmpty {
-            ContentUnavailableView(
-                "No Outline",
-                systemImage: "list.bullet.indent",
-                description: Text("Add headings or topics to see them here.")
-            )
+            Text("No outline")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             VStack(spacing: 0) {
                 // Filter bar — case-insensitive substring match against
@@ -45,19 +61,33 @@ public struct OutlinePanel: View {
                 Divider()
                 List(filteredItems, selection: $selection) { item in
                     HStack(spacing: 4) {
-                        Text(String(repeating: " ", count: max(0, (item.depth - 1) * 2)))
+                        if item.depth > 1 {
+                            Spacer().frame(width: CGFloat((item.depth - 1) * 12))
+                        }
                         Image(systemName: icon(for: item.depth))
-                            .font(.caption)
+                            .font(.system(size: 8))
                             .foregroundStyle(.secondary)
                         Text(item.title)
+                            .font(.system(size: 13))   // match mindmap node text size
                             .lineLimit(1)
                             .truncationMode(.tail)
                     }
                     .tag(item.id)
-                    .contentShape(Rectangle())
-                    .onTapGesture { onSelect(item) }
+                    .listRowInsets(EdgeInsets(top: 1, leading: 6, bottom: 1, trailing: 6))
                 }
-                .listStyle(.sidebar)
+                .listStyle(.plain)
+                .environment(\.defaultMinListRowHeight, 20)
+                // Navigate on real selection changes (not the programmatic sync)
+                // — drives off List selection so the row shows the normal arrow
+                // cursor, not the link/hand cursor an onTapGesture triggers.
+                .onChange(of: selection) { _, new in
+                    guard !syncing, let id = new,
+                          let item = items.first(where: { $0.id == id }) else { return }
+                    onSelect(item)
+                }
+                .onAppear { syncSelectionFromTarget() }
+                .onChange(of: selectedTarget) { _, _ in syncSelectionFromTarget() }
+                .onChange(of: items) { _, _ in syncSelectionFromTarget() }
             }
         }
     }

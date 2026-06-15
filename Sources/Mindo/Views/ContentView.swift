@@ -13,34 +13,29 @@ struct ContentView: View {
     /// each change so the next click opens as usual.
     @State private var selectionSource: SidebarSelectionSource = .pointer
 
-    /// Maps the persisted `sidebarVisible` bool to the split view's
-    /// column-visibility, and writes back when the user collapses the
-    /// column by dragging so the menu state + persistence stay in sync.
-    private var columnVisibility: Binding<NavigationSplitViewVisibility> {
-        Binding(
-            get: { session.sidebarVisible ? .all : .detailOnly },
-            set: { session.sidebarVisible = ($0 != .detailOnly) }
-        )
-    }
-
     var body: some View {
-        NavigationSplitView(columnVisibility: columnVisibility) {
-            SidebarView(
-                session: $session,
-                selection: $sidebarSelection,
-                onSelectionSource: { selectionSource = $0 },
-                onConfirm: openSelectedFile
-            )
-            .navigationSplitViewColumnWidth(min: 200, ideal: 280)
-        } detail: {
+        // A plain HSplitView (not NavigationSplitView) so the layout is the
+        // SAME across every document mode: the panes never auto-collapse based
+        // on the editor's content width. Sidebar / inspector visibility is
+        // driven explicitly by the user's toggles, nothing else.
+        HSplitView {
+            if session.sidebarVisible {
+                SidebarView(
+                    session: $session,
+                    selection: $sidebarSelection,
+                    onSelectionSource: { selectionSource = $0 },
+                    onConfirm: openSelectedFile
+                )
+                .frame(minWidth: 180, idealWidth: 250, maxWidth: 420)
+            }
+
             DetailArea(session: $session)
-                .inspector(isPresented: $session.outlineOpen) {
-                    OutlinePanel(items: session.outlineItems) { item in
-                        session.requestOutlineNavigation(target: item.target)
-                    }
-                    .navigationTitle(L("detail.outline.title"))
-                    .inspectorColumnWidth(min: 220, ideal: 260, max: 380)
-                }
+                .frame(minWidth: 360, maxWidth: .infinity, maxHeight: .infinity)
+
+            if session.outlineOpen {
+                inspectorPane
+                    .frame(minWidth: 200, idealWidth: 260, maxWidth: 400)
+            }
         }
         .onChange(of: sidebarSelection) { _, new in
             // Open on selection (single-click, Obsidian-style) but only when
@@ -76,6 +71,22 @@ struct ContentView: View {
             Button("OK") { session.lastError = nil }
         } message: {
             Text(session.lastError ?? "")
+        }
+    }
+
+    /// The right-hand inspector pane: outline on top, node properties below.
+    private var inspectorPane: some View {
+        VSplitView {
+            OutlinePanel(
+                items: session.outlineItems,
+                selectedTarget: session.selectedOutlineTarget
+            ) { item in
+                session.requestOutlineNavigation(target: item.target)
+            }
+            .frame(minHeight: 120, idealHeight: 320)
+
+            NodePropertyView(properties: session.selectedNodeProperties)
+                .frame(minHeight: 120, maxHeight: .infinity)
         }
     }
 

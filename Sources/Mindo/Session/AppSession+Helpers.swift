@@ -14,6 +14,16 @@ extension AppSession {
         return openDocuments.first { $0.id == id }
     }
 
+    /// Properties of the topic currently selected in the mind-map canvas (via
+    /// `selectedOutlineTarget`), for the inspector's property panel. nil when
+    /// the active doc isn't a mind map or nothing is selected.
+    var selectedNodeProperties: NodeProperties? {
+        guard case .mindMap(let map)? = activeDocument?.kind,
+              let path = selectedOutlineTarget,
+              let topic = map.topic(atOutlinePath: path) else { return nil }
+        return NodeProperties.from(topic: topic, path: path, map: map)
+    }
+
     // MARK: - Outline navigation
 
     /// Push a navigation target into the active editor. Tags the value with a

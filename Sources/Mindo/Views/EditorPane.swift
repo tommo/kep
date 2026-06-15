@@ -45,7 +45,8 @@ struct EditorPane: View {
                     onChange: { _ in markDirty(documentID) },
                     onExtraFileTap: { url in session.open(url: url) },
                     navigationTarget: session.sanitizedNavigationTarget,
-                    searchHighlight: session.lastSearchMatch
+                    searchHighlight: session.lastSearchMatch,
+                    onSelectionPath: { path in session.selectedOutlineTarget = path }
                 )
             }
             .onChange(of: session.zoomCommandTick) { _, _ in

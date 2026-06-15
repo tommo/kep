@@ -1,39 +1,37 @@
 import XCTest
 import AppKit
+import WebKit
 @testable import MindoMindMap
 
-/// The note hover popover was showing up empty. These guard that the controller
-/// actually renders the note text and sizes itself to non-zero — i.e. the
-/// markdown → attributed-string → label pipeline produces visible content.
+/// The note hover popover renders the note as Markdown (it IS markdown), the
+/// same pipeline the editor preview uses — so block elements like headings and
+/// lists render instead of showing raw `#`/`-` markers.
 @MainActor
 final class NoteHoverControllerTests: XCTestCase {
 
-    private func label(in view: NSView) -> NSTextField? {
-        if let tf = view as? NSTextField { return tf }
-        for sub in view.subviews { if let hit = label(in: sub) { return hit } }
-        return nil
+    func testHeadingIsRenderedNotRaw() {
+        let html = NoteHoverController.html(for: "# Title\n\nbody")
+        XCTAssertFalse(html.contains("# Title"), "the raw markdown marker is gone")
+        XCTAssertTrue(html.contains("Title"), "the heading text survives")
+        XCTAssertTrue(html.localizedCaseInsensitiveContains("<h1"), "rendered as an <h1>")
     }
 
-    func testRendersNonEmptyContentAndSize() {
-        let vc = NoteHoverController(markdown: "Remember **this** and `that`.")
-        vc.loadViewIfNeeded()
-
-        XCTAssertGreaterThan(vc.preferredContentSize.width, 0, "popover has a width")
-        XCTAssertGreaterThan(vc.preferredContentSize.height, 0, "popover has a height")
-
-        let tf = label(in: vc.view)
-        XCTAssertNotNil(tf, "a text label was added")
-        XCTAssertGreaterThan(tf?.attributedStringValue.length ?? 0, 0,
-                             "the label actually carries the rendered note text")
-        XCTAssertTrue(tf?.attributedStringValue.string.contains("Remember") ?? false,
-                      "the note text survives markdown rendering")
+    func testListIsRendered() {
+        let html = NoteHoverController.html(for: "- one\n- two")
+        XCTAssertTrue(html.localizedCaseInsensitiveContains("<li"), "bullets render as list items")
+        XCTAssertTrue(html.contains("one") && html.contains("two"))
     }
 
-    func testPlainTextFallbackStillRenders() {
-        let vc = NoteHoverController(markdown: "just plain text")
+    func testInlineEmphasisRendered() {
+        let html = NoteHoverController.html(for: "remember **this**")
+        XCTAssertTrue(html.localizedCaseInsensitiveContains("<strong"), "bold renders")
+    }
+
+    func testControllerLoadsWebViewWithInitialSize() {
+        let vc = NoteHoverController(markdown: "# hi")
         vc.loadViewIfNeeded()
-        let tf = label(in: vc.view)
-        XCTAssertEqual(tf?.attributedStringValue.string.contains("plain text"), true)
+        XCTAssertTrue(vc.view is WKWebView, "popover hosts a web view")
+        XCTAssertGreaterThan(vc.preferredContentSize.width, 0)
         XCTAssertGreaterThan(vc.preferredContentSize.height, 0)
     }
 }

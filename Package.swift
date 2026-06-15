@@ -44,7 +44,7 @@ let package = Package(
                 .product(name: "Logging", package: "swift-log"),
             ]
         ),
-        .target(name: "MindoMindMap", dependencies: ["MindoBase", "MindoCore", "MindoModel"]),
+        .target(name: "MindoMindMap", dependencies: ["MindoBase", "MindoCore", "MindoModel", "MindoMarkdown"]),
         .target(
             name: "MindoMarkdown",
             dependencies: [

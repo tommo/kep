@@ -3,24 +3,31 @@ import MindoBase
 import MindoCore
 
 /// "Go to Node" palette (⌘P): fuzzy-search the active mind map's topics and
-/// jump to the chosen one. Mirrors `QuickSwitcherView` — chrome-light modal,
-/// type to filter, arrows to move, Return to jump, Esc to dismiss.
+/// jump to the chosen one. Chrome-light modal — type to filter, arrows to
+/// move, Return to jump, Esc to dismiss.
+///
+/// Results are computed PURELY from the `query` @State (not by mutating a
+/// reference-type model), so SwiftUI always re-ranks as you type — mutating a
+/// class held in @State doesn't reliably invalidate the body, which left the
+/// list stale/empty while typing.
 struct NodeJumpView: View {
+    let items: [OutlineItem]
     let onSelect: (String) -> Void   // outline target of the chosen node
     let onClose: () -> Void
 
-    @State private var model: NodeJumpModel
     @State private var query: String = ""
     @State private var selection: Int = 0
     @FocusState private var fieldFocused: Bool
 
     init(items: [OutlineItem], onSelect: @escaping (String) -> Void, onClose: @escaping () -> Void) {
+        self.items = items
         self.onSelect = onSelect
         self.onClose = onClose
-        _model = State(initialValue: NodeJumpModel(items: items))
     }
 
-    private var ranked: [(item: OutlineItem, result: FuzzyMatch.Result)] { model.results }
+    private var ranked: [(item: OutlineItem, result: FuzzyMatch.Result)] {
+        Array(FuzzyMatch.rank(items, query: query) { $0.title }.prefix(100))
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -31,7 +38,7 @@ struct NodeJumpView: View {
                     .textFieldStyle(.plain)
                     .font(.system(size: 16))
                     .focused($fieldFocused)
-                    .onChange(of: query) { _, new in model.setQuery(new); selection = model.selection }
+                    .onChange(of: query) { _, _ in selection = 0 }
                     .onSubmit { jumpSelected() }
             }
             .padding(.horizontal, 14)
@@ -39,7 +46,8 @@ struct NodeJumpView: View {
 
             Divider()
 
-            if ranked.isEmpty {
+            let results = ranked
+            if results.isEmpty {
                 Text(query.isEmpty ? L("nodejump.empty.prompt") : L("nodejump.empty.nomatch"))
                     .foregroundStyle(.secondary)
                     .font(.callout)
@@ -48,13 +56,13 @@ struct NodeJumpView: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(spacing: 0) {
-                            ForEach(Array(ranked.enumerated()), id: \.element.item.id) { idx, entry in
+                            ForEach(Array(results.enumerated()), id: \.element.item.id) { idx, entry in
                                 NodeJumpRow(item: entry.item,
                                             matched: entry.result.matchedIndices,
-                                            selected: idx == selection)
+                                            selected: idx == clampedSelection(results))
                                     .id(idx)
                                     .contentShape(Rectangle())
-                                    .onTapGesture { model.select(at: idx); selection = model.selection; jumpSelected() }
+                                    .onTapGesture { selection = idx; jumpSelected() }
                             }
                         }
                         .padding(6)
@@ -74,14 +82,21 @@ struct NodeJumpView: View {
         .onKeyPress(.escape) { onClose(); return .handled }
     }
 
+    private func clampedSelection(_ results: [(item: OutlineItem, result: FuzzyMatch.Result)]) -> Int {
+        min(max(0, selection), max(0, results.count - 1))
+    }
+
     private func move(_ delta: Int) {
-        model.move(delta)
-        selection = model.selection
+        let count = ranked.count
+        guard count > 0 else { selection = 0; return }
+        selection = min(max(0, selection + delta), count - 1)
     }
 
     private func jumpSelected() {
-        guard let item = model.selectedItem else { return }
-        onSelect(item.target)
+        let results = ranked
+        let idx = clampedSelection(results)
+        guard results.indices.contains(idx) else { return }
+        onSelect(results[idx].item.target)
         onClose()
     }
 }
@@ -95,7 +110,7 @@ private struct NodeJumpRow: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: item.depth == 0 ? "smallcircle.filled.circle" : "circle")
+            Image(systemName: item.depth <= 1 ? "smallcircle.filled.circle" : "circle")
                 .font(.system(size: 7))
                 .foregroundStyle(selected ? Color.white : Color.accentColor)
                 .frame(width: 14)
@@ -104,7 +119,7 @@ private struct NodeJumpRow: View {
                 .truncationMode(.tail)
             Spacer(minLength: 0)
         }
-        .padding(.leading, CGFloat(min(item.depth, 8)) * 12)
+        .padding(.leading, CGFloat(min(max(item.depth - 1, 0), 8)) * 12)
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
         .background(

@@ -28,6 +28,12 @@ public struct CSVEditor: NSViewRepresentable {
         scroll.hasVerticalScroller = true
         scroll.hasHorizontalScroller = true
         scroll.borderType = .lineBorder
+        // The table scrolls horizontally, so it must NOT impose its content
+        // width as a minimum on the editor — otherwise a wide CSV pushes the
+        // whole detail pane out and squeezes the sidebar. Let it compress; the
+        // horizontal scroller covers overflow.
+        scroll.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        scroll.setContentHuggingPriority(.defaultLow, for: .horizontal)
         let table = CSVTableView()
         table.usesAlternatingRowBackgroundColors = true
         table.style = .inset
@@ -91,6 +97,7 @@ public struct CSVEditor: NSViewRepresentable {
 
         let findBar = makeFindBar(coordinator: context.coordinator)
         findBar.isHidden = true
+        findBar.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         toolbar.translatesAutoresizingMaskIntoConstraints = false
         scroll.translatesAutoresizingMaskIntoConstraints = false
@@ -208,32 +215,31 @@ public struct CSVEditor: NSViewRepresentable {
         // Row / Column operations collapse into two pull-downs — eight text
         // buttons were both wide and visually noisy. The leading symbol on each
         // pull-down stays visible; the named actions live in the menu.
-        func pullDown(symbol: String, tooltip: String,
-                      items: [(String, Selector)]) -> NSPopUpButton {
+        // A pull-down's button shows its FIRST menu item, so that item carries
+        // the visible label (a bare image item rendered as "NSMenuItem").
+        func pullDown(label: String, items: [(String, Selector)]) -> NSPopUpButton {
             let p = NSPopUpButton(title: "", target: nil, action: nil)
             p.pullsDown = true
             p.bezelStyle = .accessoryBarAction
             let menu = NSMenu()
-            let title = NSMenuItem()
-            title.image = NSImage(systemSymbolName: symbol, accessibilityDescription: tooltip)
-            menu.addItem(title)
-            for (label, action) in items {
-                let it = NSMenuItem(title: label, action: action, keyEquivalent: "")
+            menu.addItem(NSMenuItem(title: label, action: nil, keyEquivalent: ""))   // button label
+            for (itemLabel, action) in items {
+                let it = NSMenuItem(title: itemLabel, action: action, keyEquivalent: "")
                 it.target = coordinator
                 menu.addItem(it)
             }
             p.menu = menu
-            p.toolTip = tooltip
+            p.toolTip = "\(label) operations"
             return p
         }
 
-        stack.addArrangedSubview(pullDown(symbol: "rectangle.grid.1x2", tooltip: "Row operations", items: [
+        stack.addArrangedSubview(pullDown(label: "Row", items: [
             ("Append Row",       #selector(Coordinator.addRow)),
             ("Insert Above",     #selector(Coordinator.insertRowBefore)),
             ("Insert Below",     #selector(Coordinator.insertRowAfter)),
             ("Delete Row",       #selector(Coordinator.removeRow)),
         ]))
-        stack.addArrangedSubview(pullDown(symbol: "rectangle.split.3x1", tooltip: "Column operations", items: [
+        stack.addArrangedSubview(pullDown(label: "Column", items: [
             ("Append Column",    #selector(Coordinator.addColumn)),
             ("Insert Left",      #selector(Coordinator.insertColumnBefore)),
             ("Insert Right",     #selector(Coordinator.insertColumnAfter)),

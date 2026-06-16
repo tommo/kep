@@ -213,14 +213,19 @@ extension MindMapView {
         // expects), not jump to the topmost sibling. `visibleChildren` is empty
         // when collapsed, so inward navigation can't land on a hidden topic.
         func inwardChild(_ children: [MindMapElement]) -> MindMapElement? {
+            guard !children.isEmpty else { return nil }
             let y = from.frame.midY
-            return children.min { lhs, rhs in
-                let dl = abs(lhs.frame.midY - y), dr = abs(rhs.frame.midY - y)
-                // Nearest by vertical distance; on a tie prefer the UPPER node.
-                // The canvas is flipped (y grows downward), so upper == smaller y.
-                if abs(dl - dr) > 0.5 { return dl < dr }
-                return lhs.frame.midY < rhs.frame.midY
-            }
+            let dists = children.map { (el: $0, d: abs($0.frame.midY - y)) }
+            let dMin = dists.map(\.d).min()!
+            // Children whose distance is within ~20% of the nearest count as
+            // "the same vertical offset" — e.g. the two children straddling the
+            // parent's centre are rarely *exactly* equidistant (uneven subtree
+            // heights nudge the parent off the midpoint by a few points). Among
+            // those, prefer the UPPER one (smaller y on the flipped canvas).
+            // A genuinely closer child (outside the band) still wins outright.
+            let band = dMin * 0.2 + 1
+            return dists.filter { $0.d <= dMin + band }
+                        .min { $0.el.frame.midY < $1.el.frame.midY }?.el
         }
 
         switch direction {

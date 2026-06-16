@@ -92,6 +92,41 @@ final class KeyboardNavBugTests: XCTestCase {
         XCTAssertTrue(next?.topic === top, "tie resolves to the upper child")
     }
 
+    /// Real-world straddle (kanban report): the root sat between an upper child
+    /// "shit" (dist 47) and a lower child "Topic" (dist 44). A strict nearest
+    /// rule picked the lower one by 3pt; an asymmetric straddle this close
+    /// should resolve UPWARD. Build the same shape synthetically so the test
+    /// doesn't depend on an external file.
+    func testNearTieStraddlePrefersUpper() {
+        let map = MindMap()
+        let root = Topic(text: "Root"); map.root = root
+        // Several right-side children; the second has a deep subtree so the
+        // layout spaces things unevenly and the root lands slightly below the
+        // midpoint of the two children flanking its centre.
+        for name in ["c0", "c1", "upper", "lower", "c4", "c5"] {
+            let n = root.addChild(text: name)
+            n.setAttribute(TopicAttribute.leftSide, "false")
+        }
+        let upper = root.children[2], lower = root.children[3]
+        // Give `c1` (above the centre) a subtree so the block is asymmetric.
+        let c1 = root.children[1]
+        c1.addChild(text: "x"); c1.addChild(text: "y"); c1.addChild(text: "z")
+
+        let view = makeHeadlessMindMap(map: map, frame: NSRect(x: 0, y: 0, width: 1000, height: 800))
+        let rootEl = view.element(forTopic: root)!
+        let upEl = view.element(forTopic: upper)!, loEl = view.element(forTopic: lower)!
+        let dUp = abs(upEl.frame.midY - rootEl.frame.midY)
+        let dLo = abs(loEl.frame.midY - rootEl.frame.midY)
+
+        // Only meaningful if these two really do straddle the centre closely.
+        try? XCTSkipIf(!(upEl.frame.midY < rootEl.frame.midY && loEl.frame.midY > rootEl.frame.midY),
+                       "layout didn't produce a straddle around the centre")
+        if abs(dUp - dLo) <= min(dUp, dLo) * 0.2 + 1 {
+            XCTAssertTrue(view.element(in: .right, of: rootEl)?.topic === upper,
+                          "a near-equidistant straddle resolves to the upper child")
+        }
+    }
+
     /// performKeyEquivalent should swallow Tab/arrows when we're first
     /// responder so the window's focus loop doesn't grab them. We can't
     /// install a real window here, so just sanity-check the override returns

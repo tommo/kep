@@ -36,7 +36,7 @@ extension AppSession {
             cmd("file.quickOpen", L("menu.file.quick_open"), category: L("palette.cat.file"),
                 shortcut: "⌘O", enabled: hasWorkspaces) { self.quickSwitcherOpen = true },
             cmd("nav.gotoNode", L("menu.file.goto_node"), category: L("palette.cat.navigate"),
-                shortcut: "⌘P", enabled: isMindMap) { self.nodeJumpOpen = true },
+                shortcut: "⌘P", enabled: isMindMap) { self.nodeJumpQuery = ""; self.nodeJumpOpen = true },
             cmd("file.openWorkspace", L("menu.file.open_workspace"), category: L("palette.cat.file"),
                 shortcut: "⇧⌘O") { self.openWorkspace() },
             cmd("file.openFile", L("menu.file.open_file"), category: L("palette.cat.file"),

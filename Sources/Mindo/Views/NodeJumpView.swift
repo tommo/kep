@@ -6,21 +6,28 @@ import MindoCore
 /// jump to the chosen one. Chrome-light modal — type to filter, arrows to
 /// move, Return to jump, Esc to dismiss.
 ///
-/// Results are computed PURELY from the `query` @State (not by mutating a
-/// reference-type model), so SwiftUI always re-ranks as you type — mutating a
-/// class held in @State doesn't reliably invalidate the body, which left the
-/// list stale/empty while typing.
+/// The query is a `@Binding` owned by `AppSession`, NOT local `@State`. A
+/// SwiftUI re-render can re-create this modal (the enclosing App body rebuilds
+/// `session.outlineItems` — a computed property handing back fresh array
+/// identities — on every pass), and a re-created view resets its own `@State`.
+/// That silently zeroed a locally-stored query while the AppKit field editor
+/// kept the visible glyphs, so `ranked` re-ran with an empty query and showed
+/// every node unfiltered. Session-owned query survives the re-create. The item
+/// set is snapshotted into `@State` so its churning identity can't thrash the
+/// list either.
 struct NodeJumpView: View {
-    let items: [OutlineItem]
+    @Binding var query: String
     let onSelect: (String) -> Void   // outline target of the chosen node
     let onClose: () -> Void
 
-    @State private var query: String = ""
+    @State private var items: [OutlineItem]
     @State private var selection: Int = 0
     @FocusState private var fieldFocused: Bool
 
-    init(items: [OutlineItem], onSelect: @escaping (String) -> Void, onClose: @escaping () -> Void) {
-        self.items = items
+    init(items: [OutlineItem], query: Binding<String>,
+         onSelect: @escaping (String) -> Void, onClose: @escaping () -> Void) {
+        _items = State(initialValue: items)
+        _query = query
         self.onSelect = onSelect
         self.onClose = onClose
     }
@@ -102,8 +109,8 @@ struct NodeJumpView: View {
 }
 
 /// A single node result row, two lines like the file switcher: the node title
-/// (prominent) over its dim breadcrumb. Matching runs against the whole path
-/// (`breadcrumb › title`), so matched indices are split back onto each part.
+/// (prominent, with matched chars bold) over its dim breadcrumb. Matching is
+/// title-only, so `matched` indexes into the title; the breadcrumb is context.
 private struct NodeJumpRow: View {
     let item: OutlineItem
     let matched: [Int]

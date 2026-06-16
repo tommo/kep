@@ -25,8 +25,16 @@ struct NodeJumpView: View {
         self.onClose = onClose
     }
 
+    /// What we match AND display: the full breadcrumb path ending in the node
+    /// title. Matching the whole path means same-named nodes (a map full of
+    /// "Topic"s) are distinguishable and you can narrow by an ancestor —
+    /// "shit topic" finds the Topic under shit.
+    private func pathKey(_ item: OutlineItem) -> String {
+        item.breadcrumb.isEmpty ? item.title : "\(item.breadcrumb) › \(item.title)"
+    }
+
     private var ranked: [(item: OutlineItem, result: FuzzyMatch.Result)] {
-        Array(FuzzyMatch.rank(items, query: query) { $0.title }.prefix(100))
+        Array(FuzzyMatch.rank(items, query: query) { pathKey($0) }.prefix(100))
     }
 
     var body: some View {
@@ -57,7 +65,8 @@ struct NodeJumpView: View {
                     ScrollView {
                         LazyVStack(spacing: 0) {
                             ForEach(Array(results.enumerated()), id: \.element.item.id) { idx, entry in
-                                NodeJumpRow(item: entry.item,
+                                NodeJumpRow(path: pathKey(entry.item),
+                                            depth: entry.item.depth,
                                             matched: entry.result.matchedIndices,
                                             selected: idx == clampedSelection(results))
                                     .id(idx)
@@ -101,25 +110,26 @@ struct NodeJumpView: View {
     }
 }
 
-/// A single node result row — the topic title with matched characters
-/// emphasised, indented by its outline depth so the tree shape reads.
+/// A single node result row — the full breadcrumb path with matched characters
+/// emphasised. Head-truncated so the leaf node (the bit you're jumping to)
+/// stays visible when the path is long.
 private struct NodeJumpRow: View {
-    let item: OutlineItem
+    let path: String
+    let depth: Int
     let matched: [Int]
     let selected: Bool
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: item.depth <= 1 ? "smallcircle.filled.circle" : "circle")
+            Image(systemName: depth <= 1 ? "smallcircle.filled.circle" : "circle")
                 .font(.system(size: 7))
                 .foregroundStyle(selected ? Color.white : Color.accentColor)
                 .frame(width: 14)
-            highlightedTitle
+            highlightedPath
                 .lineLimit(1)
-                .truncationMode(.tail)
+                .truncationMode(.head)
             Spacer(minLength: 0)
         }
-        .padding(.leading, CGFloat(min(max(item.depth - 1, 0), 8)) * 12)
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
         .background(
@@ -129,8 +139,8 @@ private struct NodeJumpRow: View {
         .foregroundStyle(selected ? Color.white : Color.primary)
     }
 
-    private var highlightedTitle: Text {
-        let chars = Array(item.title)
+    private var highlightedPath: Text {
+        let chars = Array(path)
         let hits = Set(matched)
         var result = Text("")
         for (i, ch) in chars.enumerated() {

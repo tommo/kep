@@ -11,16 +11,22 @@ public extension Outline {
     static func fromMindMap(_ map: MindMap) -> [OutlineItem] {
         var items: [OutlineItem] = []
         guard let root = map.root else { return [] }
-        walk(root, depth: 1, path: "", into: &items)
+        walk(root, depth: 1, path: "", ancestors: [], into: &items)
         return items
     }
 
-    private static func walk(_ topic: Topic, depth: Int, path: String, into items: inout [OutlineItem]) {
+    private static func walk(_ topic: Topic, depth: Int, path: String,
+                             ancestors: [String], into items: inout [OutlineItem]) {
         let title = topic.text.isEmpty ? "(untitled)" : topic.text
-        items.append(OutlineItem(title: title, depth: depth, target: path))
+        // Breadcrumb is the ancestor chain (NOT including this node) — lets the
+        // Go to Node palette show "Root › Branch" beside an otherwise ambiguous
+        // leaf and fuzzy-match across the whole path.
+        let breadcrumb = ancestors.joined(separator: " › ")
+        items.append(OutlineItem(title: title, depth: depth, target: path, breadcrumb: breadcrumb))
         for (index, child) in topic.children.enumerated() {
             let childPath = path.isEmpty ? "\(index)" : "\(path)/\(index)"
-            walk(child, depth: depth + 1, path: childPath, into: &items)
+            walk(child, depth: depth + 1, path: childPath,
+                 ancestors: ancestors + [title], into: &items)
         }
     }
 }

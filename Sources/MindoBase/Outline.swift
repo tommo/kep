@@ -10,11 +10,17 @@ public struct OutlineItem: Identifiable, Hashable {
     /// editors, topic UIDs for mind maps, etc. Encoded as a string so the
     /// model is purely data.
     public var target: String
+    /// Ancestor-path breadcrumb (e.g. "Root › Branch › Leaf"), used by the
+    /// Go to Node palette to disambiguate same-named nodes and to fuzzy-match
+    /// across the hierarchy. Empty when there's no meaningful path (markdown
+    /// headings, or the root itself).
+    public var breadcrumb: String
 
-    public init(title: String, depth: Int, target: String) {
+    public init(title: String, depth: Int, target: String, breadcrumb: String = "") {
         self.title = title
         self.depth = depth
         self.target = target
+        self.breadcrumb = breadcrumb
     }
 }
 

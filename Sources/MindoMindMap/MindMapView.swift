@@ -100,6 +100,9 @@ public final class MindMapView: NSView {
     /// attribute so the node hangs off that half — the drag equivalent of ⌘←/⌘→.
     /// nil when the insertion isn't a root-side placement.
     var dragRootSide: Bool?
+    /// True while an ⌥-drag is freely moving a node (sets its manual offset)
+    /// rather than reparenting/reordering it.
+    var dragIsFreeMove = false
     let dragThreshold: CGFloat = 4
 
     /// Substring (case-insensitive) to highlight on every topic whose

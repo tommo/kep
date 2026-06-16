@@ -18,6 +18,10 @@ public enum TopicAttribute {
     /// Per-topic text alignment override (`left` | `center` | `right`).
     /// Absent attribute falls back to the default centered layout.
     public static let textAlign = "textAlign"
+    /// Manual layout nudge (points) applied on top of the auto-layout position;
+    /// the node and its subtree shift by (offsetX, offsetY). Absent = 0.
+    public static let offsetX = "offsetX"
+    public static let offsetY = "offsetY"
 }
 
 /// A node in a mind map's topic tree. Mirrors `Topic<T>` from `mindmap-model`.

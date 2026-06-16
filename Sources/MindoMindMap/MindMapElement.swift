@@ -25,6 +25,14 @@ public final class MindMapElement {
     /// Bounds of the entire subtree rooted at this element.
     public internal(set) var subtreeBounds: CGRect = .zero
 
+    /// Manual layout nudge from the `offsetX`/`offsetY` topic attributes,
+    /// applied on top of the auto-layout position. `.zero` when unset.
+    public var manualOffset: CGPoint {
+        let x = topic.attribute(TopicAttribute.offsetX).flatMap(Double.init) ?? 0
+        let y = topic.attribute(TopicAttribute.offsetY).flatMap(Double.init) ?? 0
+        return CGPoint(x: x, y: y)
+    }
+
     public init(topic: Topic, level: Int) {
         self.topic = topic
         self.level = level

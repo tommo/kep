@@ -135,6 +135,8 @@ extension MindMapView {
            !event.modifierFlags.contains(.command) && !event.modifierFlags.contains(.shift) {
             dragOrigin = p
             dragSourceElement = el
+            // ⌥-drag = free move (manual offset) instead of reparent/reorder.
+            dragIsFreeMove = event.modifierFlags.contains(.option)
         }
         window?.makeFirstResponder(self)
     }
@@ -170,6 +172,16 @@ extension MindMapView {
             if hypot(p.x - origin.x, p.y - origin.y) < dragThreshold { return }
         }
         dragGhostCenter = p
+        // ⌥ free move: no reparent/insertion targets — the ghost just tracks
+        // the cursor and mouseUp commits the manual offset.
+        if dragIsFreeMove {
+            dragInsertionTarget = nil
+            dragRootSide = nil
+            dragTargetElement = nil
+            autoScrollDuringDrag(cursor: p)
+            needsDisplay = true
+            return
+        }
         // Auto-scroll when the drag nears a viewport edge so off-screen drop
         // targets are reachable without releasing. Pure ramp math; applied to
         // the clip view here.
@@ -259,6 +271,20 @@ extension MindMapView {
         }
         defer { resetDragState() }
         guard let source = dragSourceElement, dragGhostCenter != nil else { return }
+        // ⌥ free move: commit a manual offset = previous offset + drag delta.
+        if dragIsFreeMove, let origin = dragOrigin, let drop = dragGhostCenter {
+            let old = source.manualOffset
+            let nx = old.x + (drop.x - origin.x)
+            let ny = old.y + (drop.y - origin.y)
+            groupedUndo(name: "Move Node") {
+                undoableSetAttribute(source.topic, key: TopicAttribute.offsetX,
+                                     value: abs(nx) < 0.5 ? nil : String(format: "%.1f", nx))
+                undoableSetAttribute(source.topic, key: TopicAttribute.offsetY,
+                                     value: abs(ny) < 0.5 ? nil : String(format: "%.1f", ny))
+            }
+            if let moved = element(forTopic: source.topic) { selectElement(moved) }
+            return
+        }
         if let ins = dragInsertionTarget {
             // Reorder among siblings — index already accounts for source's
             // current position via undoableReparent's remove-then-insert.
@@ -313,6 +339,7 @@ extension MindMapView {
         }
         dragOrigin = nil
         dragSourceElement = nil
+        dragIsFreeMove = false
     }
 
     /// Detect a "drop beside the root" placement: the cursor is level with the

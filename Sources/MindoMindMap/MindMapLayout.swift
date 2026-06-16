@@ -29,7 +29,34 @@ public final class MindMapLayout {
 
         // Place root at origin (0,0) — view centers later via scrollPoint.
         place(root, at: .zero)
+        // Manual per-node nudges on top of the auto-layout, then rebuild bounds
+        // so the canvas size accounts for the shifted nodes.
+        applyManualOffsets(root)
+        recomputeSubtreeBounds(root)
         return root.subtreeBounds.insetBy(dx: -originPadding, dy: -originPadding)
+    }
+
+    /// Shift each element carrying an `offsetX`/`offsetY` by that amount,
+    /// together with its whole subtree (so a moved branch keeps its shape).
+    /// Pre-order so a child's own offset compounds on its parent's.
+    private func applyManualOffsets(_ element: MindMapElement) {
+        let off = element.manualOffset
+        if off != .zero { shiftFrames(element, by: off) }
+        for child in element.visibleChildren { applyManualOffsets(child) }
+    }
+
+    private func shiftFrames(_ element: MindMapElement, by d: CGPoint) {
+        element.frame = element.frame.offsetBy(dx: d.x, dy: d.y)
+        for child in element.visibleChildren { shiftFrames(child, by: d) }
+    }
+
+    private func recomputeSubtreeBounds(_ element: MindMapElement) {
+        var union = element.frame
+        for c in element.visibleChildren {
+            recomputeSubtreeBounds(c)
+            union = union.union(c.subtreeBounds)
+        }
+        element.subtreeBounds = union
     }
 
     // MARK: - Pass 1: measure

@@ -76,6 +76,11 @@ extension MindMapView {
             menu.addItem(makeContextItem(title: "Fold Subtree", action: #selector(contextFoldSubtree(_:)), payload: element))
             menu.addItem(makeContextItem(title: "Unfold Subtree", action: #selector(contextUnfoldSubtree(_:)), payload: element))
         }
+        // Reset a manual ⌥-drag nudge back to the auto-layout position.
+        if element.manualOffset != .zero {
+            menu.addItem(makeContextItem(title: "Reset Manual Position",
+                                         action: #selector(contextResetOffset(_:)), payload: element))
+        }
         // Root children can hang off either side of the root — flipping sides is
         // the only way to populate the left half. Also bound to ⌘← / ⌘→ (shown
         // here so the shortcut is discoverable).
@@ -167,6 +172,15 @@ extension MindMapView {
     @objc func contextUnfoldSubtree(_ sender: NSMenuItem) {
         guard let element = sender.representedObject as? MindMapElement else { return }
         undoableSetSubtreeCollapsed(rootedAt: element.topic, collapsed: false)
+    }
+
+    /// Clear a node's manual ⌥-drag offset, snapping it back to auto-layout.
+    @objc func contextResetOffset(_ sender: NSMenuItem) {
+        guard let element = sender.representedObject as? MindMapElement else { return }
+        groupedUndo(name: "Reset Position") {
+            undoableSetAttribute(element.topic, key: TopicAttribute.offsetX, value: nil)
+            undoableSetAttribute(element.topic, key: TopicAttribute.offsetY, value: nil)
+        }
     }
 
     /// Flip a root child to the opposite side of the root (left ↔ right).

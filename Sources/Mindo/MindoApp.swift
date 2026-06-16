@@ -119,7 +119,6 @@ struct MindoApp: App {
                 .sheet(isPresented: $session.nodeJumpOpen) {
                     NodeJumpView(
                         items: session.outlineItems,
-                        query: $session.nodeJumpQuery,
                         onSelect: { target in session.requestOutlineNavigation(target: target) },
                         onClose: { session.nodeJumpOpen = false }
                     )
@@ -150,7 +149,7 @@ struct MindoApp: App {
                     .disabled(session.workspaceRoots.isEmpty)
                 Button(L("menu.file.command_palette")) { session.commandPaletteOpen = true }
                     .keyboardShortcut("p", modifiers: [.command, .shift])
-                Button(L("menu.file.goto_node")) { session.nodeJumpQuery = ""; session.nodeJumpOpen = true }
+                Button(L("menu.file.goto_node")) { session.nodeJumpOpen = true }
                     .keyboardShortcut("p", modifiers: .command)
                     .disabled(session.activeFileType != .mindMap)
                 Button(L("menu.file.open_workspace")) { session.openWorkspace() }
@@ -413,10 +412,6 @@ final class AppSession {
     var commandPaletteOpen: Bool = false
     /// "Go to Node" (⌘P) sheet flag — search the active mind map's topics.
     var nodeJumpOpen: Bool = false
-    /// Query for that palette. Owned here (not the modal's @State) so a SwiftUI
-    /// re-render that re-creates the modal can't reset it and leave the list
-    /// unfiltered while the field still shows text.
-    var nodeJumpQuery: String = ""
 
     /// Flat index of every file across open workspaces — data source for
     /// the quick switcher. Rebuilt each time the switcher opens so it

@@ -68,6 +68,30 @@ final class KeyboardNavBugTests: XCTestCase {
         _ = c2
     }
 
+    /// When two children are equidistant from the parent's vertical centre,
+    /// inward navigation prefers the UPPER one (smaller y on the flipped canvas).
+    func testInwardNavigationTieBreaksToUpperChild() {
+        let map = MindMap()
+        let root = Topic(text: "Root"); map.root = root
+        let p = root.addChild(text: "P")
+        p.setAttribute(TopicAttribute.leftSide, "false")
+        let top = p.addChild(text: "Top")
+        let bottom = p.addChild(text: "Bottom")
+
+        let view = makeHeadlessMindMap(map: map, frame: NSRect(x: 0, y: 0, width: 800, height: 600))
+        let pEl = view.element(forTopic: p)!
+        let topEl = view.element(forTopic: top)!, bottomEl = view.element(forTopic: bottom)!
+
+        // Two children → parent centred between them → equidistant.
+        let dTop = abs(topEl.frame.midY - pEl.frame.midY)
+        let dBottom = abs(bottomEl.frame.midY - pEl.frame.midY)
+        XCTAssertEqual(dTop, dBottom, accuracy: 0.5, "the two children are equidistant")
+        XCTAssertLessThan(topEl.frame.midY, bottomEl.frame.midY, "Top is the upper node (flipped canvas)")
+
+        let next = view.element(in: .right, of: pEl)
+        XCTAssertTrue(next?.topic === top, "tie resolves to the upper child")
+    }
+
     /// performKeyEquivalent should swallow Tab/arrows when we're first
     /// responder so the window's focus loop doesn't grab them. We can't
     /// install a real window here, so just sanity-check the override returns

@@ -214,7 +214,13 @@ extension MindMapView {
         // when collapsed, so inward navigation can't land on a hidden topic.
         func inwardChild(_ children: [MindMapElement]) -> MindMapElement? {
             let y = from.frame.midY
-            return children.min { abs($0.frame.midY - y) < abs($1.frame.midY - y) }
+            return children.min { lhs, rhs in
+                let dl = abs(lhs.frame.midY - y), dr = abs(rhs.frame.midY - y)
+                // Nearest by vertical distance; on a tie prefer the UPPER node.
+                // The canvas is flipped (y grows downward), so upper == smaller y.
+                if abs(dl - dr) > 0.5 { return dl < dr }
+                return lhs.frame.midY < rhs.frame.midY
+            }
         }
 
         switch direction {

@@ -89,32 +89,41 @@ public struct MindMapTheme: Sendable {
         self.fontSizeOther = fontSizeOther
     }
 
+    // Clean, professional default: flat fills, a single dark accent for the
+    // root, white nodes with hairline neutral borders, thin grey connectors,
+    // and the system font. No coloured per-level fills or heavy shadow.
     public static let light = MindMapTheme(
-        paperColor: NSColor(white: 0.98, alpha: 1),
-        rootFillColor: NSColor(red: 0.20, green: 0.50, blue: 0.85, alpha: 1),
-        rootBorderColor: NSColor(red: 0.10, green: 0.35, blue: 0.65, alpha: 1),
+        paperColor: NSColor(white: 0.985, alpha: 1),
+        rootFillColor: NSColor(red: 0.17, green: 0.19, blue: 0.22, alpha: 1),   // slate
+        rootBorderColor: NSColor(red: 0.17, green: 0.19, blue: 0.22, alpha: 1),
         rootTextColor: .white,
-        firstLevelFillColor: NSColor(red: 0.95, green: 0.97, blue: 1.0, alpha: 1),
-        firstLevelBorderColor: NSColor(red: 0.55, green: 0.65, blue: 0.85, alpha: 1),
-        firstLevelTextColor: NSColor(white: 0.10, alpha: 1),
-        otherLevelFillColor: NSColor(white: 1.0, alpha: 1),
-        otherLevelBorderColor: NSColor(white: 0.80, alpha: 1),
-        otherLevelTextColor: NSColor(white: 0.20, alpha: 1),
-        connectorColor: NSColor(white: 0.55, alpha: 1)
+        firstLevelFillColor: .white,
+        firstLevelBorderColor: NSColor(white: 0.80, alpha: 1),
+        firstLevelTextColor: NSColor(white: 0.12, alpha: 1),
+        otherLevelFillColor: .white,
+        otherLevelBorderColor: NSColor(white: 0.88, alpha: 1),
+        otherLevelTextColor: NSColor(white: 0.25, alpha: 1),
+        connectorColor: NSColor(white: 0.78, alpha: 1),
+        cornerRadius: 6,
+        dropShadowOpacity: 0.08,
+        fontName: systemFontToken
     )
 
     public static let dark = MindMapTheme(
-        paperColor: NSColor(white: 0.13, alpha: 1),
-        rootFillColor: NSColor(red: 0.36, green: 0.55, blue: 0.86, alpha: 1),
-        rootBorderColor: NSColor(red: 0.20, green: 0.35, blue: 0.65, alpha: 1),
-        rootTextColor: .white,
-        firstLevelFillColor: NSColor(white: 0.22, alpha: 1),
-        firstLevelBorderColor: NSColor(white: 0.45, alpha: 1),
-        firstLevelTextColor: NSColor(white: 0.95, alpha: 1),
-        otherLevelFillColor: NSColor(white: 0.18, alpha: 1),
-        otherLevelBorderColor: NSColor(white: 0.35, alpha: 1),
-        otherLevelTextColor: NSColor(white: 0.85, alpha: 1),
-        connectorColor: NSColor(white: 0.55, alpha: 1)
+        paperColor: NSColor(white: 0.12, alpha: 1),
+        rootFillColor: NSColor(white: 0.90, alpha: 1),                          // light slate on dark
+        rootBorderColor: NSColor(white: 0.90, alpha: 1),
+        rootTextColor: NSColor(white: 0.10, alpha: 1),
+        firstLevelFillColor: NSColor(white: 0.18, alpha: 1),
+        firstLevelBorderColor: NSColor(white: 0.34, alpha: 1),
+        firstLevelTextColor: NSColor(white: 0.93, alpha: 1),
+        otherLevelFillColor: NSColor(white: 0.15, alpha: 1),
+        otherLevelBorderColor: NSColor(white: 0.28, alpha: 1),
+        otherLevelTextColor: NSColor(white: 0.82, alpha: 1),
+        connectorColor: NSColor(white: 0.40, alpha: 1),
+        cornerRadius: 6,
+        dropShadowOpacity: 0.0,
+        fontName: systemFontToken
     )
 
     public static let classic = MindMapTheme(
@@ -155,8 +164,16 @@ public struct MindMapTheme: Sendable {
         }
     }
 
+    /// Sentinel `fontName` meaning "use the system UI font" — picks a weight
+    /// per level for a clean, modern look instead of a fixed-weight typeface.
+    public static let systemFontToken = ".systemUI"
+
     func font(forLevel level: Int) -> NSFont {
         let size: CGFloat = level == 0 ? fontSizeRoot : (level == 1 ? fontSizeFirstLevel : fontSizeOther)
+        if fontName == Self.systemFontToken {
+            let weight: NSFont.Weight = level == 0 ? .semibold : (level == 1 ? .medium : .regular)
+            return .systemFont(ofSize: size, weight: weight)
+        }
         return NSFont(name: fontName, size: size) ?? NSFont.systemFont(ofSize: size)
     }
 }

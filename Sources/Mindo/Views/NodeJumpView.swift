@@ -109,10 +109,6 @@ private struct NodeJumpRow: View {
     let matched: [Int]
     let selected: Bool
 
-    /// Character offset where the title starts inside the path key. The
-    /// separator " › " is 3 characters.
-    private var titleStart: Int { item.breadcrumb.isEmpty ? 0 : item.breadcrumb.count + 3 }
-
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "circle.fill")
@@ -120,13 +116,11 @@ private struct NodeJumpRow: View {
                 .foregroundStyle(selected ? Color.white : Color.accentColor.opacity(0.7))
                 .frame(width: 10)
             VStack(alignment: .leading, spacing: 1) {
-                highlight(item.title,
-                          hits: matched.compactMap { $0 >= titleStart ? $0 - titleStart : nil })
+                highlight(item.title, hits: matched)   // matching is on the title
                     .lineLimit(1)
                     .truncationMode(.tail)
                 if !item.breadcrumb.isEmpty {
-                    highlight(item.breadcrumb,
-                              hits: matched.filter { $0 < item.breadcrumb.count })
+                    Text(item.breadcrumb)
                         .font(.caption2)
                         .foregroundColor(selected ? Color.white.opacity(0.75) : .secondary)
                         .lineLimit(1)

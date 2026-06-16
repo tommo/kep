@@ -57,6 +57,21 @@ final class MoveToRootSideTests: XCTestCase {
         XCTAssertTrue(hit?.target.parent.topic === root, "drops as a child of root")
     }
 
+    func testCursorOverANodeIsNotASideDrop() {
+        // Over an actual node, the node is the drop target — not a root-side
+        // placement (regression: dragging onto a right child was hijacked).
+        let map = MindMap()
+        let root = Topic(text: "Root"); map.root = root
+        let a = root.addChild(text: "A"); a.setAttribute(TopicAttribute.leftSide, "false")
+        let b = root.addChild(text: "B"); b.setAttribute(TopicAttribute.leftSide, "false")
+        let view = makeHeadlessMindMap(map: map, frame: NSRect(x: 0, y: 0, width: 800, height: 600))
+        let aEl = view.element(forTopic: a)!
+        let bFrame = view.element(forTopic: b)!.frame
+        let overB = CGPoint(x: bFrame.midX, y: bFrame.midY)
+        XCTAssertNil(view.rootSideInsertion(under: overB, source: aEl),
+                     "a node under the cursor wins over a root-side drop")
+    }
+
     func testDragFarFromRootIsNotASideDrop() {
         let (view, root, a) = make()
         let aEl = view.element(forTopic: a)!

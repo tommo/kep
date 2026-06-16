@@ -324,6 +324,11 @@ extension MindMapView {
         -> (target: (parent: MindMapElement, index: Int, lineY: CGFloat, lineMinX: CGFloat, lineMaxX: CGFloat), isLeft: Bool)?
     {
         guard let root = rootElement, source !== root, source.topic.parent != nil else { return nil }
+        // Only an EMPTY-space drop beside the root — if the cursor is over an
+        // actual node, that node is the drop target (reparent onto it), not a
+        // root-side placement. (Without this, dragging onto a right-side child
+        // was hijacked into a root-side drop.)
+        guard element(at: p) == nil else { return nil }
         let rf = root.frame
         // Vertical band: roughly level with the root (its height + slack).
         let vPad: CGFloat = 90

@@ -36,6 +36,15 @@ final class MoveToRootSideTests: XCTestCase {
         XCTAssertFalse(view.element(forTopic: a)?.isLeftSide ?? true)
     }
 
+    func testContextMenuMoveToSideFlips() {
+        let (view, _, a) = make()
+        view.selectElement(view.element(forTopic: a))
+        let item = NSMenuItem()
+        item.representedObject = view.element(forTopic: a)
+        view.contextMoveToSide(item)
+        XCTAssertEqual(a.attribute(TopicAttribute.leftSide), "true", "context action moved A to the left")
+    }
+
     func testMoveRightOnRightChildDoesNotFlip() {
         // A right-side child pushed Right is "outward" — it must NOT flip to
         // left; it falls through to the normal indent/no-op path.

@@ -354,6 +354,18 @@ public final class MindMapView: NSView {
                 return event
             }
             let chars = event.charactersIgnoringModifiers ?? ""
+            // ⌘+arrow is a structural MOVE (reorder / reparent / flip root
+            // side), dispatched via performKeyEquivalent — but this monitor runs
+            // first and would otherwise swallow the arrow into keyDown (a plain
+            // selection move), so the ⌘ move never fired. Route it explicitly.
+            if event.type == .keyDown,
+               event.modifierFlags.contains(.command),
+               !event.modifierFlags.contains(.option),
+               let direction = Self.arrowKeyDirections[chars],
+               self.window?.contentView?.subviewIsVisible(self) ?? false {
+                self.moveSelected(direction)
+                return nil
+            }
             let driven: Set<String> = ["\t", "\r", "-", "=", "+", " ", "\u{7F}", "\u{08}"]
             guard driven.contains(chars) || Self.arrowKeyChars.contains(chars) else { return event }
             // Make sure this canvas is actually visible in the window before

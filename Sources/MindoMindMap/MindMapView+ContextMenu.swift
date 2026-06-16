@@ -76,6 +76,16 @@ extension MindMapView {
             menu.addItem(makeContextItem(title: "Fold Subtree", action: #selector(contextFoldSubtree(_:)), payload: element))
             menu.addItem(makeContextItem(title: "Unfold Subtree", action: #selector(contextUnfoldSubtree(_:)), payload: element))
         }
+        // Root children can hang off either side of the root — flipping sides is
+        // the only way to populate the left half. Also bound to ⌘← / ⌘→ (shown
+        // here so the shortcut is discoverable).
+        if element.topic.parent === mindMap?.root {
+            menu.addItem(NSMenuItem.separator())
+            menu.addItem(makeContextItem(
+                title: element.isLeftSide ? "Move to Right Side (⌘→)" : "Move to Left Side (⌘←)",
+                action: #selector(contextMoveToSide(_:)),
+                payload: element))
+        }
         // Export Branch As → submenu. Only meaningful when there's something
         // to export beyond the topic's own headline.
         let exportParent = NSMenuItem(title: "Export Branch As…", action: nil, keyEquivalent: "")
@@ -157,6 +167,17 @@ extension MindMapView {
     @objc func contextUnfoldSubtree(_ sender: NSMenuItem) {
         guard let element = sender.representedObject as? MindMapElement else { return }
         undoableSetSubtreeCollapsed(rootedAt: element.topic, collapsed: false)
+    }
+
+    /// Flip a root child to the opposite side of the root (left ↔ right).
+    @objc func contextMoveToSide(_ sender: NSMenuItem) {
+        guard let element = sender.representedObject as? MindMapElement,
+              element.topic.parent === mindMap?.root else { return }
+        let toLeft = !element.isLeftSide
+        undoableSetAttribute(element.topic, key: TopicAttribute.leftSide,
+                             value: toLeft ? "true" : "false")
+        rebuildElementsPublic()
+        if let moved = self.element(forTopic: element.topic) { selectElement(moved) }
     }
 
     @objc func contextExportBranch(_ sender: NSMenuItem) {

@@ -277,6 +277,21 @@ extension MindMapView {
     func moveSelected(_ direction: Direction) {
         guard let sel = selectedElement else { return }
         let topic = sel.topic
+        // A root child has no grandparent to outdent into, so a horizontal move
+        // that pushes it ACROSS the root instead flips which side it hangs off:
+        // a right-side child pushed Left jumps to the left half (and vice
+        // versa). This is the only way to put nodes on the root's left side.
+        if topic.parent === mindMap?.root {
+            let toLeft = (direction == .left && !sel.isLeftSide)
+            let toRight = (direction == .right && sel.isLeftSide)
+            if toLeft || toRight {
+                undoableSetAttribute(topic, key: TopicAttribute.leftSide,
+                                     value: toLeft ? "true" : "false")
+                rebuildElementsPublic()
+                if let moved = element(forTopic: topic) { selectElement(moved) }
+                return
+            }
+        }
         let wasLeftSide = sel.isLeftSide
         guard let plan = MindMapTopicMove.plan(for: topic, direction: direction) else { return }
         undoableReparent(topic, to: plan.parent, at: plan.index)

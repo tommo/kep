@@ -57,8 +57,7 @@ struct NodeJumpView: View {
                     ScrollView {
                         LazyVStack(spacing: 0) {
                             ForEach(Array(results.enumerated()), id: \.element.item.id) { idx, entry in
-                                NodeJumpRow(path: NodeJumpSearch.pathKey(entry.item),
-                                            depth: entry.item.depth,
+                                NodeJumpRow(item: entry.item,
                                             matched: entry.result.matchedIndices,
                                             selected: idx == clampedSelection(results))
                                     .id(idx)
@@ -102,28 +101,42 @@ struct NodeJumpView: View {
     }
 }
 
-/// A single node result row — the full breadcrumb path with matched characters
-/// emphasised. Head-truncated so the leaf node (the bit you're jumping to)
-/// stays visible when the path is long.
+/// A single node result row, two lines like the file switcher: the node title
+/// (prominent) over its dim breadcrumb. Matching runs against the whole path
+/// (`breadcrumb › title`), so matched indices are split back onto each part.
 private struct NodeJumpRow: View {
-    let path: String
-    let depth: Int
+    let item: OutlineItem
     let matched: [Int]
     let selected: Bool
 
+    /// Character offset where the title starts inside the path key. The
+    /// separator " › " is 3 characters.
+    private var titleStart: Int { item.breadcrumb.isEmpty ? 0 : item.breadcrumb.count + 3 }
+
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: depth <= 1 ? "smallcircle.filled.circle" : "circle")
-                .font(.system(size: 7))
-                .foregroundStyle(selected ? Color.white : Color.accentColor)
-                .frame(width: 14)
-            highlightedPath
-                .lineLimit(1)
-                .truncationMode(.head)
+            Image(systemName: "circle.fill")
+                .font(.system(size: 5))
+                .foregroundStyle(selected ? Color.white : Color.accentColor.opacity(0.7))
+                .frame(width: 10)
+            VStack(alignment: .leading, spacing: 1) {
+                highlight(item.title,
+                          hits: matched.compactMap { $0 >= titleStart ? $0 - titleStart : nil })
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                if !item.breadcrumb.isEmpty {
+                    highlight(item.breadcrumb,
+                              hits: matched.filter { $0 < item.breadcrumb.count })
+                        .font(.caption2)
+                        .foregroundColor(selected ? Color.white.opacity(0.75) : .secondary)
+                        .lineLimit(1)
+                        .truncationMode(.head)
+                }
+            }
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, 6)
+        .padding(.vertical, 5)
         .background(
             RoundedRectangle(cornerRadius: 6)
                 .fill(selected ? Color.accentColor : Color.clear)
@@ -131,9 +144,9 @@ private struct NodeJumpRow: View {
         .foregroundStyle(selected ? Color.white : Color.primary)
     }
 
-    private var highlightedPath: Text {
-        let chars = Array(path)
-        let hits = Set(matched)
+    private func highlight(_ string: String, hits rawHits: [Int]) -> Text {
+        let chars = Array(string)
+        let hits = Set(rawHits)
         var result = Text("")
         for (i, ch) in chars.enumerated() {
             let piece = Text(String(ch))

@@ -3,38 +3,26 @@ import MindoBase
 import MindoCore
 
 /// "Go to Node" palette (⌘P): fuzzy-search the active mind map's topics and
-/// jump to the chosen one. Chrome-light modal — type to filter, arrows to
-/// move, Return to jump, Esc to dismiss.
-///
-/// The query is a `@Binding` owned by `AppSession`, NOT local `@State`. A
-/// SwiftUI re-render can re-create this modal (the enclosing App body rebuilds
-/// `session.outlineItems` — a computed property handing back fresh array
-/// identities — on every pass), and a re-created view resets its own `@State`.
-/// That silently zeroed a locally-stored query while the AppKit field editor
-/// kept the visible glyphs, so `ranked` re-ran with an empty query and showed
-/// every node unfiltered. Session-owned query survives the re-create. The item
-/// set is snapshotted into `@State` so its churning identity can't thrash the
-/// list either.
+/// jump to the chosen one. A faithful clone of the working `QuickSwitcherView`
+/// (⌘O) — same model-in-@State + local query @State + onChange→setQuery wiring,
+/// only the data type differs. Matching is title-only; the breadcrumb is shown
+/// for context so same-named nodes are distinguishable.
 struct NodeJumpView: View {
-    @Binding var query: String
     let onSelect: (String) -> Void   // outline target of the chosen node
     let onClose: () -> Void
 
-    @State private var items: [OutlineItem]
+    @State private var model: NodeJumpModel
+    @State private var query: String = ""
     @State private var selection: Int = 0
     @FocusState private var fieldFocused: Bool
 
-    init(items: [OutlineItem], query: Binding<String>,
-         onSelect: @escaping (String) -> Void, onClose: @escaping () -> Void) {
-        _items = State(initialValue: items)
-        _query = query
+    init(items: [OutlineItem], onSelect: @escaping (String) -> Void, onClose: @escaping () -> Void) {
         self.onSelect = onSelect
         self.onClose = onClose
+        _model = State(initialValue: NodeJumpModel(items: items))
     }
 
-    private var ranked: [(item: OutlineItem, result: FuzzyMatch.Result)] {
-        NodeJumpSearch.results(items, query: query)
-    }
+    private var ranked: [(item: OutlineItem, result: FuzzyMatch.Result)] { model.results }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -45,7 +33,7 @@ struct NodeJumpView: View {
                     .textFieldStyle(.plain)
                     .font(.system(size: 16))
                     .focused($fieldFocused)
-                    .onChange(of: query) { _, _ in selection = 0 }
+                    .onChange(of: query) { _, new in model.setQuery(new); selection = model.selection }
                     .onSubmit { jumpSelected() }
             }
             .padding(.horizontal, 14)
@@ -53,8 +41,7 @@ struct NodeJumpView: View {
 
             Divider()
 
-            let results = ranked
-            if results.isEmpty {
+            if ranked.isEmpty {
                 Text(query.isEmpty ? L("nodejump.empty.prompt") : L("nodejump.empty.nomatch"))
                     .foregroundStyle(.secondary)
                     .font(.callout)
@@ -63,13 +50,13 @@ struct NodeJumpView: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(spacing: 0) {
-                            ForEach(Array(results.enumerated()), id: \.element.item.id) { idx, entry in
+                            ForEach(Array(ranked.enumerated()), id: \.element.item.id) { idx, entry in
                                 NodeJumpRow(item: entry.item,
                                             matched: entry.result.matchedIndices,
-                                            selected: idx == clampedSelection(results))
+                                            selected: idx == selection)
                                     .id(idx)
                                     .contentShape(Rectangle())
-                                    .onTapGesture { selection = idx; jumpSelected() }
+                                    .onTapGesture { model.select(at: idx); selection = model.selection; jumpSelected() }
                             }
                         }
                         .padding(6)
@@ -89,27 +76,20 @@ struct NodeJumpView: View {
         .onKeyPress(.escape) { onClose(); return .handled }
     }
 
-    private func clampedSelection(_ results: [(item: OutlineItem, result: FuzzyMatch.Result)]) -> Int {
-        min(max(0, selection), max(0, results.count - 1))
-    }
-
     private func move(_ delta: Int) {
-        let count = ranked.count
-        guard count > 0 else { selection = 0; return }
-        selection = min(max(0, selection + delta), count - 1)
+        model.move(delta)
+        selection = model.selection
     }
 
     private func jumpSelected() {
-        let results = ranked
-        let idx = clampedSelection(results)
-        guard results.indices.contains(idx) else { return }
-        onSelect(results[idx].item.target)
+        guard let item = model.selectedItem else { return }
+        onSelect(item.target)
         onClose()
     }
 }
 
 /// A single node result row, two lines like the file switcher: the node title
-/// (prominent, with matched chars bold) over its dim breadcrumb. Matching is
+/// (prominent, matched chars bold) over its dim breadcrumb. Matching is
 /// title-only, so `matched` indexes into the title; the breadcrumb is context.
 private struct NodeJumpRow: View {
     let item: OutlineItem
@@ -123,7 +103,7 @@ private struct NodeJumpRow: View {
                 .foregroundStyle(selected ? Color.white : Color.accentColor.opacity(0.7))
                 .frame(width: 10)
             VStack(alignment: .leading, spacing: 1) {
-                highlight(item.title, hits: matched)   // matching is on the title
+                highlight(item.title, hits: matched)
                     .lineLimit(1)
                     .truncationMode(.tail)
                 if !item.breadcrumb.isEmpty {

@@ -35,6 +35,8 @@ extension AppSession {
             cmd("file.newText", L("menu.file.new_text"), category: L("palette.cat.file")) { self.newTextFile() },
             cmd("file.quickOpen", L("menu.file.quick_open"), category: L("palette.cat.file"),
                 shortcut: "⌘O", enabled: hasWorkspaces) { self.quickSwitcherOpen = true },
+            cmd("nav.gotoNode", L("menu.file.goto_node"), category: L("palette.cat.navigate"),
+                shortcut: "⌘P", enabled: isMindMap) { self.nodeJumpOpen = true },
             cmd("file.openWorkspace", L("menu.file.open_workspace"), category: L("palette.cat.file"),
                 shortcut: "⇧⌘O") { self.openWorkspace() },
             cmd("file.openFile", L("menu.file.open_file"), category: L("palette.cat.file"),
@@ -48,7 +50,7 @@ extension AppSession {
             cmd("file.closeTab", L("menu.file.close_tab"), category: L("palette.cat.file"),
                 shortcut: "⌘W", enabled: hasDoc) { self.closeActive() },
             cmd("file.print", L("menu.file.print"), category: L("palette.cat.file"),
-                shortcut: "⌘P", enabled: hasDoc) { self.printActiveDocument() },
+                enabled: hasDoc) { self.printActiveDocument() },
 
             // Edit / search
             cmd("edit.find", L("menu.edit.find"), category: L("palette.cat.edit"),

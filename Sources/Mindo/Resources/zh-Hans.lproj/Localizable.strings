@@ -10,7 +10,12 @@
 "menu.file.open_file" = "打开文件…";
 "menu.file.quick_open" = "快速打开…";
 "menu.file.command_palette" = "命令面板…";
+"menu.file.goto_node" = "跳转到节点…";
 "switcher.placeholder" = "输入以搜索文件…";
+"nodejump.placeholder" = "输入以搜索节点…";
+"nodejump.empty.prompt" = "开始输入以查找节点";
+"nodejump.empty.nomatch" = "没有匹配的节点";
+"palette.cat.navigate" = "导航";
 "palette.placeholder" = "输入命令…";
 "palette.empty.prompt" = "输入以搜索命令…";
 "palette.empty.nomatch" = "没有匹配的命令";

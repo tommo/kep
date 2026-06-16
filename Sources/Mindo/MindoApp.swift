@@ -116,6 +116,13 @@ struct MindoApp: App {
                         onClose: { session.commandPaletteOpen = false }
                     )
                 }
+                .sheet(isPresented: $session.nodeJumpOpen) {
+                    NodeJumpView(
+                        items: session.outlineItems,
+                        onSelect: { target in session.requestOutlineNavigation(target: target) },
+                        onClose: { session.nodeJumpOpen = false }
+                    )
+                }
         }
         .commands {
             CommandGroup(replacing: .appInfo) {
@@ -142,6 +149,9 @@ struct MindoApp: App {
                     .disabled(session.workspaceRoots.isEmpty)
                 Button(L("menu.file.command_palette")) { session.commandPaletteOpen = true }
                     .keyboardShortcut("p", modifiers: [.command, .shift])
+                Button(L("menu.file.goto_node")) { session.nodeJumpOpen = true }
+                    .keyboardShortcut("p", modifiers: .command)
+                    .disabled(session.activeFileType != .mindMap)
                 Button(L("menu.file.open_workspace")) { session.openWorkspace() }
                     .keyboardShortcut("o", modifiers: [.command, .shift])
                 Button(L("menu.file.open_file")) { session.openFile() }
@@ -157,7 +167,6 @@ struct MindoApp: App {
                     .keyboardShortcut("w", modifiers: .command)
                     .disabled(session.activeDocument == nil)
                 Button(L("menu.file.print")) { session.printActiveDocument() }
-                    .keyboardShortcut("p", modifiers: .command)
                     .disabled(session.activeDocument == nil)
                 Divider()
                 Menu(L("menu.file.import")) {
@@ -401,6 +410,8 @@ final class AppSession {
     var quickSwitcherOpen: Bool = false
     /// Obsidian-style ⌘⇧P command palette sheet flag.
     var commandPaletteOpen: Bool = false
+    /// "Go to Node" (⌘P) sheet flag — search the active mind map's topics.
+    var nodeJumpOpen: Bool = false
 
     /// Flat index of every file across open workspaces — data source for
     /// the quick switcher. Rebuilt each time the switcher opens so it

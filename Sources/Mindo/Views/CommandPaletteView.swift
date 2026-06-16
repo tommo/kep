@@ -59,13 +59,15 @@ struct CommandPaletteView: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(spacing: 0) {
+                            // No `.id(idx)` — it overrides the ForEach item-id
+                            // identity, so a shrinking result set reuses the
+                            // idx-0 row and shows stale content.
                             ForEach(Array(ranked.enumerated()), id: \.element.item.id) { idx, entry in
                                 CommandRow(
                                     command: entry.item,
                                     matched: entry.result.matchedIndices,
                                     selected: idx == selection
                                 )
-                                .id(idx)
                                 .contentShape(Rectangle())
                                 .onTapGesture {
                                     model.select(at: idx)
@@ -78,7 +80,8 @@ struct CommandPaletteView: View {
                     }
                     .frame(height: 320)
                     .onChange(of: selection) { _, new in
-                        withAnimation(.linear(duration: 0.08)) { proxy.scrollTo(new, anchor: .center) }
+                        guard ranked.indices.contains(new) else { return }
+                        withAnimation(.linear(duration: 0.08)) { proxy.scrollTo(ranked[new].item.id, anchor: .center) }
                     }
                 }
             }

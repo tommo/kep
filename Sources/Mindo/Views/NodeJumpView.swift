@@ -2,46 +2,49 @@ import SwiftUI
 import MindoBase
 import MindoCore
 
-/// "Go to Node" palette (⌘P): fuzzy-search the active mind map's topics and
-/// jump to the chosen one. A faithful clone of the working `QuickSwitcherView`
-/// (⌘O) — same model-in-@State + local query @State + onChange→setQuery wiring,
-/// only the data type differs. Matching is title-only; the breadcrumb is shown
-/// for context so same-named nodes are distinguishable.
+/// "Go to Node" palette (⌘P): fuzzy-search the active mind map's topics by
+/// title and jump to the chosen one. Uses the AppKit-backed PaletteSearchField
+/// (reliable focus + edit propagation in a sheet); results are a pure function
+/// of `query`, so the list always tracks the input.
 struct NodeJumpView: View {
     let onSelect: (String) -> Void   // outline target of the chosen node
     let onClose: () -> Void
 
-    @State private var model: NodeJumpModel
+    @State private var items: [OutlineItem]
     @State private var query: String = ""
     @State private var selection: Int = 0
-    @FocusState private var fieldFocused: Bool
 
     init(items: [OutlineItem], onSelect: @escaping (String) -> Void, onClose: @escaping () -> Void) {
+        _items = State(initialValue: items)
         self.onSelect = onSelect
         self.onClose = onClose
-        _model = State(initialValue: NodeJumpModel(items: items))
     }
 
-    private var ranked: [(item: OutlineItem, result: FuzzyMatch.Result)] { model.results }
+    private var ranked: [(item: OutlineItem, result: FuzzyMatch.Result)] {
+        NodeJumpSearch.results(items, query: query)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
-                Image(systemName: "arrow.right.to.line")
-                    .foregroundStyle(.secondary)
-                TextField(L("nodejump.placeholder"), text: $query)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 16))
-                    .focused($fieldFocused)
-                    .onChange(of: query) { _, new in model.setQuery(new); selection = model.selection }
-                    .onSubmit { jumpSelected() }
+                Image(systemName: "arrow.right.to.line").foregroundStyle(.secondary)
+                PaletteSearchField(
+                    text: $query,
+                    placeholder: L("nodejump.placeholder"),
+                    onMoveUp: { move(-1) },
+                    onMoveDown: { move(1) },
+                    onSubmit: { jumpSelected() },
+                    onCancel: { onClose() }
+                )
+                .frame(height: 24)
             }
             .padding(.horizontal, 14)
-            .padding(.vertical, 12)
+            .padding(.vertical, 10)
 
             Divider()
 
-            if ranked.isEmpty {
+            let results = ranked
+            if results.isEmpty {
                 Text(query.isEmpty ? L("nodejump.empty.prompt") : L("nodejump.empty.nomatch"))
                     .foregroundStyle(.secondary)
                     .font(.callout)
@@ -50,47 +53,55 @@ struct NodeJumpView: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(spacing: 0) {
-                            ForEach(Array(ranked.enumerated()), id: \.element.item.id) { idx, entry in
+                            // Identity is the item's id (via ForEach). Do NOT add
+                            // a positional `.id(idx)` here — it overrides that
+                            // identity, so when results shrink SwiftUI reuses the
+                            // idx-0 row and shows its stale content.
+                            ForEach(Array(results.enumerated()), id: \.element.item.id) { idx, entry in
                                 NodeJumpRow(item: entry.item,
                                             matched: entry.result.matchedIndices,
-                                            selected: idx == selection)
-                                    .id(idx)
+                                            selected: idx == clamped(results))
                                     .contentShape(Rectangle())
-                                    .onTapGesture { model.select(at: idx); selection = model.selection; jumpSelected() }
+                                    .onTapGesture { selection = idx; jumpSelected() }
                             }
                         }
                         .padding(6)
                     }
                     .frame(height: 320)
                     .onChange(of: selection) { _, new in
-                        withAnimation(.linear(duration: 0.08)) { proxy.scrollTo(new, anchor: .center) }
+                        let r = ranked
+                        guard r.indices.contains(new) else { return }
+                        withAnimation(.linear(duration: 0.08)) { proxy.scrollTo(r[new].item.id, anchor: .center) }
                     }
                 }
             }
         }
         .frame(width: 560)
         .background(.regularMaterial)
-        .onAppear { fieldFocused = true }
-        .onKeyPress(.downArrow) { move(1); return .handled }
-        .onKeyPress(.upArrow) { move(-1); return .handled }
-        .onKeyPress(.escape) { onClose(); return .handled }
+    }
+
+    private func clamped(_ results: [(item: OutlineItem, result: FuzzyMatch.Result)]) -> Int {
+        min(max(0, selection), max(0, results.count - 1))
     }
 
     private func move(_ delta: Int) {
-        model.move(delta)
-        selection = model.selection
+        let count = ranked.count
+        guard count > 0 else { selection = 0; return }
+        selection = min(max(0, clamped(ranked) + delta), count - 1)
     }
 
     private func jumpSelected() {
-        guard let item = model.selectedItem else { return }
-        onSelect(item.target)
+        let results = ranked
+        let idx = clamped(results)
+        guard results.indices.contains(idx) else { return }
+        onSelect(results[idx].item.target)
         onClose()
     }
 }
 
-/// A single node result row, two lines like the file switcher: the node title
-/// (prominent, matched chars bold) over its dim breadcrumb. Matching is
-/// title-only, so `matched` indexes into the title; the breadcrumb is context.
+/// A single node result row, two lines: the node title (prominent, matched
+/// chars bold) over its dim breadcrumb. Matching is title-only, so `matched`
+/// indexes into the title; the breadcrumb is context.
 private struct NodeJumpRow: View {
     let item: OutlineItem
     let matched: [Int]
@@ -132,8 +143,7 @@ private struct NodeJumpRow: View {
         for (i, ch) in chars.enumerated() {
             let piece = Text(String(ch))
             if hits.contains(i) {
-                result = result + piece.fontWeight(.bold)
-                    .foregroundColor(selected ? .white : .accentColor)
+                result = result + piece.fontWeight(.bold).foregroundColor(selected ? .white : .accentColor)
             } else {
                 result = result + piece
             }

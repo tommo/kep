@@ -45,6 +45,27 @@ final class MoveToRootSideTests: XCTestCase {
         XCTAssertEqual(a.attribute(TopicAttribute.leftSide), "true", "context action moved A to the left")
     }
 
+    func testDragBesideRootDetectsLeftSide() {
+        let (view, root, a) = make()
+        let aEl = view.element(forTopic: a)!
+        let rf = view.element(forTopic: root)!.frame
+        // A point out to the LEFT of the root, level with it.
+        let p = CGPoint(x: rf.minX - 40, y: rf.midY)
+        let hit = view.rootSideInsertion(under: p, source: aEl)
+        XCTAssertNotNil(hit, "cursor beside the root's left is a root-side drop zone")
+        XCTAssertEqual(hit?.isLeft, true)
+        XCTAssertTrue(hit?.target.parent.topic === root, "drops as a child of root")
+    }
+
+    func testDragFarFromRootIsNotASideDrop() {
+        let (view, root, a) = make()
+        let aEl = view.element(forTopic: a)!
+        let rf = view.element(forTopic: root)!.frame
+        // Well below the root's vertical band → not a side drop.
+        let p = CGPoint(x: rf.minX - 40, y: rf.maxY + 400)
+        XCTAssertNil(view.rootSideInsertion(under: p, source: aEl))
+    }
+
     func testMoveRightOnRightChildDoesNotFlip() {
         // A right-side child pushed Right is "outward" — it must NOT flip to
         // left; it falls through to the normal indent/no-op path.

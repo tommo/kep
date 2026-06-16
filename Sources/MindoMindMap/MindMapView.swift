@@ -95,6 +95,11 @@ public final class MindMapView: NSView {
     /// children-array index where the dragged topic should land. When set,
     /// it takes precedence over `dragTargetElement` on mouseUp.
     var dragInsertionTarget: (parent: MindMapElement, index: Int, lineY: CGFloat, lineMinX: CGFloat, lineMaxX: CGFloat)?
+    /// When the current insertion target is a "drop beside the root" placement,
+    /// this holds which side (true = left). On drop we stamp the `leftSide`
+    /// attribute so the node hangs off that half — the drag equivalent of ⌘←/⌘→.
+    /// nil when the insertion isn't a root-side placement.
+    var dragRootSide: Bool?
     let dragThreshold: CGFloat = 4
 
     /// Substring (case-insensitive) to highlight on every topic whose

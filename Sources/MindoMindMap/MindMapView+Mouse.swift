@@ -179,9 +179,18 @@ extension MindMapView {
         // the insertion indicator instead of highlighting a parent.
         if let ins = candidateInsertionTarget(under: p, source: source) {
             dragInsertionTarget = ins
+            dragRootSide = nil
+            dragTargetElement = nil
+        } else if let rs = rootSideInsertion(under: p, source: source) {
+            // Dragging beside the root → drop as a root child on that side
+            // (the drag way to populate the left half). Shows a hint line
+            // beside the root even when that side is empty.
+            dragInsertionTarget = rs.target
+            dragRootSide = rs.isLeft
             dragTargetElement = nil
         } else {
             dragInsertionTarget = nil
+            dragRootSide = nil
             let target = candidateDropTarget(under: p, excluding: source)
             // Auto-unfold a collapsed drop target so the user can re-target
             // into its children. Cleared on dragExited via resetDragState's
@@ -253,7 +262,17 @@ extension MindMapView {
         if let ins = dragInsertionTarget {
             // Reorder among siblings — index already accounts for source's
             // current position via undoableReparent's remove-then-insert.
-            undoableReparent(source.topic, to: ins.parent.topic, at: ins.index)
+            if let side = dragRootSide {
+                // Dropped beside the root: reparent under root AND stamp the
+                // side so it hangs off the chosen half.
+                groupedUndo(name: "Move Topic") {
+                    undoableReparent(source.topic, to: ins.parent.topic, at: ins.index)
+                    undoableSetAttribute(source.topic, key: TopicAttribute.leftSide,
+                                         value: side ? "true" : "false")
+                }
+            } else {
+                undoableReparent(source.topic, to: ins.parent.topic, at: ins.index)
+            }
             if let moved = element(forTopic: source.topic) { selectElement(moved) }
             return
         }
@@ -289,10 +308,56 @@ extension MindMapView {
             dragGhostCenter = nil
             dragTargetElement = nil
             dragInsertionTarget = nil
+            dragRootSide = nil
             needsDisplay = true
         }
         dragOrigin = nil
         dragSourceElement = nil
+    }
+
+    /// Detect a "drop beside the root" placement: the cursor is level with the
+    /// root and out past one of its sides. Returns an insertion target (a hint
+    /// line beside the root + the index in root.children) plus which side, even
+    /// when that side has no children yet — the only drag route to the root's
+    /// left half. nil when the cursor isn't in a root-side zone.
+    func rootSideInsertion(under p: CGPoint, source: MindMapElement)
+        -> (target: (parent: MindMapElement, index: Int, lineY: CGFloat, lineMinX: CGFloat, lineMaxX: CGFloat), isLeft: Bool)?
+    {
+        guard let root = rootElement, source !== root, source.topic.parent != nil else { return nil }
+        let rf = root.frame
+        // Vertical band: roughly level with the root (its height + slack).
+        let vPad: CGFloat = 90
+        guard p.y >= rf.minY - vPad, p.y <= rf.maxY + vPad else { return nil }
+        let isLeft = p.x < rf.midX
+        // Must be out past the corresponding edge (a bit of slack inward).
+        let slack: CGFloat = 30
+        if isLeft { guard p.x < rf.minX + slack else { return nil } }
+        else      { guard p.x > rf.maxX - slack else { return nil } }
+
+        // Place among that side's children by Y (excluding the source).
+        let side = root.children
+            .filter { $0 !== source && $0.isLeftSide == isLeft }
+            .sorted { $0.frame.midY < $1.frame.midY }
+        let k = side.filter { $0.frame.midY < p.y }.count   // how many sit above the cursor
+
+        // Index within root.children: before the k-th same-side child, else append.
+        let index: Int
+        if k < side.count, let i = root.children.firstIndex(where: { $0 === side[k] }) {
+            index = i
+        } else {
+            index = root.children.count
+        }
+
+        // Hint line: a short stub just beside the root on that side, at the gap Y.
+        let lineY: CGFloat
+        if side.isEmpty { lineY = rf.midY }
+        else if k == 0 { lineY = side[0].frame.minY - 6 }
+        else if k >= side.count { lineY = side[side.count - 1].frame.maxY + 6 }
+        else { lineY = (side[k - 1].frame.maxY + side[k].frame.minY) / 2 }
+
+        let lineMinX = isLeft ? rf.minX - 72 : rf.maxX + 12
+        let lineMaxX = isLeft ? rf.minX - 12 : rf.maxX + 72
+        return ((root, index, lineY, lineMinX, lineMaxX), isLeft)
     }
 
     /// Find a "drop between siblings" insertion target. Walks the source's

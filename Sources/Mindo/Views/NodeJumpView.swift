@@ -25,16 +25,8 @@ struct NodeJumpView: View {
         self.onClose = onClose
     }
 
-    /// What we match AND display: the full breadcrumb path ending in the node
-    /// title. Matching the whole path means same-named nodes (a map full of
-    /// "Topic"s) are distinguishable and you can narrow by an ancestor —
-    /// "shit topic" finds the Topic under shit.
-    private func pathKey(_ item: OutlineItem) -> String {
-        item.breadcrumb.isEmpty ? item.title : "\(item.breadcrumb) › \(item.title)"
-    }
-
     private var ranked: [(item: OutlineItem, result: FuzzyMatch.Result)] {
-        Array(FuzzyMatch.rank(items, query: query) { pathKey($0) }.prefix(100))
+        NodeJumpSearch.results(items, query: query)
     }
 
     var body: some View {
@@ -65,7 +57,7 @@ struct NodeJumpView: View {
                     ScrollView {
                         LazyVStack(spacing: 0) {
                             ForEach(Array(results.enumerated()), id: \.element.item.id) { idx, entry in
-                                NodeJumpRow(path: pathKey(entry.item),
+                                NodeJumpRow(path: NodeJumpSearch.pathKey(entry.item),
                                             depth: entry.item.depth,
                                             matched: entry.result.matchedIndices,
                                             selected: idx == clampedSelection(results))

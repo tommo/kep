@@ -1,19 +1,14 @@
 import XCTest
 import MindoModel
 import MindoBase
-import MindoCore
 @testable import MindoMindMap
 
-/// Go to Node search over a map riddled with same-named "Topic" nodes — the
-/// reported pain. Breadcrumbs must disambiguate them, and matching the full
-/// path must let an ancestor narrow the results.
+/// Exercises the ACTUAL search the Go to Node palette runs (`NodeJumpSearch`,
+/// the same call the view makes) over a map riddled with same-named "Topic"
+/// nodes — the reported pain. No logic is reimplemented here.
 final class NodeJumpSearchTests: XCTestCase {
 
-    private func pathKey(_ item: OutlineItem) -> String {
-        item.breadcrumb.isEmpty ? item.title : "\(item.breadcrumb) › \(item.title)"
-    }
-
-    private func map() -> MindMap {
+    private func items() -> [OutlineItem] {
         let m = MindMap()
         let root = Topic(text: "an"); m.root = root
         let shit = root.addChild(text: "shit")
@@ -22,34 +17,43 @@ final class NodeJumpSearchTests: XCTestCase {
         root.addChild(text: "topic1")
         let good = root.addChild(text: "good")
         good.addChild(text: "Topic")            // an › good › Topic
-        return m
+        return Outline.fromMindMap(m)
     }
 
-    func testDuplicateTopicsGetDistinctBreadcrumbs() {
-        let items = Outline.fromMindMap(map())
-        let topics = items.filter { $0.title == "Topic" }
-        XCTAssertEqual(topics.count, 3)
-        let crumbs = Set(topics.map(\.breadcrumb))
-        XCTAssertEqual(crumbs.count, 3, "each Topic has a distinct breadcrumb")
-        XCTAssertTrue(crumbs.contains("an › shit"))
-        XCTAssertTrue(crumbs.contains("an"))
-        XCTAssertTrue(crumbs.contains("an › good"))
+    func testEmptyQueryListsEveryNode() {
+        let r = NodeJumpSearch.results(items(), query: "")
+        XCTAssertEqual(r.count, items().count, "no query → whole map")
     }
 
     func testTopicQueryReturnsEveryTopic() {
-        let items = Outline.fromMindMap(map())
-        let hits = FuzzyMatch.rank(items, query: "topic") { pathKey($0) }
-        let titles = hits.map { $0.item.title }
+        let r = NodeJumpSearch.results(items(), query: "topic")
+        let titles = r.map { $0.item.title }
         XCTAssertEqual(titles.filter { $0 == "Topic" }.count, 3, "all three Topics match")
         XCTAssertTrue(titles.contains("topic1"))
     }
 
+    func testDuplicatesShowDistinctPaths() {
+        let topics = items().filter { $0.title == "Topic" }
+        let keys = Set(topics.map { NodeJumpSearch.pathKey($0) })
+        XCTAssertEqual(keys, ["an › shit › Topic", "an › Topic", "an › good › Topic"],
+                       "each duplicate renders a distinct, navigable path")
+    }
+
     func testAncestorNarrowsToOneTopic() {
-        let items = Outline.fromMindMap(map())
-        let hits = FuzzyMatch.rank(items, query: "shit topic") { pathKey($0) }
-        let best = hits.first
-        XCTAssertEqual(best?.item.title, "Topic")
-        XCTAssertEqual(best?.item.breadcrumb, "an › shit",
+        let r = NodeJumpSearch.results(items(), query: "shit topic")
+        XCTAssertEqual(r.first.map { NodeJumpSearch.pathKey($0.item) }, "an › shit › Topic",
                        "typing an ancestor pins the exact Topic")
+    }
+
+    func testNoMatchIsEmpty() {
+        XCTAssertTrue(NodeJumpSearch.results(items(), query: "zzzqx").isEmpty)
+    }
+
+    func testLimitCapsResults() {
+        // 200 sibling nodes, capped output.
+        let m = MindMap(); let root = Topic(text: "r"); m.root = root
+        for i in 0..<200 { root.addChild(text: "n\(i)") }
+        let capped = NodeJumpSearch.results(Outline.fromMindMap(m), query: "n", limit: 50)
+        XCTAssertEqual(capped.count, 50)
     }
 }

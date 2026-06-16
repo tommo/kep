@@ -74,7 +74,9 @@ extension AppSession {
             openLastFiles: PrefKeys.bool(PrefKeys.openLastFiles, fallback: true),
             exists: { fm.fileExists(atPath: $0) })
         for path in paths {
-            open(url: URL(fileURLWithPath: path))
+            // Each restored file is its own tab — never reuse, or they'd all
+            // collapse onto one.
+            open(url: URL(fileURLWithPath: path), inNewTab: true)
         }
         if let activePath,
            let id = openDocuments.first(where: { $0.fileURL?.path == activePath })?.id {

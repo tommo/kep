@@ -136,6 +136,7 @@
 "sidebar.menu.new_file" = "New File…";
 "sidebar.menu.new_folder" = "New Folder…";
 "sidebar.menu.reveal_in_finder" = "Reveal in Finder";
+"sidebar.menu.open_in_new_tab" = "Open in New Tab";
 "sidebar.menu.open_in_default_app" = "Open in Default App";
 "sidebar.menu.open_terminal" = "Open Terminal Here";
 "sidebar.menu.copy_path" = "Copy Path";

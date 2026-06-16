@@ -18,22 +18,39 @@ extension AppSession {
     /// Open a file by URL — focuses an existing tab if one already shows it,
     /// otherwise loads + adds + activates + arms the file watcher + bumps
     /// the recents list.
-    func open(url: URL) {
+    /// Open `url`. Obsidian-style: a plain open REUSES the active tab (replaces
+    /// its document) so browsing the file tree doesn't spawn a tab per click;
+    /// new tabs are explicit (`inNewTab: true`, e.g. the sidebar's "Open in New
+    /// Tab"). A file already open just gets activated; the active tab is never
+    /// replaced when it has unsaved changes (its work is preserved in a tab).
+    func open(url: URL, inNewTab: Bool = false) {
         if let existing = openDocuments.first(where: { $0.fileURL == url }) {
             activeDocumentID = existing.id
             persistOpenTabs()
             return
         }
+        let doc: OpenDocument
         do {
-            let doc = try OpenDocument.load(from: url)
-            openDocuments.append(doc)
-            activeDocumentID = doc.id
-            startFileWatcher(for: doc)
-            CollectionStore.shared.touch(url: url)
-            persistOpenTabs()
+            doc = try OpenDocument.load(from: url)
         } catch {
             lastError = String(format: L("error.open_failed"), error.localizedDescription)
+            return
         }
+        if !inNewTab,
+           let activeID = activeDocumentID,
+           let idx = openDocuments.firstIndex(where: { $0.id == activeID }),
+           !openDocuments[idx].isDirty {
+            // Reuse the active tab — swap its document out in place.
+            stopFileWatcher(for: openDocuments[idx].id)
+            tabManager.remove(openDocuments[idx].id)
+            openDocuments[idx] = doc
+        } else {
+            openDocuments.append(doc)
+        }
+        activeDocumentID = doc.id
+        startFileWatcher(for: doc)
+        CollectionStore.shared.touch(url: url)
+        persistOpenTabs()
     }
 
     func newMindMap() {

@@ -265,6 +265,10 @@ struct NodeRow: View {
             Button(L("sidebar.menu.new_folder")) { session.createFolder(in: node) }
             Divider()
         }
+        if node.isFile {
+            Button(L("sidebar.menu.open_in_new_tab")) { session.open(url: node.url, inNewTab: true) }
+            Divider()
+        }
         Button(L("sidebar.menu.reveal_in_finder")) { session.revealInFinder(node) }
         if node.isFile {
             Button(L("sidebar.menu.open_in_default_app")) { session.openInDefaultApp(node) }

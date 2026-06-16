@@ -41,6 +41,33 @@ final class KeyboardNavBugTests: XCTestCase {
         XCTAssertTrue(next?.topic === a)
     }
 
+    /// Navigating INTO a branch should land on the child nearest the source
+    /// node's vertical position, NOT the first child by index. A parent with
+    /// several children sits (vertically) opposite the middle of the block, so
+    /// arrowing in should select the middle child.
+    func testInwardNavigationUsesPositionNotIndex() {
+        let map = MindMap()
+        let root = Topic(text: "Root"); map.root = root
+        let p = root.addChild(text: "P")
+        p.setAttribute(TopicAttribute.leftSide, "false")   // right side
+        let c0 = p.addChild(text: "C0")
+        let c1 = p.addChild(text: "C1")
+        let c2 = p.addChild(text: "C2")
+
+        let view = makeHeadlessMindMap(map: map, frame: NSRect(x: 0, y: 0, width: 800, height: 600))
+        let pEl = view.element(forTopic: p)!
+
+        let next = view.element(in: .right, of: pEl)
+
+        // The geometric nearest child to P's centre.
+        let y = pEl.frame.midY
+        let nearest = pEl.visibleChildren.min { abs($0.frame.midY - y) < abs($1.frame.midY - y) }
+        XCTAssertTrue(next === nearest, "inward navigation picks the vertically nearest child")
+        XCTAssertTrue(next?.topic === c1, "for a centred parent that's the middle child")
+        XCTAssertFalse(next?.topic === c0, "not just the first child by index")
+        _ = c2
+    }
+
     /// performKeyEquivalent should swallow Tab/arrows when we're first
     /// responder so the window's focus loop doesn't grab them. We can't
     /// install a real window here, so just sanity-check the override returns

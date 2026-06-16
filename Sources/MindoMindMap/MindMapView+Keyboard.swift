@@ -207,19 +207,24 @@ extension MindMapView {
             guard let parent = from.topic.parent else { return nil }
             return element(forTopic: parent)
         }
-        // First child to navigate INTO. `visibleChildren` is empty when the
-        // node is collapsed, so inward navigation can't land the selection on
-        // a hidden topic (the "my selection vanished" instability).
-        let firstChild = from.visibleChildren.first
+        // Child to navigate INTO: the one nearest the source node's vertical
+        // position, not just the first by index — pressing into a branch should
+        // land on the child sitting at roughly the same height (what the eye
+        // expects), not jump to the topmost sibling. `visibleChildren` is empty
+        // when collapsed, so inward navigation can't land on a hidden topic.
+        func inwardChild(_ children: [MindMapElement]) -> MindMapElement? {
+            let y = from.frame.midY
+            return children.min { abs($0.frame.midY - y) < abs($1.frame.midY - y) }
+        }
 
         switch direction {
         case .right:
-            if from === root { return from.isCollapsed ? nil : root.rightChildren.first }
+            if from === root { return from.isCollapsed ? nil : inwardChild(root.rightChildren) }
             // Right-side: inward toward children. Left-side: back toward root.
-            return from.isLeftSide ? towardParent() : firstChild
+            return from.isLeftSide ? towardParent() : inwardChild(from.visibleChildren)
         case .left:
-            if from === root { return from.isCollapsed ? nil : root.leftChildren.first }
-            return from.isLeftSide ? firstChild : towardParent()
+            if from === root { return from.isCollapsed ? nil : inwardChild(root.leftChildren) }
+            return from.isLeftSide ? inwardChild(from.visibleChildren) : towardParent()
         case .up, .down:
             guard let parent = from.topic.parent, let parentEl = element(forTopic: parent) else { return nil }
             let siblings = parentEl.children.filter { $0.isLeftSide == from.isLeftSide }

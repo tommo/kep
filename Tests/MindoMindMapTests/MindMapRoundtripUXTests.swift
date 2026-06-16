@@ -53,10 +53,17 @@ final class MindMapRoundtripUXTests: XCTestCase {
         let (h, mgr, root) = try build()
         let a = root.children[0], b = root.children[1], c = root.children[2]
 
-        // ── Navigate: Root → A (Right), → B (Down), → C (Down) ──────────────
+        // ── Navigate: Right INTO children is position-based (nearest by Y),
+        //    Down/Up steps through same-side siblings by order ───────────────
         h.view.selectElement(h.view.element(forTopic: root))
         h.sendArrow(NSRightArrowFunctionKey)
-        XCTAssertTrue(sel(h) === a, "Right from root lands on first child A")
+        let rootY = h.view.element(forTopic: root)!.frame.midY
+        let nearest = [a, b, c].min {
+            abs(h.view.element(forTopic: $0)!.frame.midY - rootY)
+                < abs(h.view.element(forTopic: $1)!.frame.midY - rootY)
+        }
+        XCTAssertTrue(sel(h) === nearest, "Right from root lands on the vertically-nearest child")
+        h.view.selectElement(h.view.element(forTopic: a))
         h.sendArrow(NSDownArrowFunctionKey)
         XCTAssertTrue(sel(h) === b, "Down moves to sibling B")
         h.sendArrow(NSDownArrowFunctionKey)

@@ -110,17 +110,33 @@ public struct CSVEditor: NSViewRepresentable {
         // table space; the coordinator flips isHidden + this constant.
         let findBarHeight = findBar.heightAnchor.constraint(equalToConstant: 0)
         context.coordinator.findBarHeightConstraint = findBarHeight
+
+        // The toolbar and find bar are NSStackViews whose content (pull-downs,
+        // the header checkbox, search/replace fields) is naturally wide. Pinning
+        // them edge-to-edge at REQUIRED priority pushed that width up as the
+        // editor's minimum, widening the detail pane and squeezing the sidebar
+        // (fittingSize ignores clipping-resistance). Make their TRAILING pin
+        // low-priority: they still stretch to fill when there's room, but no
+        // longer dictate a minimum width. (Toolbar clips; the find bar's fields
+        // shrink.) leading/clip stay required so they don't float off-screen.
+        let toolbarTrailing = toolbar.trailingAnchor.constraint(equalTo: container.trailingAnchor)
+        toolbarTrailing.priority = .defaultLow
+        let findBarTrailing = findBar.trailingAnchor.constraint(equalTo: container.trailingAnchor)
+        findBarTrailing.priority = .defaultLow
+
         NSLayoutConstraint.activate([
             toolbar.topAnchor.constraint(equalTo: container.topAnchor),
             toolbar.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            toolbar.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            toolbar.trailingAnchor.constraint(lessThanOrEqualTo: container.trailingAnchor),
+            toolbarTrailing,
             toolbar.heightAnchor.constraint(equalToConstant: 32),
             scroll.topAnchor.constraint(equalTo: toolbar.bottomAnchor),
             scroll.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             scroll.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             scroll.bottomAnchor.constraint(equalTo: findBar.topAnchor),
             findBar.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            findBar.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            findBar.trailingAnchor.constraint(lessThanOrEqualTo: container.trailingAnchor),
+            findBarTrailing,
             findBar.bottomAnchor.constraint(equalTo: footer.topAnchor),
             findBarHeight,
             footer.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 8),
@@ -160,19 +176,32 @@ public struct CSVEditor: NSViewRepresentable {
         stack.spacing = 6
         stack.edgeInsets = NSEdgeInsets(top: 4, left: 8, bottom: 4, right: 8)
         stack.alignment = .centerY
+        // Even hidden (height 0), this bar's WIDTH counts toward the editor's
+        // fitting width — its fixed-width fields were forcing a ~700pt minimum
+        // that widened the detail pane and squeezed the sidebar. Let it clip,
+        // and make the field widths preferred-not-required (below) so they
+        // compress instead of dictating the editor's minimum width.
+        stack.setClippingResistancePriority(.defaultLow, for: .horizontal)
+        stack.setHuggingPriority(.defaultLow, for: .horizontal)
+
+        func preferredWidth(_ view: NSView, _ w: CGFloat) {
+            let c = view.widthAnchor.constraint(equalToConstant: w)
+            c.priority = .defaultLow
+            c.isActive = true
+        }
 
         let find = NSSearchField()
         find.placeholderString = "Find in cells…"
         find.target = coordinator
         find.action = #selector(Coordinator.findFieldChanged)
         find.sendsSearchStringImmediately = false
-        find.widthAnchor.constraint(equalToConstant: 160).isActive = true
+        preferredWidth(find, 160)
         coordinator.findField = find
 
         let count = NSTextField(labelWithString: "")
         count.font = .monospacedDigitSystemFont(ofSize: 10, weight: .regular)
         count.textColor = .secondaryLabelColor
-        count.widthAnchor.constraint(equalToConstant: 60).isActive = true
+        preferredWidth(count, 60)
         coordinator.findCountLabel = count
 
         func btn(_ title: String, _ tip: String, _ sel: Selector) -> NSButton {
@@ -189,7 +218,7 @@ public struct CSVEditor: NSViewRepresentable {
 
         let replace = NSTextField(string: "")
         replace.placeholderString = "Replace…"
-        replace.widthAnchor.constraint(equalToConstant: 140).isActive = true
+        preferredWidth(replace, 140)
         coordinator.replaceField = replace
 
         let replaceOne = btn("Replace", "Replace the current match", #selector(Coordinator.replaceOne))

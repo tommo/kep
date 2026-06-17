@@ -63,13 +63,17 @@ public struct DialogView: View {
                     .help("Agent mode — let the assistant use tools to edit the map / query the knowledge base")
                     .disabled(vm.isRunning)
             }
-            Button { vm.clear() } label: { Image(systemName: "trash") }
-                .buttonStyle(.borderless).controlSize(.small)
-                .help("Clear conversation")
-                .disabled(vm.conversation.turns.isEmpty)
-            Button { openSettings() } label: { Image(systemName: "gearshape") }
-                .buttonStyle(.borderless).controlSize(.small)
-                .help("AI provider & model settings")
+            // Secondary actions collapse into one menu so the narrow panel keeps
+            // its width for the model name.
+            Menu {
+                Button("Clear conversation") { vm.clear() }
+                    .disabled(vm.conversation.turns.isEmpty)
+                Button("AI Settings…") { openSettings() }
+            } label: { Image(systemName: "ellipsis.circle") }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .controlSize(.small)
+                .fixedSize()
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
@@ -117,14 +121,14 @@ public struct DialogView: View {
     private func bubble(_ turn: Conversation.Turn) -> some View {
         let isUser = turn.role == .user
         VStack(alignment: isUser ? .trailing : .leading, spacing: 3) {
-            HStack {
-                if isUser { Spacer(minLength: 40) }
+            HStack(spacing: 0) {
+                if isUser { Spacer(minLength: 16) }
                 Text(turn.content)
                     .textSelection(.enabled)
-                    .padding(.horizontal, 10).padding(.vertical, 7)
+                    .padding(.horizontal, 9).padding(.vertical, 6)
                     .background(RoundedRectangle(cornerRadius: 10)
                         .fill(isUser ? Color.accentColor.opacity(0.18) : Color.gray.opacity(0.12)))
-                if !isUser { Spacer(minLength: 40) }
+                if !isUser { Spacer(minLength: 16) }
             }
             if !isUser, let onInsert, !turn.content.isEmpty, !vm.isRunning {
                 Button {

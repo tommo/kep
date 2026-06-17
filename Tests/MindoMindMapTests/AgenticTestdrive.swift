@@ -33,7 +33,7 @@ final class AgenticTestdrive: XCTestCase {
 
         // The exact provider the app builds for DeepSeek.
         let meta = ProviderMeta(apiKey: key, endpoint: GenAIProviderID.deepSeek.defaultEndpoint)
-        let model = ModelMeta(name: "deepseek-chat", maxTokens: 8192)
+        let model = ModelMeta(name: "deepseek-v4-flash", maxTokens: 8192)
         let provider = try XCTUnwrap(
             LLMProviderFactory.create(providerID: .deepSeek, meta: meta, model: model)
         )
@@ -87,7 +87,7 @@ final class AgenticTestdrive: XCTestCase {
 
         var report: [String] = [
             "# Agentic test-drive report", "",
-            "Engine: DeepSeek `deepseek-chat` via Mindo's `LLMProvider` — the same path `AIGeneratePane` drives.",
+            "Engine: DeepSeek `deepseek-v4-flash` via Mindo's `LLMProvider` — the same path `AIGeneratePane` drives.",
             "Authored \(textTasks.count) text docs + 1 mind map. Each entry: validation · size · output tokens · latency.", "",
         ]
 

@@ -52,6 +52,49 @@ extension AppSession {
         }
     }
 
+    /// Context block handed to the conversational assistant before each send:
+    /// what the user is currently editing, so replies are grounded in the doc.
+    /// Body is truncated to keep the prompt cheap. Returns nil when no doc is open.
+    func aiDialogContextBlock() -> String? {
+        guard let doc = activeDocument else { return nil }
+        let kind: String
+        var body = ""
+        switch doc.kind {
+        case .mindMap(let map):
+            kind = "mind map"
+            body = map.root.map { Self.outline(of: $0) } ?? ""
+        case .text(let text, let type):
+            kind = type?.rawValue ?? "text"
+            body = text
+        case .unsupported:
+            kind = "document"
+        }
+        let title = doc.title
+        let truncated = body.count > 4000 ? String(body.prefix(4000)) + "\n…(truncated)" : body
+        return """
+        The user is currently editing a \(kind) titled "\(title)". Its current content:
+        ---
+        \(truncated)
+        ---
+        Answer questions and make edits in the context of this document.
+        """
+    }
+
+    /// Flat outline of a mind map for context (root then indented children).
+    private static func outline(of root: Topic, depth: Int = 0) -> String {
+        let pad = String(repeating: "  ", count: depth)
+        var out = pad + root.text + "\n"
+        for child in root.children { out += outline(of: child, depth: depth + 1) }
+        return out
+    }
+
+    /// Insert an assistant reply into the active document — append for text,
+    /// child topics for a mind map (mirrors the AIGenerate insertion modes).
+    func insertDialogReply(_ text: String) {
+        guard let doc = activeDocument else { return }
+        applyAIResult(text: text, mode: doc.isMindMap ? .childTopic : .append)
+    }
+
     /// Apply a generated AI result to the active document. Markdown gets
     /// appended/replaced as text; mind map splits the output by line and
     /// adds each non-empty line as a child of the root.

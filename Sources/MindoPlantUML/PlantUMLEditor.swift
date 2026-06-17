@@ -319,6 +319,19 @@ public struct PlantUMLEditor: NSViewRepresentable {
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
                 let html: String
                 var svgData: Data? = nil
+                // Native lint first — catch structural mistakes (unbalanced
+                // @start/@end, unclosed comments, unmatched control blocks) and
+                // surface them with line numbers before we even try to render.
+                let errors = PlantUMLDiagnostics.analyze(source).filter { $0.severity == .error }
+                if !errors.isEmpty {
+                    let msg = errors.map { "Line \($0.line): \($0.message)" }.joined(separator: "\n")
+                    html = Self.errorHTML(message: msg, isDark: isDark)
+                    DispatchQueue.main.async {
+                        self?.lastRenderedDarkMode = isDark
+                        web.loadHTMLString(html, baseURL: nil)
+                    }
+                    return
+                }
                 do {
                     let svg = try PlantUMLRenderer.shared.renderSVG(source: source, isDark: isDark)
                     svgData = svg

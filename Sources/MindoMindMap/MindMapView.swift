@@ -1006,26 +1006,4 @@ private extension NSView {
     }
 }
 
-// MARK: - Topic helper for in-place reorder
-
-extension Topic {
-    /// Move `child` (which must already be in `children`) to the given index.
-    func move(child: Topic, to index: Int) {
-        guard let from = children.firstIndex(where: { $0 === child }) else { return }
-        let to = max(0, min(index, children.count - 1))
-        if from == to { return }
-        // `children` is private(set); use the addChild/removeChild API to mutate.
-        // We rebuild the list in the desired order.
-        var arr = children
-        let moving = arr.remove(at: from)
-        arr.insert(moving, at: to)
-        replaceChildren(arr)
-    }
-
-    private func replaceChildren(_ ordered: [Topic]) {
-        // Mirror the array using public mutators: clear and re-append.
-        let snapshot = children
-        for c in snapshot { removeChild(c) }
-        for c in ordered { append(c) }
-    }
-}
+// `Topic.move(child:to:)` now lives in MindoModel (public), reused here.

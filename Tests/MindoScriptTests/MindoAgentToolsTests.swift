@@ -36,7 +36,7 @@ final class MindoAgentToolsTests: XCTestCase {
     func testAddChildTopicUnderRoot() {
         let map = MindMap(root: Topic(text: "R"))
         let r = tools(map).handle(name: "add_child_topic", argumentsJSON: #"{"text":"New Idea"}"#)
-        XCTAssertEqual(r, "added \"New Idea\" under \"R\"")
+        XCTAssertEqual(r, "added \"New Idea\" under \"R\" at [0]")
         XCTAssertEqual(map.root?.children.map(\.text), ["New Idea"])
     }
 
@@ -45,7 +45,7 @@ final class MindoAgentToolsTests: XCTestCase {
         let eq = map.root!.addChild(text: "Equipment")
         let r = tools(map).handle(name: "add_child_topic",
                                   argumentsJSON: #"{"text":"Grinder","parent":"equip"}"#)
-        XCTAssertEqual(r, "added \"Grinder\" under \"Equipment\"")
+        XCTAssertEqual(r, "added \"Grinder\" under \"Equipment\" at [0/0]")
         XCTAssertEqual(eq.children.map(\.text), ["Grinder"])
         // No matching parent → error, no mutation.
         XCTAssertTrue(tools(map).handle(name: "add_child_topic",
@@ -98,7 +98,7 @@ final class MindoAgentToolsTests: XCTestCase {
         _ = eq.addChild(text: "Grinder")
         _ = map.root!.addChild(text: "Beans")
         XCTAssertEqual(tools(map).handle(name: "get_mindmap", argumentsJSON: "{}"),
-                       "Espresso\n  Equipment\n    Grinder\n  Beans\n")
+                       "[] Espresso\n  [0] Equipment\n    [0/0] Grinder\n  [1] Beans\n")
     }
 
     func testFindTopics() {
@@ -108,7 +108,7 @@ final class MindoAgentToolsTests: XCTestCase {
         _ = eq.addChild(text: "Espresso Machine")
         _ = r.addChild(text: "Beans")
         let out = tools(map).handle(name: "find_topics", argumentsJSON: #"{"query":"espresso"}"#)
-        XCTAssertEqual(Set(out.split(separator: "\n").map(String.init)), ["Espresso", "Espresso Machine"])
+        XCTAssertEqual(Set(out.split(separator: "\n").map(String.init)), ["[] Espresso", "[0/0] Espresso Machine"])
         XCTAssertEqual(tools(map).handle(name: "find_topics", argumentsJSON: #"{"query":"zzz"}"#), "(none)")
     }
 

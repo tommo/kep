@@ -69,6 +69,25 @@ public final class Topic {
         children.removeAll { $0 === child }
     }
 
+    /// Insert an existing child at a specific index (clamped to a valid range),
+    /// adopting it. Use to position a freshly-added or reparented topic.
+    public func insert(_ child: Topic, at index: Int) {
+        child.parent = self
+        child.map = map
+        let i = max(0, min(index, children.count))
+        children.insert(child, at: i)
+    }
+
+    /// Move `child` (which must already be in `children`) to the given index,
+    /// clamped to `[0, count-1]`. No-op if `child` isn't a child or already there.
+    public func move(child: Topic, to index: Int) {
+        guard let from = children.firstIndex(where: { $0 === child }) else { return }
+        let to = max(0, min(index, children.count - 1))
+        if from == to { return }
+        let moving = children.remove(at: from)
+        children.insert(moving, at: to)
+    }
+
     /// Mirror of Java `Topic.findParentForDepth(int)`: starts from `self.parent`
     /// (one step up) then walks `n` *additional* steps, so n=0 returns the
     /// parent and n=1 returns the grandparent. Used by the `.mmd` parser to

@@ -7,11 +7,30 @@ public enum OutputAdjust: String, Codable, Sendable {
     case asParagraph
 }
 
+/// A single chat turn. Mirrors the OpenAI chat-completions message shape so a
+/// multi-turn conversation (and an optional system prompt) can be sent as-is.
+public struct ChatMessage: Sendable, Equatable, Codable {
+    public enum Role: String, Sendable, Codable { case system, user, assistant }
+    public let role: Role
+    public let content: String
+    public init(role: Role, content: String) {
+        self.role = role
+        self.content = content
+    }
+    public static func system(_ c: String) -> ChatMessage { .init(role: .system, content: c) }
+    public static func user(_ c: String) -> ChatMessage { .init(role: .user, content: c) }
+    public static func assistant(_ c: String) -> ChatMessage { .init(role: .assistant, content: c) }
+}
+
 /// Per-request input. Mirrors `GenAiEvents.Input`.
 public struct LLMInput: Sendable {
     public let providerID: String
     public let model: String
     public let text: String
+    /// Full conversation (system + prior turns + current user message). When
+    /// non-nil/non-empty the provider sends these verbatim; otherwise it falls
+    /// back to a single `{user, text}` message (the legacy one-shot path).
+    public let messages: [ChatMessage]?
     public let temperature: Float
     public let maxTokens: Int
     public let outputAdjust: OutputAdjust
@@ -23,6 +42,7 @@ public struct LLMInput: Sendable {
         providerID: String,
         model: String,
         text: String,
+        messages: [ChatMessage]? = nil,
         temperature: Float = 0.7,
         maxTokens: Int = 2048,
         outputAdjust: OutputAdjust = .asText,
@@ -33,12 +53,20 @@ public struct LLMInput: Sendable {
         self.providerID = providerID
         self.model = model
         self.text = text
+        self.messages = messages
         self.temperature = temperature
         self.maxTokens = maxTokens
         self.outputAdjust = outputAdjust
         self.outputLanguage = outputLanguage
         self.isRetry = isRetry
         self.isStreaming = isStreaming
+    }
+
+    /// The wire messages: the explicit conversation when present, else a single
+    /// user turn from `text`.
+    public var wireMessages: [ChatMessage] {
+        if let messages, !messages.isEmpty { return messages }
+        return [.user(text)]
     }
 }
 

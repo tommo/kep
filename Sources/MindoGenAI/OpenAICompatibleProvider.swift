@@ -54,9 +54,7 @@ open class OpenAICompatibleProvider: LLMProvider, @unchecked Sendable {
             "stream": streaming,
             "temperature": input.temperature,
             "max_tokens": input.maxTokens,
-            "messages": [
-                ["role": "user", "content": input.text]
-            ],
+            "messages": input.wireMessages.map { ["role": $0.role.rawValue, "content": $0.content] },
         ]
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
         return req

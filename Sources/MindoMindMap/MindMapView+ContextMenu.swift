@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 import MindoModel
+import MindoCore
 
 extension MindMapView {
 
@@ -14,6 +15,7 @@ extension MindMapView {
         addExtraSection(menu, type: .link, target: element, label: "Link", placeholder: "https://example.com")
         addExtraSection(menu, type: .file, target: element, label: "File", placeholder: "/path/to/file")
         addTopicLinkSection(menu, for: element)
+        addWikiLinkSection(menu, for: element)
         menu.addItem(NSMenuItem.separator())
         menu.addItem(makeContextItem(title: "Set Fill Color…", action: #selector(contextSetFillColor(_:)), payload: element))
         menu.addItem(makeContextItem(title: "Set Text Color…", action: #selector(contextSetTextColor(_:)), payload: element))
@@ -399,6 +401,39 @@ extension MindMapView {
         menu.addItem(parent)
     }
 
+    /// `[[wiki link]]`s embedded in the topic's text → "Open" actions that
+    /// resolve + open the referenced workspace document (the mind map joins the
+    /// knowledge base). Cross-document links only (in-doc `[[#heading]]` skipped).
+    private func addWikiLinkSection(_ menu: NSMenu, for element: MindMapElement) {
+        var seen = Set<String>()
+        let links = WikiLinkParser.links(in: element.topic.text).filter {
+            !$0.target.isEmpty && seen.insert($0.displayText).inserted
+        }
+        guard !links.isEmpty else { return }
+        menu.addItem(NSMenuItem.separator())
+        if links.count == 1 {
+            let link = links[0]
+            menu.addItem(makeContextItem(title: "Open “\(link.displayText)”",
+                                         action: #selector(contextOpenWikiLink(_:)),
+                                         payload: WikiLinkPayload(link)))
+        } else {
+            let parent = NSMenuItem(title: "Open Link", action: nil, keyEquivalent: "")
+            let sub = NSMenu()
+            for link in links {
+                sub.addItem(makeContextItem(title: link.displayText,
+                                            action: #selector(contextOpenWikiLink(_:)),
+                                            payload: WikiLinkPayload(link)))
+            }
+            parent.submenu = sub
+            menu.addItem(parent)
+        }
+    }
+
+    @objc func contextOpenWikiLink(_ sender: NSMenuItem) {
+        guard let payload = sender.representedObject as? WikiLinkPayload else { return }
+        onOpenWikiLink?(payload.target, payload.heading)
+    }
+
     /// Every topic in the map except `source`, in depth-first order — the
     /// candidate targets for a jump link.
     private func otherTopics(excluding source: Topic) -> [Topic] {
@@ -592,6 +627,15 @@ struct TopicLinkPayload {
         let trimmed = first.trimmingCharacters(in: .whitespaces)
         return trimmed.isEmpty ? "(untitled)" : trimmed
     }
+}
+
+/// Payload for "Open [[wiki link]]" — the resolved target name + optional
+/// heading, decoupled from the parsed `WikiLink` (whose nsRange is irrelevant
+/// once selected).
+struct WikiLinkPayload {
+    let target: String
+    let heading: String?
+    init(_ link: WikiLink) { self.target = link.target; self.heading = link.heading }
 }
 
 /// Payload for the Text Alignment submenu — bundles the element + the

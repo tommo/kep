@@ -9,6 +9,8 @@ public struct MindMapCanvas: NSViewRepresentable {
     public var theme: MindMapTheme
     public var onChange: (MindMap) -> Void
     public var onExtraFileTap: ((URL) -> Void)?
+    /// Open a `[[wiki link]]` embedded in a topic's text (target name + heading).
+    public var onOpenWikiLink: ((String, String?) -> Void)?
     /// External nav target — when this changes, navigate the canvas.
     public var navigationTarget: String?
     /// Substring to highlight on every topic whose text contains it
@@ -27,6 +29,7 @@ public struct MindMapCanvas: NSViewRepresentable {
         theme: MindMapTheme = .light,
         onChange: @escaping (MindMap) -> Void = { _ in },
         onExtraFileTap: ((URL) -> Void)? = nil,
+        onOpenWikiLink: ((String, String?) -> Void)? = nil,
         navigationTarget: String? = nil,
         searchHighlight: String? = nil,
         onSelectionPath: ((String?) -> Void)? = nil,
@@ -37,6 +40,7 @@ public struct MindMapCanvas: NSViewRepresentable {
         self.theme = theme
         self.onChange = onChange
         self.onExtraFileTap = onExtraFileTap
+        self.onOpenWikiLink = onOpenWikiLink
         self.navigationTarget = navigationTarget
         self.searchHighlight = searchHighlight
         self.onSelectionPath = onSelectionPath
@@ -73,6 +77,7 @@ public struct MindMapCanvas: NSViewRepresentable {
             context.coordinator.refreshFooter()
         }
         view.onExtraFileTap = onExtraFileTap
+        view.onOpenWikiLink = onOpenWikiLink
         let reportSelection = onSelectionPath
         view.onSelectionChange = { [weak coordinator = context.coordinator, weak view] in
             coordinator?.refreshFooter()
@@ -161,6 +166,7 @@ public struct MindMapCanvas: NSViewRepresentable {
         guard let view = context.coordinator.view else { return }
         view.theme = theme
         view.onExtraFileTap = onExtraFileTap
+        view.onOpenWikiLink = onOpenWikiLink
         view.loadViewState = loadViewState
         view.saveViewState = saveViewState
         if view.searchHighlight != searchHighlight {

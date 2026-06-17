@@ -61,6 +61,11 @@ public final class MindMapView: NSView {
     /// Optional override for note display (NSAlert by default).
     public var onExtraNoteTap: ((Topic, String) -> Void)?
 
+    /// Called to open a `[[wiki link]]` embedded in a topic's text — receives
+    /// the target document name + optional heading. The app resolves it against
+    /// the workspace and opens the document (same path as markdown wiki links).
+    public var onOpenWikiLink: ((String, String?) -> Void)?
+
     private var layoutEngine: MindMapLayout
     var contentBounds: CGRect = .zero
 

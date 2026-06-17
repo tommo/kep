@@ -53,33 +53,27 @@ extension AppSession {
         }
     }
 
-    /// Whole-workspace context for the sidebar assistant: the list of documents
-    /// it can reference (by base name, matching how `[[wiki links]]` resolve),
-    /// then the active document as the current focus. Lets the agent reason
-    /// ACROSS documents, not just the open one.
+    /// Whole-workspace context for the assistant: the list of documents and
+    /// which one the user is viewing — but NOT any document's content. The
+    /// assistant is workspace-wide, not tied to one doc; it fetches content on
+    /// demand via the `read_document` tool (and mind-map tools).
     func aiWorkspaceContextBlock() -> String? {
         var parts: [String] = []
         let names = wikiLinkDocumentNames()
         if !names.isEmpty {
-            parts.append("Workspace documents (reference any by name, e.g. [[Name]]): "
+            parts.append("Workspace documents (fetch any with the read_document tool): "
                          + names.joined(separator: ", "))
         }
-        if let focus = aiDialogContextBlock() {
-            parts.append("Currently focused — \(focus)")
-        }
-        // Knowledge-base links for the focused doc (what it links to / is linked
-        // from) so the agent can reason across the vault.
-        if let doc = activeDocument, let url = doc.fileURL,
-           case .text(let text, _) = doc.kind {
-            let files = quickSwitcherFiles().map(\.url)
-            let corpus: [(url: URL, text: String)] = files.compactMap { u in
-                (try? String(contentsOf: u, encoding: .utf8)).map { (u, $0) }
+        if let doc = activeDocument {
+            let kind: String
+            switch doc.kind {
+            case .mindMap: kind = "mind map"
+            case .text(_, let t): kind = t?.rawValue ?? "document"
+            case .unsupported: kind = "document"
             }
-            if let kb = KBContext.summary(for: url, text: text, corpus: corpus, allFiles: files) {
-                parts.append("Knowledge-base links for the focused document — \(kb)")
-            }
+            parts.append("The user is currently viewing the \(kind) \"\(doc.title)\".")
         }
-        return parts.isEmpty ? nil : parts.joined(separator: "\n\n")
+        return parts.isEmpty ? nil : parts.joined(separator: "\n")
     }
 
     /// Context block handed to the conversational assistant before each send:

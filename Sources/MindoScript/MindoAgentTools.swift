@@ -29,6 +29,8 @@ public struct MindoAgentTools {
          #"{"type":"object","properties":{"target":{"type":"string"}},"required":["target"]}"#),
         ("backlinks", "List documents that link to the named document.",
          #"{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}"#),
+        ("read_document", "Read the full text of a workspace document by name.",
+         #"{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}"#),
         ("find_topics", "List mind-map topics whose text contains a substring (case-insensitive).",
          #"{"type":"object","properties":{"query":{"type":"string"}},"required":["query"]}"#),
         ("add_child_topic", "Add a child topic under the mind map's root.",
@@ -59,6 +61,15 @@ public struct MindoAgentTools {
             let sources = Backlinks.sources(to: target, corpus: corpus, allFiles: allFiles)
                 .map { $0.deletingPathExtension().lastPathComponent }
             return sources.isEmpty ? "(none)" : sources.joined(separator: ", ")
+
+        case "read_document":
+            guard let name = str("name") else { return "error: missing 'name'" }
+            guard let url = WikiLinkResolver.resolve(name, in: allFiles),
+                  let entry = corpus.first(where: { $0.url.standardizedFileURL == url.standardizedFileURL })
+            else { return "not found" }
+            if entry.text.isEmpty { return "(empty)" }
+            let cap = 12_000
+            return entry.text.count > cap ? String(entry.text.prefix(cap)) + "\n…(truncated)" : entry.text
 
         case "find_topics":
             guard let query = str("query") else { return "error: missing 'query'" }

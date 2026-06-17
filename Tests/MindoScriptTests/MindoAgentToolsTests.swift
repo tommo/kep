@@ -65,8 +65,16 @@ final class MindoAgentToolsTests: XCTestCase {
         XCTAssertEqual(tools(map).handle(name: "find_topics", argumentsJSON: #"{"query":"zzz"}"#), "(none)")
     }
 
+    func testReadDocument() {
+        let t = tools(MindMap(root: Topic(text: "R")))
+        XCTAssertEqual(t.handle(name: "read_document", argumentsJSON: #"{"name":"Auth"}"#),
+                       "Auth uses [[Architecture]].")
+        XCTAssertEqual(t.handle(name: "read_document", argumentsJSON: #"{"name":"Nope"}"#), "not found")
+    }
+
     func testDescriptorsCoverAllHandledTools() {
         XCTAssertEqual(Set(MindoAgentTools.descriptors.map(\.name)),
-                       ["list_docs", "resolve_link", "backlinks", "find_topics", "add_child_topic", "run_lua"])
+                       ["list_docs", "resolve_link", "backlinks", "read_document",
+                        "find_topics", "add_child_topic", "run_lua"])
     }
 }

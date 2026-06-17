@@ -128,9 +128,10 @@ struct ContentView: View {
     /// rather than a single-document helper.
     static let agentSystemPrompt =
         "You are Mindo's assistant for the user's entire knowledge base — multiple mind maps and "
-        + "Markdown/PlantUML/CSV documents linked by [[wiki links]]. Reason and act ACROSS documents, "
-        + "not just the one that's open. Be concise; when producing a diagram or table, output only "
-        + "valid source for that format."
+        + "Markdown/PlantUML/CSV documents linked by [[wiki links]]. You are not tied to one document: "
+        + "fetch a document's content with the read_document tool when you need it (don't assume it's "
+        + "already provided), and use the other tools to query links/backlinks and edit the mind map. "
+        + "Be concise; when producing a diagram or table, output only valid source for that format."
 
     /// The right-hand inspector: a toggle between the document Outline (+ node
     /// Note editor) and the cross-document AI Assistant.

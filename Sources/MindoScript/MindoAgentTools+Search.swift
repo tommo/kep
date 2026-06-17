@@ -12,6 +12,8 @@ extension MindoAgentTools {
          #"{"type":"object","properties":{"name":{"type":"string"},"heading":{"type":"string"}},"required":["name","heading"]}"#),
         ("outgoing_links", "List the distinct workspace document names this document links to via [[wiki links]].",
          #"{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}"#),
+        ("semantic_search", "Find workspace passages most semantically relevant to a query using on-device embeddings (meaning-based; complements the literal search_workspace). Returns the top matches as 'doc [score]: passage'.",
+         #"{"type":"object","properties":{"query":{"type":"string"},"k":{"type":"integer"}},"required":["query"]}"#),
     ]
 
     func handleSearch(_ name: String, _ a: ToolArgs) -> String? {
@@ -103,6 +105,23 @@ extension MindoAgentTools {
                 if seen.insert(base).inserted { names.append(base) }
             }
             return names.isEmpty ? "(none)" : names.joined(separator: ", ")
+
+        case "semantic_search":
+            guard let query = a.str("query") else { return "error: missing 'query'" }
+            let embedder = NLTextEmbedder()
+            guard embedder.isAvailable else {
+                return "error: semantic search unavailable on this system — use search_workspace instead"
+            }
+            let docs = corpus.map { (doc: $0.url.deletingPathExtension().lastPathComponent, text: $0.text) }
+            let index = SemanticIndex(documents: docs, embedder: embedder)
+            guard index.chunkCount > 0 else { return "(no documents to search)" }
+            let hits = index.query(query, embedder: embedder, topK: a.int("k") ?? 5)
+            if hits.isEmpty { return "(no matches)" }
+            return hits.map {
+                let snippet = $0.text.replacingOccurrences(of: "\n", with: " ")
+                let capped = snippet.count > 240 ? String(snippet.prefix(240)) + "…" : snippet
+                return "\($0.doc) [\(String(format: "%.2f", $0.score))]: \(capped)"
+            }.joined(separator: "\n\n")
 
         default:
             return nil

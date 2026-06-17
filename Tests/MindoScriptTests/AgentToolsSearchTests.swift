@@ -151,6 +151,21 @@ final class AgentToolsSearchTests: XCTestCase {
         XCTAssertEqual(call("outgoing_links", "{}"), "error: missing 'name'")
     }
 
+    // MARK: semantic_search
+
+    func testSemanticSearchMissingQuery() {
+        XCTAssertEqual(call("semantic_search", "{}"), "error: missing 'query'")
+    }
+
+    func testSemanticSearchRanksRelevantDoc() throws {
+        try XCTSkipUnless(NLTextEmbedder().isAvailable, "No NL sentence-embedding model on this host")
+        let r = call("semantic_search", #"{"query":"how are user logins and tokens handled","k":2}"#)
+        XCTAssertFalse(r.hasPrefix("error:"), r)
+        XCTAssertFalse(r.hasPrefix("("), r)         // not "(no matches)"
+        // The Auth-Layer passage in Architecture.md should surface.
+        XCTAssertTrue(r.contains("Architecture") || r.contains("Auth"), r)
+    }
+
     // MARK: handler ownership
 
     func testHandlerReturnsNilForForeignTool() {

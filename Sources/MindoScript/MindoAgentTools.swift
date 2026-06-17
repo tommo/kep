@@ -91,6 +91,8 @@ public struct MindoAgentTools {
          #"{"type":"object","properties":{}}"#),
         ("find_topics", "List mind-map topics whose text contains a substring (case-insensitive). Each hit is prefixed with its [outline-path].",
          #"{"type":"object","properties":{"query":{"type":"string"}},"required":["query"]}"#),
+        ("get_subtree", "Return just one topic's subtree as an indented [outline-path] outline (target by `path` or `query`), optionally capped to `depth` levels. Prefer this over get_mindmap to inspect a region of a large map without dumping the whole thing.",
+         #"{"type":"object","properties":{"query":{"type":"string"},"path":{"type":"string"},"depth":{"type":"integer"}}}"#),
         ("add_child_topic", "Add a child topic. Target the parent by `path` (stable outline path) or `parent` (substring of an existing topic); without either it goes under the root. Optional `index` positions it among siblings.",
          #"{"type":"object","properties":{"text":{"type":"string"},"parent":{"type":"string"},"path":{"type":"string"},"index":{"type":"integer"}},"required":["text"]}"#),
         ("rename_topic", "Rename a topic (targeted by `path` or `query` substring) to `text`.",
@@ -154,6 +156,12 @@ public struct MindoAgentTools {
             guard let root = map.root else { return "(empty mind map)" }
             var out = ""
             Self.outline(root, path: "", depth: 0, into: &out)
+            return out
+
+        case "get_subtree":
+            guard let t = resolveTopic(a) else { return "error: no topic matches the given path/query" }
+            var out = ""
+            Self.outline(t, path: Self.outlinePath(of: t), depth: 0, into: &out, maxDepth: a.int("depth"))
             return out
 
         case "find_topics":
@@ -226,11 +234,12 @@ public struct MindoAgentTools {
 
     /// Render a topic subtree as an indented outline, each line prefixed with
     /// its stable [outline-path].
-    static func outline(_ topic: Topic, path: String, depth: Int, into out: inout String) {
+    static func outline(_ topic: Topic, path: String, depth: Int, into out: inout String, maxDepth: Int? = nil) {
         out += String(repeating: "  ", count: depth) + "[\(path.isEmpty ? "" : path)] " + topic.text + "\n"
+        if let maxDepth, depth >= maxDepth { return }
         for (i, child) in topic.children.enumerated() {
             let childPath = path.isEmpty ? "\(i)" : "\(path)/\(i)"
-            outline(child, path: childPath, depth: depth + 1, into: &out)
+            outline(child, path: childPath, depth: depth + 1, into: &out, maxDepth: maxDepth)
         }
     }
 

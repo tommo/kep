@@ -92,6 +92,23 @@ final class MindoAgentToolsTests: XCTestCase {
         XCTAssertEqual(a.attribute("fillColor"), "#ffcdd2")
     }
 
+    func testGetSubtreeWithAbsolutePathsAndDepthCap() {
+        let map = MindMap(root: Topic(text: "Espresso"))
+        let eq = map.root!.addChild(text: "Equipment")          // [0]
+        let grinder = eq.addChild(text: "Grinder")              // [0/0]
+        _ = grinder.addChild(text: "Burr")                      // [0/0/0]
+        _ = map.root!.addChild(text: "Beans")                   // [1]
+
+        // Full subtree rooted at Equipment, absolute paths preserved.
+        XCTAssertEqual(tools(map).handle(name: "get_subtree", argumentsJSON: #"{"query":"Equipment"}"#),
+                       "[0] Equipment\n  [0/0] Grinder\n    [0/0/0] Burr\n")
+        // Depth-capped to 1 level below the target.
+        XCTAssertEqual(tools(map).handle(name: "get_subtree", argumentsJSON: #"{"path":"0","depth":1}"#),
+                       "[0] Equipment\n  [0/0] Grinder\n")
+        // Unknown target → error.
+        XCTAssertTrue(tools(map).handle(name: "get_subtree", argumentsJSON: #"{"query":"zzz"}"#).hasPrefix("error:"))
+    }
+
     func testGetMindmapOutline() {
         let map = MindMap(root: Topic(text: "Espresso"))
         let eq = map.root!.addChild(text: "Equipment")

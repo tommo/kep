@@ -473,10 +473,16 @@ final class AppSession {
     /// error when nothing resolves.
     func openWikiLink(target: String, heading: String?) {
         let files = quickSwitcherFiles().map(\.url)
-        if let url = WikiLinkResolver.resolve(target, in: files) {
-            open(url: url)
-        } else {
+        guard let url = WikiLinkResolver.resolve(target, in: files) else {
             lastError = "No workspace document matches “\(target)”."
+            return
+        }
+        open(url: url)
+        // Scroll to the heading, if the link named one and the doc is markdown.
+        if let heading, !heading.isEmpty,
+           case .text(let text, .markdown)? = activeDocument?.kind,
+           let offset = MarkdownHeadingIndex.byteOffset(forHeading: heading, in: text) {
+            requestOutlineNavigation(target: String(offset))
         }
     }
 

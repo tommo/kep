@@ -178,6 +178,7 @@ struct MindoApp: App {
                     Button(L("menu.file.import_text_outline")) { session.importTextOutline() }
                     Button(L("menu.file.import_mindmup")) { session.importMindmup() }
                     Button(L("menu.file.import_coggle")) { session.importCoggle() }
+                    Button(L("menu.file.import_xmind")) { session.importXMind() }
                 }
                 Divider()
                 Menu(L("menu.file.open_recent")) {

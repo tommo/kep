@@ -159,6 +159,14 @@ extension AppSession {
         }
     }
 
+    /// Import a modern XMind (Zen) `.xmind` bundle (a ZIP with content.json).
+    func importXMind() {
+        importMindMap(extension: "xmind") { url in
+            let data = try Data(contentsOf: url)
+            return try XMindImporter.parse(data: data)
+        }
+    }
+
     /// Shared scaffolding for any mindmap importer: open panel scoped to one
     /// extension, parse via the supplied closure, present as an untitled
     /// .mmd doc. Errors route to lastError.

@@ -34,6 +34,7 @@
 "menu.file.import_text_outline" = "文本大纲 (.txt)…";
 "menu.file.import_mindmup" = "Mindmup (.mup)…";
 "menu.file.import_coggle" = "Coggle (.mm)…";
+"menu.file.import_xmind" = "XMind (.xmind)…";
 "menu.file.export" = "导出";
 "menu.file.export_markdown_html" = "Markdown 导出为 HTML…";
 "menu.file.export_markdown_pdf" = "Markdown 导出为 PDF…";

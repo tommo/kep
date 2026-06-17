@@ -66,6 +66,32 @@ final class MindoAgentToolsTests: XCTestCase {
         XCTAssertTrue(t.handle(name: "bogus", argumentsJSON: "{}").hasPrefix("error: unknown tool"))
     }
 
+    func testRenameTopic() {
+        let map = MindMap(root: Topic(text: "Root"))
+        let a = map.root!.addChild(text: "Equipment")
+        let r = tools(map).handle(name: "rename_topic", argumentsJSON: #"{"query":"equip","text":"Gear"}"#)
+        XCTAssertEqual(r, "renamed \"Equipment\" → \"Gear\"")
+        XCTAssertEqual(a.text, "Gear")
+    }
+
+    func testRemoveTopic() {
+        let map = MindMap(root: Topic(text: "Root"))
+        _ = map.root!.addChild(text: "keep")
+        _ = map.root!.addChild(text: "drop")
+        _ = tools(map).handle(name: "remove_topic", argumentsJSON: #"{"query":"drop"}"#)
+        XCTAssertEqual(map.root?.children.map(\.text), ["keep"])
+        // Can't remove root.
+        XCTAssertTrue(tools(map).handle(name: "remove_topic", argumentsJSON: #"{"query":"Root"}"#).hasPrefix("error:"))
+    }
+
+    func testSetTopicAttr() {
+        let map = MindMap(root: Topic(text: "Root"))
+        let a = map.root!.addChild(text: "Important")
+        _ = tools(map).handle(name: "set_topic_attr",
+                              argumentsJSON: ##"{"query":"import","key":"fillColor","value":"#ffcdd2"}"##)
+        XCTAssertEqual(a.attribute("fillColor"), "#ffcdd2")
+    }
+
     func testGetMindmapOutline() {
         let map = MindMap(root: Topic(text: "Espresso"))
         let eq = map.root!.addChild(text: "Equipment")
@@ -96,6 +122,7 @@ final class MindoAgentToolsTests: XCTestCase {
     func testDescriptorsCoverAllHandledTools() {
         XCTAssertEqual(Set(MindoAgentTools.descriptors.map(\.name)),
                        ["list_docs", "resolve_link", "backlinks", "read_document",
-                        "get_mindmap", "find_topics", "add_child_topic", "run_lua"])
+                        "get_mindmap", "find_topics", "add_child_topic",
+                        "rename_topic", "remove_topic", "set_topic_attr", "run_lua"])
     }
 }

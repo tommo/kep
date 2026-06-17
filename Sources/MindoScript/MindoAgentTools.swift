@@ -37,6 +37,12 @@ public struct MindoAgentTools {
          #"{"type":"object","properties":{"query":{"type":"string"}},"required":["query"]}"#),
         ("add_child_topic", "Add a child topic. Without 'parent' it goes under the root; with 'parent' (a substring of an existing topic) it goes under the first matching topic.",
          #"{"type":"object","properties":{"text":{"type":"string"},"parent":{"type":"string"}},"required":["text"]}"#),
+        ("rename_topic", "Rename the first topic whose text contains 'query' to 'text'.",
+         #"{"type":"object","properties":{"query":{"type":"string"},"text":{"type":"string"}},"required":["query","text"]}"#),
+        ("remove_topic", "Delete the first topic (and its subtree) whose text contains 'query'.",
+         #"{"type":"object","properties":{"query":{"type":"string"}},"required":["query"]}"#),
+        ("set_topic_attr", "Set a topic attribute (e.g. fillColor, textColor) on the first topic matching 'query'. Omit 'value' to clear it.",
+         #"{"type":"object","properties":{"query":{"type":"string"},"key":{"type":"string"},"value":{"type":"string"}},"required":["query","key"]}"#),
         ("run_lua", "Run a Lua script against the mind map via the `mindo` API; returns its result.",
          #"{"type":"object","properties":{"script":{"type":"string"}},"required":["script"]}"#),
     ]
@@ -98,6 +104,27 @@ public struct MindoAgentTools {
             }
             _ = parent.addChild(text: text)
             return "added \"\(text)\" under \"\(parent.text)\""
+
+        case "rename_topic":
+            guard let q = str("query"), let text = str("text") else { return "error: need 'query' and 'text'" }
+            guard let t = firstTopic(matching: q) else { return "error: no topic matches \"\(q)\"" }
+            let old = t.text
+            t.text = text
+            return "renamed \"\(old)\" → \"\(text)\""
+
+        case "remove_topic":
+            guard let q = str("query") else { return "error: missing 'query'" }
+            guard let t = firstTopic(matching: q) else { return "error: no topic matches \"\(q)\"" }
+            guard let parent = t.parent else { return "error: can't remove the root topic" }
+            let gone = t.text
+            parent.removeChild(t)
+            return "removed \"\(gone)\""
+
+        case "set_topic_attr":
+            guard let q = str("query"), let key = str("key") else { return "error: need 'query' and 'key'" }
+            guard let t = firstTopic(matching: q) else { return "error: no topic matches \"\(q)\"" }
+            t.setAttribute(key, str("value"))   // nil value clears
+            return "set @\(key)=\(str("value") ?? "nil") on \"\(t.text)\""
 
         case "run_lua":
             guard let script = str("script") else { return "error: missing 'script'" }

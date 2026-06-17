@@ -104,8 +104,20 @@ public final class LLMConfigStore {
 
     public func providerMeta(for providerID: GenAIProviderID) -> ProviderMeta {
         var meta = config.providers[providerID.rawValue] ?? ProviderMeta()
+        // Fall back to the provider's env var when no key is configured.
+        if meta.apiKey.isEmpty, let env = providerID.apiKeyEnvVar,
+           let key = ProcessInfo.processInfo.environment[env], !key.isEmpty {
+            meta.apiKey = key
+        }
         if meta.endpoint.isEmpty { meta.endpoint = providerID.defaultEndpoint }
         return meta
+    }
+
+    /// Whether `providerID` has a usable API key (configured or from the
+    /// environment). Ollama needs none.
+    public func hasUsableKey(for providerID: GenAIProviderID) -> Bool {
+        if providerID == .ollama { return true }
+        return !providerMeta(for: providerID).apiKey.isEmpty
     }
 
     /// All known models for a provider — built-ins first, then user's customs.
@@ -144,10 +156,14 @@ public final class LLMConfigStore {
            !model.isEmpty {
             return (provider, model)
         }
+        // No explicit selection — prefer a provider that actually has a usable
+        // key (configured or from the environment), so an env-only setup just
+        // works instead of defaulting to a keyless provider.
+        for id in GenAIProviderID.allCases where !providerMeta(for: id).apiKey.isEmpty {
+            if let first = allModels(for: id).first { return (id, first.name) }
+        }
         for id in GenAIProviderID.allCases {
-            if let first = allModels(for: id).first {
-                return (id, first.name)
-            }
+            if let first = allModels(for: id).first { return (id, first.name) }
         }
         return nil
     }

@@ -138,6 +138,22 @@ public enum GenAIProviderID: String, CaseIterable, Codable, Sendable {
         }
     }
 
+    /// Environment variable the API key falls back to when none is configured
+    /// in Settings. Lets power users export a key instead of pasting it (only
+    /// effective when the app is launched from a shell that has the var).
+    public var apiKeyEnvVar: String? {
+        switch self {
+        case .openAI: return "OPENAI_API_KEY"
+        case .deepSeek: return "DEEPSEEK_API_KEY"
+        case .gemini: return "GEMINI_API_KEY"
+        case .qwen: return "DASHSCOPE_API_KEY"
+        case .moonshot: return "MOONSHOT_API_KEY"
+        case .chatGLM: return "ZHIPU_API_KEY"
+        case .huggingFace: return "HUGGINGFACE_API_KEY"
+        case .ollama: return nil
+        }
+    }
+
     public var defaultEndpoint: String {
         switch self {
         case .openAI: return "https://api.openai.com/v1"

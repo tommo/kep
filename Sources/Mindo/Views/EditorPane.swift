@@ -90,7 +90,8 @@ struct EditorPane: View {
                 text: textBinding(for: documentID),
                 isDarkMode: colorScheme == .dark,
                 navigationTarget: session.sanitizedNavigationTarget,
-                documentURL: session.openDocuments.first(where: { $0.id == documentID })?.fileURL
+                documentURL: session.openDocuments.first(where: { $0.id == documentID })?.fileURL,
+                wikiLinkCandidates: { session.wikiLinkDocumentNames() }
             )
         case .text(_, .plantUML):
             PlantUMLEditor(

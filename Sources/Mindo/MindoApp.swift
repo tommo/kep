@@ -423,6 +423,19 @@ final class AppSession {
             config: .fromPreferences()
         )
     }
+
+    /// Distinct workspace document base names (no extension), for `[[wiki link]]`
+    /// autocomplete in the markdown editor — the resolver matches links by base
+    /// name, so the names offered mirror what a click would resolve.
+    func wikiLinkDocumentNames() -> [String] {
+        var seen = Set<String>()
+        var names: [String] = []
+        for file in quickSwitcherFiles() {
+            let name = file.url.deletingPathExtension().lastPathComponent
+            if !name.isEmpty, seen.insert(name.lowercased()).inserted { names.append(name) }
+        }
+        return names
+    }
     /// Whether the sidebar column is shown. Persisted (PrefKeys.sidebarVisible)
     /// so collapse state survives relaunch. Toggled from the View menu (⌃⌘S).
     var sidebarVisible: Bool = PrefKeys.bool(PrefKeys.sidebarVisible, fallback: true) {

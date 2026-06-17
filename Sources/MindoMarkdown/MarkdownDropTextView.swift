@@ -1,10 +1,16 @@
 import AppKit
+import MindoCore
 
 /// NSTextView subclass that turns dropped files into the right markdown
 /// snippet: images become `![alt](path)`, other text-like files become a
 /// fenced code block. Falls back to the standard NSTextView behaviour for
 /// anything else (plain text, rich text, attributed string drags).
 public final class MarkdownDropTextView: NSTextView {
+
+    /// Supplies the workspace document names offered when completing a `[[wiki
+    /// link]]`. Set by `MarkdownEditor`; defaults to none so the view is inert
+    /// when no knowledge-base context is wired up.
+    public var wikiLinkCandidates: () -> [String] = { [] }
 
     public override init(frame frameRect: NSRect, textContainer container: NSTextContainer?) {
         super.init(frame: frameRect, textContainer: container)
@@ -23,6 +29,41 @@ public final class MarkdownDropTextView: NSTextView {
 
     private func commonInit() {
         registerForDraggedTypes([.fileURL])
+    }
+
+    // MARK: - Wiki-link completion
+
+    /// The doc-name fragment + its range when the caret sits inside an open
+    /// `[[`, else nil. Shared by `rangeForUserCompletion` (so multi-word names
+    /// replace cleanly) and `completions(forPartialWordRange:)`.
+    private func wikiPartial() -> (range: NSRange, text: String)? {
+        let sel = selectedRange()
+        guard sel.length == 0 else { return nil }
+        let ns = string as NSString
+        let caret = sel.location
+        guard caret <= ns.length else { return nil }
+        let lineStart = ns.lineRange(for: NSRange(location: caret, length: 0)).location
+        let lineUpToCaret = ns.substring(with: NSRange(location: lineStart, length: caret - lineStart))
+        guard let partial = WikiLinkCompletion.partial(inLineUpToCaret: lineUpToCaret) else { return nil }
+        let len = (partial as NSString).length
+        return (NSRange(location: caret - len, length: len), partial)
+    }
+
+    /// Inside `[[`, complete from the whole fragment after the brackets (so a
+    /// name with spaces is replaced as a unit); otherwise the standard word range.
+    public override var rangeForUserCompletion: NSRange {
+        wikiPartial()?.range ?? super.rangeForUserCompletion
+    }
+
+    /// Offer matching workspace document names when completing a `[[wiki link]]`;
+    /// otherwise defer to the system list.
+    public override func completions(forPartialWordRange charRange: NSRange,
+                                     indexOfSelectedItem index: UnsafeMutablePointer<Int>) -> [String]? {
+        guard let wiki = wikiPartial() else {
+            return super.completions(forPartialWordRange: charRange, indexOfSelectedItem: index)
+        }
+        let matches = WikiLinkCompletion.completions(forPartial: wiki.text, candidates: wikiLinkCandidates())
+        return matches.isEmpty ? nil : matches
     }
 
     /// Override Enter to auto-continue lists. When the current line starts

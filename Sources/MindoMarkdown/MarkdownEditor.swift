@@ -18,12 +18,18 @@ public struct MarkdownEditor: NSViewRepresentable {
     /// `![](images/diagram.png)`) resolve against the document's folder
     /// instead of failing to load (the bug: baseURL was always nil).
     public var documentURL: URL?
+    /// Workspace document names offered when autocompleting a `[[wiki link]]`.
+    /// Defaults to none, so the editor only surfaces knowledge-base completions
+    /// where the app wires up a workspace file list.
+    public var wikiLinkCandidates: () -> [String]
 
-    public init(text: Binding<String>, isDarkMode: Bool = false, navigationTarget: String? = nil, documentURL: URL? = nil) {
+    public init(text: Binding<String>, isDarkMode: Bool = false, navigationTarget: String? = nil, documentURL: URL? = nil,
+                wikiLinkCandidates: @escaping () -> [String] = { [] }) {
         self._text = text
         self.isDarkMode = isDarkMode
         self.navigationTarget = navigationTarget
         self.documentURL = documentURL
+        self.wikiLinkCandidates = wikiLinkCandidates
     }
 
     public func makeNSView(context: Context) -> NSView {
@@ -65,6 +71,9 @@ public struct MarkdownEditor: NSViewRepresentable {
             delegate: context.coordinator,
             textViewFactory: { MarkdownDropTextView(frame: .zero) }
         )
+        if let dropView = textView as? MarkdownDropTextView {
+            dropView.wikiLinkCandidates = wikiLinkCandidates
+        }
         textView.usesFontPanel = false
         textView.autoresizingMask = [.width]
         textView.translatesAutoresizingMaskIntoConstraints = true

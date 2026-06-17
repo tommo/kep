@@ -66,6 +66,15 @@ final class MindoAgentToolsTests: XCTestCase {
         XCTAssertTrue(t.handle(name: "bogus", argumentsJSON: "{}").hasPrefix("error: unknown tool"))
     }
 
+    func testGetMindmapOutline() {
+        let map = MindMap(root: Topic(text: "Espresso"))
+        let eq = map.root!.addChild(text: "Equipment")
+        _ = eq.addChild(text: "Grinder")
+        _ = map.root!.addChild(text: "Beans")
+        XCTAssertEqual(tools(map).handle(name: "get_mindmap", argumentsJSON: "{}"),
+                       "Espresso\n  Equipment\n    Grinder\n  Beans\n")
+    }
+
     func testFindTopics() {
         let map = MindMap(root: Topic(text: "Espresso"))
         let r = map.root!
@@ -87,6 +96,6 @@ final class MindoAgentToolsTests: XCTestCase {
     func testDescriptorsCoverAllHandledTools() {
         XCTAssertEqual(Set(MindoAgentTools.descriptors.map(\.name)),
                        ["list_docs", "resolve_link", "backlinks", "read_document",
-                        "find_topics", "add_child_topic", "run_lua"])
+                        "get_mindmap", "find_topics", "add_child_topic", "run_lua"])
     }
 }

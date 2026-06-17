@@ -31,6 +31,8 @@ public struct MindoAgentTools {
          #"{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}"#),
         ("read_document", "Read the full text of a workspace document by name.",
          #"{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}"#),
+        ("get_mindmap", "Return the active mind map as an indented outline (root then nested children).",
+         #"{"type":"object","properties":{}}"#),
         ("find_topics", "List mind-map topics whose text contains a substring (case-insensitive).",
          #"{"type":"object","properties":{"query":{"type":"string"}},"required":["query"]}"#),
         ("add_child_topic", "Add a child topic. Without 'parent' it goes under the root; with 'parent' (a substring of an existing topic) it goes under the first matching topic.",
@@ -71,6 +73,12 @@ public struct MindoAgentTools {
             let cap = 12_000
             return entry.text.count > cap ? String(entry.text.prefix(cap)) + "\n…(truncated)" : entry.text
 
+        case "get_mindmap":
+            guard let root = map.root else { return "(empty mind map)" }
+            var out = ""
+            Self.outline(root, depth: 0, into: &out)
+            return out
+
         case "find_topics":
             guard let query = str("query") else { return "error: missing 'query'" }
             guard let root = map.root else { return "(none)" }
@@ -99,6 +107,12 @@ public struct MindoAgentTools {
         default:
             return "error: unknown tool '\(name)'"
         }
+    }
+
+    /// Render a topic subtree as an indented outline (2 spaces per level).
+    private static func outline(_ topic: Topic, depth: Int, into out: inout String) {
+        out += String(repeating: "  ", count: depth) + topic.text + "\n"
+        for child in topic.children { outline(child, depth: depth + 1, into: &out) }
     }
 
     /// First topic (pre-order) whose text contains `query`, case-insensitive.

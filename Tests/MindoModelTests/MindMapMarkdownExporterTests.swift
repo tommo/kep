@@ -71,6 +71,19 @@ final class MindMapMarkdownExporterTests: XCTestCase {
         XCTAssertTrue(out.contains("```swift\nlet x = 1\n```"))
     }
 
+    func testCodeSnippetWithBackticksWidensFence() {
+        // A snippet whose body contains a ``` run must be fenced with MORE
+        // backticks so the block doesn't terminate early.
+        let map = MindMap()
+        let root = Topic(text: "Root"); map.root = root
+        root.putCodeSnippet(language: "md", body: "```\ninner\n```\n")
+        let out = MindMapMarkdownExporter.export(map)
+        XCTAssertTrue(out.contains("````md\n"), "fence should widen to 4 backticks; got:\n\(out)")
+        XCTAssertTrue(out.contains("```\ninner\n```"), "inner triple-backtick body preserved")
+        // The widened fence must close the block.
+        XCTAssertTrue(out.contains("````md\n```\ninner\n```\n````"))
+    }
+
     func testCodeSnippetSortedByLanguageForStableOutput() {
         // Two snippets in non-alphabetical add order; the exporter must
         // re-sort so the output is deterministic for diffs.

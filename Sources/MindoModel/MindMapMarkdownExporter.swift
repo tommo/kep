@@ -56,10 +56,13 @@ public enum MindMapMarkdownExporter {
         let sortedLangs = topic.codeSnippets.keys.sorted()
         for lang in sortedLangs {
             guard let body = topic.codeSnippets[lang] else { continue }
-            out.append("```\(lang)\n")
+            // Widen the fence past any backtick run inside the body so a snippet
+            // that itself contains ``` doesn't terminate the block early.
+            let fence = String(repeating: "`", count: max(3, ModelUtils.calcMaxBacktickRun(in: body) + 1))
+            out.append("\(fence)\(lang)\n")
             out.append(body)
             if !body.hasSuffix("\n") { out.append("\n") }
-            out.append("```\n")
+            out.append("\(fence)\n")
         }
 
         for child in topic.children {

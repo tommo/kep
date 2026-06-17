@@ -13,6 +13,9 @@ public struct DialogView: View {
 
     @FocusState private var inputFocused: Bool
     @Environment(\.openSettings) private var openSettings
+    /// When true, plain Return sends and ⇧Return inserts a newline; otherwise
+    /// Return inserts a newline and ⌘Return sends. Persisted.
+    @AppStorage("ai.sendOnReturn") private var sendOnReturn = false
 
     public init(systemPrompt: String = Conversation.defaultSystemPrompt,
                 contextProvider: (() -> String?)? = nil,
@@ -66,6 +69,8 @@ public struct DialogView: View {
             // Secondary actions collapse into one menu so the narrow panel keeps
             // its width for the model name.
             Menu {
+                Toggle("Send on Return (⇧↩ for newline)", isOn: $sendOnReturn)
+                Divider()
                 Button("Clear conversation") { vm.clear() }
                     .disabled(vm.conversation.turns.isEmpty)
                 Button("AI Settings…") { openSettings() }
@@ -154,8 +159,8 @@ public struct DialogView: View {
         // lives on a hidden button so removing the visible control keeps it.
         ZStack(alignment: .topLeading) {
             if vm.draft.isEmpty {
-                Text(vm.agentMode ? "Ask the assistant to do something… (⌘↩ to send)"
-                                  : "Message the assistant… (⌘↩ to send)")
+                Text((vm.agentMode ? "Ask the assistant to do something… "
+                                   : "Message the assistant… ") + sendHint)
                     .foregroundStyle(.tertiary)
                     .padding(.vertical, 2)
                     .allowsHitTesting(false)
@@ -166,6 +171,16 @@ public struct DialogView: View {
                 .frame(minHeight: 20, maxHeight: 110)
                 .fixedSize(horizontal: false, vertical: true)
                 .focused($inputFocused)
+                .onKeyPress(phases: .down) { press in
+                    // In send-on-Return mode, a plain Return sends (⇧Return makes
+                    // a newline); otherwise let the editor handle it (⌘Return
+                    // sends via the hidden shortcut button).
+                    guard sendOnReturn, press.key == .return,
+                          press.modifiers.isEmpty, vm.canSend else { return .ignored }
+                    vm.setContext(contextProvider?())
+                    vm.send()
+                    return .handled
+                }
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
@@ -174,6 +189,8 @@ public struct DialogView: View {
         .padding(8)
         .background(sendShortcut)
     }
+
+    private var sendHint: String { sendOnReturn ? "(↩ to send)" : "(⌘↩ to send)" }
 
     /// Invisible carrier for the ⌘↩ send shortcut.
     private var sendShortcut: some View {

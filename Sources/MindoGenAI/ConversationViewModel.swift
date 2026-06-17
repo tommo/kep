@@ -24,14 +24,24 @@ public final class ConversationViewModel: ObservableObject {
     }
     private var activeProvider: GenAIProviderID?
 
+    /// When true and `agentReply` is set, sends run the tool-calling agent loop
+    /// (the model can call `mindo` tools) instead of plain streaming.
+    @Published public var agentMode: Bool = false
+    /// App-provided agent runner: given the conversation, returns the final
+    /// reply after any tool calls. Nil → no agent available (toggle hidden).
+    public var agentReply: (([ChatMessage]) async throws -> String)?
+    public var hasAgent: Bool { agentReply != nil }
+
     private var subscriptions: Set<AnyCancellable> = []
     private let service: LLMService
 
     public init(systemPrompt: String = Conversation.defaultSystemPrompt,
                 contextBlock: String? = nil,
-                service: LLMService = .shared) {
+                service: LLMService = .shared,
+                agentReply: (([ChatMessage]) async throws -> String)? = nil) {
         self.conversation = Conversation(systemPrompt: systemPrompt, contextBlock: contextBlock)
         self.service = service
+        self.agentReply = agentReply
         refreshProviderLabel()
     }
 
@@ -71,6 +81,23 @@ public final class ConversationViewModel: ObservableObject {
         draft = ""
         errorText = nil
         isRunning = true
+
+        // Agent mode: run the tool-calling loop (non-streaming) and append the
+        // final reply. The agent may call mindo tools that edit the doc.
+        if agentMode, let agentReply {
+            let messages = conversation.llmMessages()
+            Self.diag("AGENT send model=\(model) msgs=\(messages.count)")
+            Task { @MainActor in
+                do {
+                    let reply = try await agentReply(messages)
+                    self.conversation.addAssistant(reply)
+                } catch {
+                    self.errorText = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+                }
+                self.isRunning = false
+            }
+            return
+        }
 
         let meta = LLMConfigStore.shared.modelMeta(for: provider, name: model)
         let input = LLMInput(

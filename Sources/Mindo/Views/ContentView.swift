@@ -142,7 +142,8 @@ struct ContentView: View {
                 DialogView(
                     systemPrompt: Self.agentSystemPrompt,
                     contextProvider: { session.aiWorkspaceContextBlock() },
-                    onInsert: { session.insertDialogReply($0) }
+                    onInsert: { session.insertDialogReply($0) },
+                    agentReply: { try await session.agentReply($0) }
                 )
             }
         }

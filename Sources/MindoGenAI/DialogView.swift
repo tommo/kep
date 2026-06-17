@@ -16,9 +16,10 @@ public struct DialogView: View {
 
     public init(systemPrompt: String = Conversation.defaultSystemPrompt,
                 contextProvider: (() -> String?)? = nil,
-                onInsert: ((String) -> Void)? = nil) {
+                onInsert: ((String) -> Void)? = nil,
+                agentReply: (([ChatMessage]) async throws -> String)? = nil) {
         _vm = StateObject(wrappedValue: ConversationViewModel(
-            systemPrompt: systemPrompt, contextBlock: contextProvider?()))
+            systemPrompt: systemPrompt, contextBlock: contextProvider?(), agentReply: agentReply))
         self.contextProvider = contextProvider
         self.onInsert = onInsert
     }
@@ -55,6 +56,13 @@ public struct DialogView: View {
                 Text(vm.selectedModel).font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
+            if vm.hasAgent {
+                Toggle(isOn: $vm.agentMode) { Image(systemName: "wrench.and.screwdriver") }
+                    .toggleStyle(.button)
+                    .controlSize(.small)
+                    .help("Agent mode — let the assistant use tools to edit the map / query the knowledge base")
+                    .disabled(vm.isRunning)
+            }
             Button {
                 vm.clear()
             } label: { Image(systemName: "trash") }

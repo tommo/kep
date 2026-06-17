@@ -498,6 +498,19 @@ final class AppSession {
         }
         return names
     }
+
+    /// "Linked mentions" for the active document: every workspace doc that
+    /// references it via a [[wiki link]], with the context line of each mention.
+    /// Reads the workspace corpus on demand (workspaces are small). Empty when
+    /// the active doc is unsaved or nothing links to it.
+    func linkedMentions() -> [LinkedMention] {
+        guard let target = activeDocument?.fileURL else { return [] }
+        let files = quickSwitcherFiles().map(\.url)
+        let corpus: [(url: URL, text: String)] = files.compactMap { u in
+            (try? String(contentsOf: u, encoding: .utf8)).map { (u, $0) }
+        }
+        return Backlinks.mentions(to: target, corpus: corpus, allFiles: files)
+    }
     /// Whether the sidebar column is shown. Persisted (PrefKeys.sidebarVisible)
     /// so collapse state survives relaunch. Toggled from the View menu (⌃⌘S).
     var sidebarVisible: Bool = PrefKeys.bool(PrefKeys.sidebarVisible, fallback: true) {

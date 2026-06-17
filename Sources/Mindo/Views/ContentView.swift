@@ -6,7 +6,7 @@ import MindoGenAI
 
 /// Which surface the right inspector is showing: the document outline (+ node
 /// note), or the cross-document AI assistant.
-enum InspectorTab: Sendable { case outline, agent }
+enum InspectorTab: Sendable { case outline, links, agent }
 
 /// Top-level window content: split view (sidebar | detail with outline
 /// inspector), plus the global error alert. Owned by `MindoApp.body`.
@@ -147,6 +147,7 @@ struct ContentView: View {
         Group {
             switch session.inspectorTab {
             case .outline: outlineInspector
+            case .links: linksInspector
             case .agent:
                 DialogView(
                     systemPrompt: Self.agentSystemPrompt,
@@ -163,12 +164,13 @@ struct ContentView: View {
             ToolbarItem(placement: .automatic) {
                 Picker("", selection: inspectorTabBinding) {
                     Image(systemName: "list.bullet.indent").tag(InspectorTab.outline)
+                    Image(systemName: "link").tag(InspectorTab.links)
                     Image(systemName: "bubble.left.and.bubble.right").tag(InspectorTab.agent)
                 }
                 .pickerStyle(.segmented)
                 .controlSize(.small)
                 .fixedSize()
-                .help("Switch the inspector between document outline and the assistant")
+                .help("Switch the inspector between document outline, linked mentions, and the assistant")
             }
         }
         .sheet(isPresented: $noteExpanded) {
@@ -178,6 +180,52 @@ struct ContentView: View {
                 title: session.selectedNodeProperties?.title
             )
         }
+    }
+
+    /// The Links tab: "Linked mentions" — every workspace document that
+    /// references the active document via a [[wiki link]], with the context line
+    /// of each mention. Click a source to open it.
+    private var linksInspector: some View {
+        let mentions = session.linkedMentions()
+        let total = mentions.reduce(0) { $0 + $1.snippets.count }
+        return Group {
+            if session.activeDocument?.fileURL == nil {
+                ContentUnavailableView("No document", systemImage: "link",
+                                       description: Text("Open a saved document to see what links to it."))
+            } else if mentions.isEmpty {
+                ContentUnavailableView("No linked mentions", systemImage: "link",
+                                       description: Text("No other document links to this one with [[wiki links]] yet."))
+            } else {
+                List {
+                    Section {
+                        ForEach(mentions, id: \.source) { mention in
+                            VStack(alignment: .leading, spacing: 4) {
+                                Button {
+                                    session.open(url: mention.source)
+                                } label: {
+                                    Label(mention.source.deletingPathExtension().lastPathComponent,
+                                          systemImage: "doc.text")
+                                        .font(.callout.weight(.medium))
+                                }
+                                .buttonStyle(.link)
+                                ForEach(Array(mention.snippets.enumerated()), id: \.offset) { _, snippet in
+                                    Text(snippet)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(2)
+                                        .textSelection(.enabled)
+                                }
+                            }
+                            .padding(.vertical, 2)
+                        }
+                    } header: {
+                        Text("\(total) mention\(total == 1 ? "" : "s") from \(mentions.count) document\(mentions.count == 1 ? "" : "s")")
+                    }
+                }
+                .listStyle(.inset)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     /// The Outline tab content: outline list + (when a node is selected) a

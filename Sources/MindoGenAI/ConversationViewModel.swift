@@ -25,8 +25,9 @@ public final class ConversationViewModel: ObservableObject {
     private var activeProvider: GenAIProviderID?
 
     /// When true and `agentReply` is set, sends run the tool-calling agent loop
-    /// (the model can call `mindo` tools) instead of plain streaming.
-    @Published public var agentMode: Bool = false
+    /// (the model can call `mindo` tools) instead of plain completion. On by
+    /// default so the assistant can fetch documents / act out of the box.
+    @Published public var agentMode: Bool = true
     /// App-provided agent runner: given the conversation, returns the final
     /// reply after any tool calls. Nil → no agent available (toggle hidden).
     public var agentReply: (([ChatMessage]) async throws -> String)?

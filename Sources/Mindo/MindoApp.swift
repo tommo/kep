@@ -80,6 +80,9 @@ struct MindoApp: App {
                         session.applyAIResult(text: text, mode: mode)
                     }
                 }
+                .sheet(isPresented: $session.luaRunnerOpen) {
+                    LuaRunnerView(session: $session)
+                }
                 .sheet(isPresented: $session.snippetPickerOpen) {
                     SnippetPicker(fileType: session.activeFileType) { snippet in
                         session.insertSnippet(snippet)
@@ -305,6 +308,10 @@ struct MindoApp: App {
                     .keyboardShortcut("r", modifiers: [.command, .control])
                     .disabled(session.activeDocument == nil)
                 Divider()
+                Button("Run Lua Script…") { session.luaRunnerOpen = true }
+                    .keyboardShortcut("r", modifiers: [.command, .shift])
+                    .disabled(session.activeFileType != .mindMap)
+                Divider()
                 SettingsLink { Text(L("menu.ai.settings")) }
                     .keyboardShortcut(",", modifiers: [.command, .shift])
             }
@@ -431,9 +438,11 @@ final class AppSession {
 
     /// View > Fold/Unfold All commands. Same tick pattern as ZoomCommand —
     /// the active mindmap canvas listens for changes and dispatches.
-    enum MindmapCommand { case foldAll, unfoldAll, redraw }
+    enum MindmapCommand { case foldAll, unfoldAll, redraw, reload }
     var mindmapCommand: MindmapCommand = .foldAll
     var mindmapCommandTick: UInt64 = 0
+    /// Lua script runner sheet flag.
+    var luaRunnerOpen: Bool = false
 
     /// Snippet picker sheet flag.
     var snippetPickerOpen: Bool = false

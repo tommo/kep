@@ -83,6 +83,7 @@ struct EditorPane: View {
                 case .foldAll:   view.setAllCollapsed(true)
                 case .unfoldAll: view.setAllCollapsed(false)
                 case .redraw:    view.needsDisplay = true
+                case .reload:    view.rebuildElementsPublic(); view.needsDisplay = true
                 }
             }
         case .text(_, .markdown):

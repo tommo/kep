@@ -132,16 +132,7 @@ struct ContentView: View {
     /// The right-hand inspector: a toggle between the document Outline (+ node
     /// Note editor) and the cross-document AI Assistant.
     private var inspectorPane: some View {
-        VStack(spacing: 0) {
-            Picker("", selection: inspectorTabBinding) {
-                Image(systemName: "list.bullet.indent").tag(InspectorTab.outline)
-                Image(systemName: "bubble.left.and.bubble.right").tag(InspectorTab.agent)
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
-            Divider()
+        Group {
             switch session.inspectorTab {
             case .outline: outlineInspector
             case .agent:
@@ -150,6 +141,19 @@ struct ContentView: View {
                     contextProvider: { session.aiWorkspaceContextBlock() },
                     onInsert: { session.insertDialogReply($0) }
                 )
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // Put the Outline / Assistant switch in the inspector's OWN toolbar band
+        // (the area at the top that was otherwise empty), not a row below it.
+        .toolbar {
+            ToolbarItem(placement: .automatic) {
+                Picker("", selection: inspectorTabBinding) {
+                    Image(systemName: "list.bullet.indent").tag(InspectorTab.outline)
+                    Image(systemName: "bubble.left.and.bubble.right").tag(InspectorTab.agent)
+                }
+                .pickerStyle(.segmented)
+                .help("Switch the inspector between document outline and the assistant")
             }
         }
         .sheet(isPresented: $noteExpanded) {

@@ -33,11 +33,23 @@ final class MindoAgentToolsTests: XCTestCase {
         XCTAssertEqual(r, "Auth, Billing")
     }
 
-    func testAddChildTopicMutatesMap() {
+    func testAddChildTopicUnderRoot() {
         let map = MindMap(root: Topic(text: "R"))
         let r = tools(map).handle(name: "add_child_topic", argumentsJSON: #"{"text":"New Idea"}"#)
-        XCTAssertEqual(r, "added \"New Idea\"")
+        XCTAssertEqual(r, "added \"New Idea\" under \"R\"")
         XCTAssertEqual(map.root?.children.map(\.text), ["New Idea"])
+    }
+
+    func testAddChildTopicUnderNamedParent() {
+        let map = MindMap(root: Topic(text: "Root"))
+        let eq = map.root!.addChild(text: "Equipment")
+        let r = tools(map).handle(name: "add_child_topic",
+                                  argumentsJSON: #"{"text":"Grinder","parent":"equip"}"#)
+        XCTAssertEqual(r, "added \"Grinder\" under \"Equipment\"")
+        XCTAssertEqual(eq.children.map(\.text), ["Grinder"])
+        // No matching parent → error, no mutation.
+        XCTAssertTrue(tools(map).handle(name: "add_child_topic",
+                                        argumentsJSON: #"{"text":"X","parent":"nope"}"#).hasPrefix("error:"))
     }
 
     func testRunLua() {

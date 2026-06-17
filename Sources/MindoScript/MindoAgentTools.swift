@@ -33,8 +33,8 @@ public struct MindoAgentTools {
          #"{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}"#),
         ("find_topics", "List mind-map topics whose text contains a substring (case-insensitive).",
          #"{"type":"object","properties":{"query":{"type":"string"}},"required":["query"]}"#),
-        ("add_child_topic", "Add a child topic under the mind map's root.",
-         #"{"type":"object","properties":{"text":{"type":"string"}},"required":["text"]}"#),
+        ("add_child_topic", "Add a child topic. Without 'parent' it goes under the root; with 'parent' (a substring of an existing topic) it goes under the first matching topic.",
+         #"{"type":"object","properties":{"text":{"type":"string"},"parent":{"type":"string"}},"required":["text"]}"#),
         ("run_lua", "Run a Lua script against the mind map via the `mindo` API; returns its result.",
          #"{"type":"object","properties":{"script":{"type":"string"}},"required":["script"]}"#),
     ]
@@ -81,9 +81,15 @@ public struct MindoAgentTools {
 
         case "add_child_topic":
             guard let text = str("text") else { return "error: missing 'text'" }
-            let root = map.root ?? { let r = Topic(text: "Root"); map.root = r; return r }()
-            _ = root.addChild(text: text)
-            return "added \"\(text)\""
+            let parent: Topic
+            if let q = str("parent"), !q.isEmpty {
+                guard let found = firstTopic(matching: q) else { return "error: no topic matches \"\(q)\"" }
+                parent = found
+            } else {
+                parent = map.root ?? { let r = Topic(text: "Root"); map.root = r; return r }()
+            }
+            _ = parent.addChild(text: text)
+            return "added \"\(text)\" under \"\(parent.text)\""
 
         case "run_lua":
             guard let script = str("script") else { return "error: missing 'script'" }
@@ -93,6 +99,15 @@ public struct MindoAgentTools {
         default:
             return "error: unknown tool '\(name)'"
         }
+    }
+
+    /// First topic (pre-order) whose text contains `query`, case-insensitive.
+    private func firstTopic(matching query: String) -> Topic? {
+        guard let root = map.root else { return nil }
+        let needle = query.lowercased()
+        var hit: Topic?
+        root.traverse { if hit == nil, $0.text.lowercased().contains(needle) { hit = $0 } }
+        return hit
     }
 
     static func parseArgs(_ json: String) -> [String: Any] {

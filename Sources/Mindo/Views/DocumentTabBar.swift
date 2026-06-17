@@ -79,6 +79,26 @@ struct DocumentTabBar: View {
                         .disabled(doc.fileURL == nil)
                     }
                 }
+                // Manual "new document view" button (Obsidian's +). Each entry
+                // creates a fresh untitled doc in its OWN tab — so you can spin
+                // up a new tab on demand instead of every open reusing one.
+                Menu {
+                    Button(L("menu.file.new_mindmap")) { session.newMindMap() }
+                    Button(L("menu.file.new_markdown")) { session.newMarkdown() }
+                    Button(L("menu.file.new_csv")) { session.newCSV() }
+                    Button(L("menu.file.new_plantuml")) { session.newPlantUML() }
+                    Button(L("menu.file.new_text")) { session.newTextFile() }
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 22, height: 22)
+                        .contentShape(Rectangle())
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .help(L("tab.new_document"))
             }
             .padding(.horizontal, 8)
             .onDrop(of: [.fileURL], isTargeted: nil) { providers in

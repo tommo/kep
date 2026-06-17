@@ -178,6 +178,7 @@
 /* MARK: - 标签栏 */
 "tab.tooltip.modified_externally" = "文件已被外部修改 —— 内容已重新加载";
 "tab.tooltip.unsaved_changes" = "未保存的更改";
+"tab.new_document" = "新建文档";
 "tab.menu.close" = "关闭标签页";
 "tab.menu.close_others" = "关闭其他标签页";
 "tab.menu.close_all" = "关闭所有标签页";

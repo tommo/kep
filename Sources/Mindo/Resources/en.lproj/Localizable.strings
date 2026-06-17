@@ -181,6 +181,7 @@
 /* MARK: - Tab bar */
 "tab.tooltip.modified_externally" = "Modified outside Mindo — content reloaded";
 "tab.tooltip.unsaved_changes" = "Unsaved changes";
+"tab.new_document" = "New Document";
 "tab.menu.close" = "Close Tab";
 "tab.menu.close_others" = "Close Other Tabs";
 "tab.menu.close_all" = "Close All Tabs";

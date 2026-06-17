@@ -102,10 +102,14 @@ final class ScriptLexerTests: XCTestCase {
                         .dot, .ident("text"), .eq, .string("x"), .eof])
     }
 
+    func testUnknownEscapePassesThrough() throws {
+        // Regex escapes like \b \d must survive into the string value.
+        XCTAssertEqual(try ScriptLexer.tokenize(#""\bTODO\b""#).first?.kind, .string(#"\bTODO\b"#))
+    }
+
     func testLexErrors() {
         XCTAssertThrowsError(try ScriptLexer.tokenize("\"unterminated"))
         XCTAssertThrowsError(try ScriptLexer.tokenize("$ "))
-        XCTAssertThrowsError(try ScriptLexer.tokenize("\"bad\\x\""))
         XCTAssertThrowsError(try ScriptLexer.tokenize("&"))
     }
 }

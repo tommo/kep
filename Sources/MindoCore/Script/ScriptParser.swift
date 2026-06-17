@@ -24,6 +24,144 @@ public struct ScriptParser {
         return node
     }
 
+    /// Parse a whole program. (v0: query blocks; builder `map` blocks next.)
+    public static func parseProgram(_ source: String) throws -> [TopLevel] {
+        var parser = ScriptParser(try ScriptLexer.tokenize(source))
+        return try parser.program()
+    }
+
+    /// Parse a single query block (the text after, and including, `?`).
+    public static func parseQuery(_ source: String) throws -> QueryBlock {
+        var parser = ScriptParser(try ScriptLexer.tokenize(source))
+        parser.skipNewlines()
+        let q = try parser.queryBlock()
+        parser.skipNewlines()
+        guard case .eof = parser.peek.kind else {
+            throw ScriptError.parse("unexpected trailing token after query", at: parser.peek.at)
+        }
+        return q
+    }
+
+    // MARK: - Program / blocks
+
+    private mutating func program() throws -> [TopLevel] {
+        var blocks: [TopLevel] = []
+        skipNewlines()
+        while peek.kind != .eof {
+            if peek.kind == .question {
+                blocks.append(.query(try queryBlock()))
+            } else {
+                throw ScriptError.parse("expected a query (`?`) — builder `map` blocks not yet supported", at: peek.at)
+            }
+            skipNewlines()
+        }
+        return blocks
+    }
+
+    private mutating func queryBlock() throws -> QueryBlock {
+        try expect(.question, "'?' to start a query")
+        skipNewlines()
+        let src = try parseSource()
+        var stages: [ScriptStage] = []
+        while true {
+            skipNewlines()
+            if peek.kind == .pipe {
+                advance()
+                skipNewlines()
+                stages.append(try parseStage())
+            } else { break }
+        }
+        // optional trailing `as $var`
+        var bind: String? = nil
+        skipNewlines()
+        if case .ident("as") = peek.kind {
+            advance()
+            guard case .variable(let v) = peek.kind else {
+                throw ScriptError.parse("expected $var after 'as'", at: peek.at)
+            }
+            advance()
+            bind = v
+        }
+        return QueryBlock(source: src, stages: stages, bind: bind)
+    }
+
+    private mutating func parseSource() throws -> ScriptSource {
+        guard case .ident(let name) = peek.kind else {
+            throw ScriptError.parse("expected a query source (nodes/backlinks/links/docs/from)", at: peek.at)
+        }
+        advance()
+        switch name {
+        case "nodes":
+            if case .string(let s) = peek.kind { advance(); return .nodes(s) }
+            return .nodes(nil)
+        case "backlinks":
+            return .backlinks(try expression())
+        case "links":
+            if startsExpression() { return .links(try expression()) }
+            return .links(nil)
+        case "docs":
+            return .docs
+        case "from":
+            guard case .variable(let v) = peek.kind else {
+                throw ScriptError.parse("expected $var after 'from'", at: peek.at)
+            }
+            advance()
+            return .from(v)
+        default:
+            throw ScriptError.parse("unknown query source '\(name)'", at: peek.at)
+        }
+    }
+
+    private mutating func parseStage() throws -> ScriptStage {
+        guard case .ident(let name) = peek.kind else {
+            throw ScriptError.parse("expected a stage keyword", at: peek.at)
+        }
+        advance()
+        switch name {
+        case "where":    return .whereKeep(try expression())
+        case "rename":   return .rename(try expression())
+        case "addChild": return .addChild(try expression())
+        case "setNote":  return .setNote(try expression())
+        case "setLink":  return .setLink(try expression())
+        case "map":      return .mapEach(try expression())
+        case "sortBy":   return .sortBy(try expression())
+        case "group":    return .group(try expression())
+        case "remove":   return .remove
+        case "distinct": return .distinct
+        case "count":    return .count
+        case "collect":  return .collect
+        case "set":
+            try expect(.at, "'@' after set")
+            guard case .ident(let key) = peek.kind else {
+                throw ScriptError.parse("expected an attribute name after 'set @'", at: peek.at)
+            }
+            advance()
+            try expect(.assign, "'=' in set")
+            return .setAttr(key, try expression())
+        case "limit":
+            guard case .number(let n) = peek.kind else {
+                throw ScriptError.parse("expected a number after 'limit'", at: peek.at)
+            }
+            advance()
+            return .limit(n)
+        default:
+            throw ScriptError.parse("unknown stage '\(name)'", at: peek.at)
+        }
+    }
+
+    /// True if the current token can begin an expression (used for optional
+    /// source/stage arguments like `links [expr]`).
+    private func startsExpression() -> Bool {
+        switch peek.kind {
+        case .number, .string, .variable, .lparen, .lbracket, .lbrace, .dot, .at, .bang, .minus:
+            return true
+        case .ident(let w):
+            return w != "as"   // `as` begins the trailing bind, not an argument
+        default:
+            return false
+        }
+    }
+
     // MARK: - Cursor
 
     private var peek: ScriptToken { tokens[i] }
@@ -122,7 +260,10 @@ public struct ScriptParser {
             // Leading dot is the implicit identity. `.field` keeps the dot for
             // the loop (member access on identity); `.`, `.@attr`, `.[i]`
             // consume the dot here as the bare identity sigil.
-            if case .ident? = peek2() {
+            // `.field` is member access on identity; but a bare `.` followed by
+            // the reserved `as` (pipeline bind) is standalone identity, so
+            // `sortBy . as $x` isn't misread as a `.as` member.
+            if case .ident(let w)? = peek2(), w != "as" {
                 node = .identity
             } else {
                 advance()

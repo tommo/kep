@@ -32,3 +32,48 @@ public indirect enum ScriptNode: Equatable, Sendable {
         }
     }
 }
+
+/// A query pipeline source — the finite set of handles a `?` pipeline starts from.
+public enum ScriptSource: Equatable, Sendable {
+    case nodes(String?)          // `nodes` / `nodes "MapName"`
+    case backlinks(ScriptNode)   // `backlinks <expr>`
+    case links(ScriptNode?)      // `links` / `links <expr>`
+    case docs                    // `docs`
+    case from(String)            // `from $var`
+}
+
+/// One query pipeline stage. Mutating stages (`set`/`rename`/…/`remove`) stage
+/// effects; the rest filter/transform/reduce the flowing set.
+public enum ScriptStage: Equatable, Sendable {
+    case whereKeep(ScriptNode)
+    case setAttr(String, ScriptNode)   // `set @key = expr`
+    case rename(ScriptNode)
+    case addChild(ScriptNode)
+    case setNote(ScriptNode)
+    case setLink(ScriptNode)
+    case remove
+    case mapEach(ScriptNode)           // `map <expr>` projection
+    case sortBy(ScriptNode)
+    case limit(Double)
+    case distinct
+    case group(ScriptNode)
+    case count
+    case collect
+}
+
+/// A `? source | stage | … [as $var]` pipeline.
+public struct QueryBlock: Equatable, Sendable {
+    public let source: ScriptSource
+    public let stages: [ScriptStage]
+    public let bind: String?
+    public init(source: ScriptSource, stages: [ScriptStage], bind: String?) {
+        self.source = source
+        self.stages = stages
+        self.bind = bind
+    }
+}
+
+/// A top-level program element. (MapBlock builder parsing is added next.)
+public enum TopLevel: Equatable, Sendable {
+    case query(QueryBlock)
+}

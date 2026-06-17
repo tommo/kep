@@ -179,7 +179,10 @@ public struct ScriptLexer {
                 case "u":
                     text.unicodeScalars.append(try scanUnicodeEscape(at: at))
                 default:
-                    throw ScriptError.lex("invalid escape \\\(e)", line: at.line, col: at.col)
+                    // Unknown escape: pass it through verbatim (backslash + char)
+                    // so regex patterns like \b \d \w survive into the string.
+                    text.unicodeScalars.append("\\")
+                    text.unicodeScalars.append(e)
                 }
             } else {
                 text.unicodeScalars.append(c)

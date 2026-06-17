@@ -138,8 +138,8 @@ struct ContentView: View {
         + "• Edit the active mind map: get_mindmap (shows each topic's stable [outline-path]), get_subtree "
         + "(inspect one region of a large map), find_topics, "
         + "add_child_topic, add_sibling_topic, rename_topic, remove_topic, move_topic, build_subtree "
-        + "(bulk-build from an indented outline), set_topic_attr, set_topic_note/get_topic_note, "
-        + "link_topics, set_topic_collapsed; run_lua for anything bespoke.\n"
+        + "(bulk-build from an indented outline), sort_children, set_topic_attr, "
+        + "set_topic_note/get_topic_note, link_topics, set_topic_collapsed; run_lua for anything bespoke.\n"
         + "Target topics by their [outline-path] when you can (stable); fall back to a text query. "
         + "Read before you write. Be concise; when producing a diagram or table, output only valid source."
 

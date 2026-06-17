@@ -39,7 +39,9 @@ public final class PlantUMLHighlighter {
         self.baseFont = baseFont
     }
 
-    private static let keyword = regex(#"(?i)\b(?:@startuml|@enduml|@startmindmap|@endmindmap|@startgantt|@endgantt|actor|participant|component|class|interface|abstract|enum|package|node|database|cloud|frame|folder|rectangle|object|usecase|state|note|left|right|of|over|on|link|skinparam|hide|show|title|caption|legend|footer|header|center|top|bottom|as|if|else|elseif|endif|while|repeat|fork|again|end|return|activate|deactivate|destroy|create|autonumber|newpage|alt|opt|loop|par|break|critical|group|ref|box|order|scale|stereotype|sprite|page|colors|theme)\b"#)
+    // Driven by PlantUMLCatalog so highlighting tracks the same vocabulary as
+    // autocompletion (was a stale hardcoded subset).
+    private static let keyword = regex(PlantUMLCatalog.keywordRegexPattern)
     private static let comment = regex(#"(?m)('.*$)"#)
     private static let multilineComment = regex(#"/'[\s\S]*?'/"#)
     private static let string  = regex(#"\"[^\"\n]*\""#)

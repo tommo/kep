@@ -1,7 +1,22 @@
 import XCTest
+import Foundation
 import MindoPlantUML
 
 final class PlantUMLCatalogTests: XCTestCase {
+
+    func testKeywordRegexPatternMatchesCatalogVocabulary() throws {
+        let re = try NSRegularExpression(pattern: PlantUMLCatalog.keywordRegexPattern)
+        func matches(_ s: String) -> Bool {
+            re.firstMatch(in: s, range: NSRange(s.startIndex..., in: s)) != nil
+        }
+        for kw in ["participant", "skinparam", "state", "@startmindmap", "!define", "%date"] {
+            XCTAssertTrue(matches(kw), "should highlight \(kw)")
+        }
+        XCTAssertTrue(matches("ACTOR"), "case-insensitive")
+        XCTAssertFalse(matches("participantx"), "whole-token only")
+        XCTAssertFalse(matches("frobnicate"))
+        XCTAssertTrue(matches("!ifdef"), "if must not shadow ifdef")
+    }
 
     func testKeywordsAreCuratedSingleTokens() {
         let kws = PlantUMLCatalog.keywords

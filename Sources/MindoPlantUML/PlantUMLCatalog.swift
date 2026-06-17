@@ -50,6 +50,21 @@ public enum PlantUMLCatalog {
         "true", "false", "and", "is", "then", "backward", "color",
     ]
 
+    /// Case-insensitive regex alternation matching any catalog keyword as a
+    /// whole token. Drives `PlantUMLHighlighter` so syntax highlighting tracks
+    /// the SAME vocabulary as autocompletion. Symbol-prefixed keywords (@/!/%)
+    /// don't get a leading `\b` (no word boundary before a symbol); all get a
+    /// trailing `\b` so `if` doesn't shadow `ifdef`.
+    public static var keywordRegexPattern: String {
+        func esc(_ s: String) -> String { NSRegularExpression.escapedPattern(for: s) }
+        let prefixed = keywords.filter { ($0.first).map { "@!%".contains($0) } ?? false }
+        let plain = keywords.filter { !(($0.first).map { "@!%".contains($0) } ?? false) }
+        var alts: [String] = []
+        if !plain.isEmpty { alts.append("\\b(?:" + plain.map(esc).joined(separator: "|") + ")\\b") }
+        if !prefixed.isEmpty { alts.append("(?:" + prefixed.map(esc).joined(separator: "|") + ")\\b") }
+        return "(?i)(?:" + alts.joined(separator: "|") + ")"
+    }
+
     /// Common `skinparam <name>` names for completion after `skinparam `.
     public static let skinparams: [String] = [
         "backgroundColor", "handwritten", "monochrome", "shadowing", "roundCorner",

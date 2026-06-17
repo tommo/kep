@@ -81,22 +81,6 @@ struct MindoApp: App {
                         session.applyAIResult(text: text, mode: mode)
                     }
                 }
-                .sheet(isPresented: $session.aiDialogOpen) {
-                    VStack(spacing: 0) {
-                        DialogView(
-                            contextProvider: { session.aiDialogContextBlock() },
-                            onInsert: { session.insertDialogReply($0) }
-                        )
-                        Divider()
-                        HStack {
-                            Spacer()
-                            Button("Done") { session.aiDialogOpen = false }
-                                .keyboardShortcut(.cancelAction)
-                        }
-                        .padding(8)
-                    }
-                    .frame(width: 460, height: 560)
-                }
                 .sheet(isPresented: $session.snippetPickerOpen) {
                     SnippetPicker(fileType: session.activeFileType) { snippet in
                         session.insertSnippet(snippet)
@@ -305,8 +289,11 @@ struct MindoApp: App {
                 .disabled(session.activeFileType != .mindMap)
             }
             CommandMenu(L("menu.ai")) {
-                Button("Assistant…") { session.aiDialogOpen = true }
-                    .keyboardShortcut("0", modifiers: [.command])
+                Button("Assistant") {
+                    session.sidebarVisible = true
+                    session.sidebarTab = .agent
+                }
+                .keyboardShortcut("0", modifiers: [.command])
                 Divider()
                 Button(L("menu.ai.generate")) { session.openAIGenerate(intent: .input) }
                     .keyboardShortcut("g", modifiers: [.command, .shift])
@@ -375,8 +362,8 @@ final class AppSession {
     // AI sheets
     var aiSettingsOpen: Bool = false
     var aiGenerateOpen: Bool = false
-    /// Whether the conversational assistant dialog is shown (⌘0 / AI menu).
-    var aiDialogOpen: Bool = false
+    /// Which sidebar surface is showing — workspace tree or the AI assistant.
+    var sidebarTab: SidebarTab = .files
     var aiSupportedModes: [AIGeneratePane.InsertionMode] = [.append]
     var aiDefaultPrompt: String = ""
 

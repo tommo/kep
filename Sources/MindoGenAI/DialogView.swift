@@ -30,7 +30,7 @@ public struct DialogView: View {
             Divider()
             composer
         }
-        .frame(minWidth: 360, minHeight: 420)
+        .frame(minWidth: 220, minHeight: 280)
         .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { inputFocused = true } }
     }
 

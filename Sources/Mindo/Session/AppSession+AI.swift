@@ -52,6 +52,23 @@ extension AppSession {
         }
     }
 
+    /// Whole-workspace context for the sidebar assistant: the list of documents
+    /// it can reference (by base name, matching how `[[wiki links]]` resolve),
+    /// then the active document as the current focus. Lets the agent reason
+    /// ACROSS documents, not just the open one.
+    func aiWorkspaceContextBlock() -> String? {
+        var parts: [String] = []
+        let names = wikiLinkDocumentNames()
+        if !names.isEmpty {
+            parts.append("Workspace documents (reference any by name, e.g. [[Name]]): "
+                         + names.joined(separator: ", "))
+        }
+        if let focus = aiDialogContextBlock() {
+            parts.append("Currently focused — \(focus)")
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: "\n\n")
+    }
+
     /// Context block handed to the conversational assistant before each send:
     /// what the user is currently editing, so replies are grounded in the doc.
     /// Body is truncated to keep the prompt cheap. Returns nil when no doc is open.

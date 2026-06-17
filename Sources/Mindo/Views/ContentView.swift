@@ -2,6 +2,11 @@ import SwiftUI
 import MindoBase
 import MindoCore
 import MindoMarkdown
+import MindoGenAI
+
+/// Which sidebar surface is showing: the workspace file tree, or the
+/// cross-document AI assistant.
+enum SidebarTab: Sendable { case files, agent }
 
 /// Top-level window content: split view (sidebar | detail with outline
 /// inspector), plus the global error alert. Owned by `MindoApp.body`.
@@ -38,13 +43,8 @@ struct ContentView: View {
         // collapse natively — no AppKit NSSplitViewController/NSHostingController
         // hosting, which is what made the panes un-resizable.
         NavigationSplitView(columnVisibility: sidebarColumnVisibility) {
-            SidebarView(
-                session: $session,
-                selection: $sidebarSelection,
-                onSelectionSource: { selectionSource = $0 },
-                onConfirm: openSelectedFile
-            )
-            .navigationSplitViewColumnWidth(min: 170, ideal: 220, max: 460)
+            sidebarColumn
+                .navigationSplitViewColumnWidth(min: 220, ideal: 300, max: 560)
         } detail: {
             DetailArea(session: $session)
         }
@@ -112,8 +112,53 @@ struct ContentView: View {
         }
     }
 
-    /// The right-hand inspector pane: outline, node properties, and — when the
-    /// selected node has markdown content (its Note) — a rendered preview.
+    /// Sidebar contents: a Files / Assistant switch, then either the workspace
+    /// tree or the cross-document AI assistant. The assistant lives here (not a
+    /// modal sheet) so it stays open while you work and operates over the WHOLE
+    /// workspace, not just the active document.
+    @ViewBuilder private var sidebarColumn: some View {
+        VStack(spacing: 0) {
+            Picker("", selection: sidebarTabBinding) {
+                Image(systemName: "folder").tag(SidebarTab.files)
+                Image(systemName: "bubble.left.and.bubble.right").tag(SidebarTab.agent)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            Divider()
+            switch session.sidebarTab {
+            case .files:
+                SidebarView(
+                    session: $session,
+                    selection: $sidebarSelection,
+                    onSelectionSource: { selectionSource = $0 },
+                    onConfirm: openSelectedFile
+                )
+            case .agent:
+                DialogView(
+                    systemPrompt: Self.agentSystemPrompt,
+                    contextProvider: { session.aiWorkspaceContextBlock() },
+                    onInsert: { session.insertDialogReply($0) }
+                )
+            }
+        }
+    }
+
+    private var sidebarTabBinding: Binding<SidebarTab> {
+        Binding(get: { session.sidebarTab }, set: { session.sidebarTab = $0 })
+    }
+
+    /// System prompt for the sidebar assistant — framed as a whole-workspace
+    /// agent rather than a single-document helper.
+    static let agentSystemPrompt =
+        "You are Mindo's assistant for the user's entire knowledge base — multiple mind maps and "
+        + "Markdown/PlantUML/CSV documents linked by [[wiki links]]. Reason and act ACROSS documents, "
+        + "not just the one that's open. Be concise; when producing a diagram or table, output only "
+        + "valid source for that format."
+
+    /// The right-hand inspector pane: outline + (when a node is selected) a
+    /// rendered Note editor. The node-properties strip was removed (unused).
     private var inspectorPane: some View {
         VSplitView {
             OutlinePanel(
@@ -124,8 +169,9 @@ struct ContentView: View {
             }
             .frame(minHeight: 100, idealHeight: 260)
 
-            NodePropertyView(properties: session.selectedNodeProperties)
-                .frame(minHeight: 90)
+            // Node-properties strip removed — it wasn't useful.
+            // NodePropertyView(properties: session.selectedNodeProperties)
+            //     .frame(minHeight: 90)
 
             // Node content editor — the SAME markdown widget the .md document
             // view uses, bound to the selected node's content (its Note).

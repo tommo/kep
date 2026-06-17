@@ -24,12 +24,6 @@ public struct ScriptParser {
         return node
     }
 
-    /// Parse a whole program. (v0: query blocks; builder `map` blocks next.)
-    public static func parseProgram(_ source: String) throws -> [TopLevel] {
-        var parser = ScriptParser(try ScriptLexer.tokenize(source))
-        return try parser.program()
-    }
-
     /// Parse a single query block (the text after, and including, `?`).
     public static func parseQuery(_ source: String) throws -> QueryBlock {
         var parser = ScriptParser(try ScriptLexer.tokenize(source))
@@ -42,23 +36,9 @@ public struct ScriptParser {
         return q
     }
 
-    // MARK: - Program / blocks
+    // MARK: - Query block (token-based; called per block by the program parser)
 
-    private mutating func program() throws -> [TopLevel] {
-        var blocks: [TopLevel] = []
-        skipNewlines()
-        while peek.kind != .eof {
-            if peek.kind == .question {
-                blocks.append(.query(try queryBlock()))
-            } else {
-                throw ScriptError.parse("expected a query (`?`) — builder `map` blocks not yet supported", at: peek.at)
-            }
-            skipNewlines()
-        }
-        return blocks
-    }
-
-    private mutating func queryBlock() throws -> QueryBlock {
+    mutating func queryBlock() throws -> QueryBlock {
         try expect(.question, "'?' to start a query")
         skipNewlines()
         let src = try parseSource()

@@ -73,7 +73,55 @@ public struct QueryBlock: Equatable, Sendable {
     }
 }
 
-/// A top-level program element. (MapBlock builder parsing is added next.)
+/// One piece of a builder line's topic text: a literal run or an interpolated
+/// `{{ expr }}`.
+public enum TextPiece: Equatable, Sendable {
+    case literal(String)
+    case interp(ScriptNode)
+}
+
+/// A builder line's content: either expand a bound result set (`from $x`) into
+/// children, or a topic-text run.
+public enum BuilderBody: Equatable, Sendable {
+    case from(String)
+    case text([TextPiece])
+}
+
+/// A `@key: expr` decorator setting an attribute/note/link on a built topic.
+public struct Decorator: Equatable, Sendable {
+    public let key: String
+    public let value: ScriptNode
+    public init(key: String, value: ScriptNode) {
+        self.key = key
+        self.value = value
+    }
+}
+
+/// One indented builder line. `depth` is the 2-space indent unit count (the map
+/// header is depth 0, its direct children depth 1, …) — the parent-stack key.
+public struct BuilderLine: Equatable, Sendable {
+    public let depth: Int
+    public let body: BuilderBody
+    public let decorators: [Decorator]
+    public init(depth: Int, body: BuilderBody, decorators: [Decorator]) {
+        self.depth = depth
+        self.body = body
+        self.decorators = decorators
+    }
+}
+
+/// A `map "Name"` builder block: the outline IS the mind map.
+public struct MapBlock: Equatable, Sendable {
+    public let name: String
+    public let lines: [BuilderLine]
+    public init(name: String, lines: [BuilderLine]) {
+        self.name = name
+        self.lines = lines
+    }
+}
+
+/// A top-level program element.
 public enum TopLevel: Equatable, Sendable {
     case query(QueryBlock)
+    case map(MapBlock)
 }

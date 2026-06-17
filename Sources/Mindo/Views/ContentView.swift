@@ -153,6 +153,8 @@ struct ContentView: View {
                     Image(systemName: "bubble.left.and.bubble.right").tag(InspectorTab.agent)
                 }
                 .pickerStyle(.segmented)
+                .controlSize(.small)
+                .fixedSize()
                 .help("Switch the inspector between document outline and the assistant")
             }
         }

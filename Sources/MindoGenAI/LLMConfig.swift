@@ -45,13 +45,14 @@ public enum BuiltInModels {
                 ModelMeta(name: "mistral", maxTokens: 8192),
             ]
         case .deepSeek:
-            // Current V4 line (1M context). `deepseek-chat`/`deepseek-reasoner`
-            // remain as aliases the API still accepts.
+            // deepseek-chat (non-thinking, returns `content` directly) is the
+            // default so replies show out of the box. deepseek-reasoner /
+            // -v4-flash are thinking models (answer via reasoning_content).
             return [
-                ModelMeta(name: "deepseek-v4-flash", maxTokens: 8192),
-                ModelMeta(name: "deepseek-v4-pro", maxTokens: 8192),
                 ModelMeta(name: "deepseek-chat", maxTokens: 8192),
                 ModelMeta(name: "deepseek-reasoner", maxTokens: 8192),
+                ModelMeta(name: "deepseek-v4-flash", maxTokens: 8192),
+                ModelMeta(name: "deepseek-v4-pro", maxTokens: 8192),
             ]
         case .moonshot:
             return [

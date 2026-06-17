@@ -32,7 +32,10 @@ public struct DialogView: View {
             composer
         }
         .frame(minWidth: 220, minHeight: 280)
-        .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { inputFocused = true } }
+        .onAppear {
+            vm.refreshProviderLabel()   // pick up provider/model configured since init
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { inputFocused = true }
+        }
     }
 
     private var header: some View {

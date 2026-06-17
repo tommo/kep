@@ -110,9 +110,13 @@ open class OpenAICompatibleProvider: LLMProvider, @unchecked Sendable {
         let outTokens = (usage?["completion_tokens"] as? Int) ?? 0
         if let choices = obj["choices"] as? [[String: Any]],
            let first = choices.first,
-           let message = first["message"] as? [String: Any],
-           let content = message["content"] as? String {
-            return StreamPartial(text: content, outputTokens: outTokens, isStop: true)
+           let message = first["message"] as? [String: Any] {
+            // Reasoning models (deepseek-reasoner / -v4-flash) put the answer in
+            // `content`, but when it's empty fall back to `reasoning_content` so
+            // the reply isn't silently dropped.
+            let content = (message["content"] as? String) ?? ""
+            let reasoning = (message["reasoning_content"] as? String) ?? ""
+            return StreamPartial(text: content.isEmpty ? reasoning : content, outputTokens: outTokens, isStop: true)
         }
         // Fall back to top-level error fields.
         if let err = obj["error"] as? [String: Any], let message = err["message"] as? String {
@@ -129,7 +133,12 @@ open class OpenAICompatibleProvider: LLMProvider, @unchecked Sendable {
         let choices = obj["choices"] as? [[String: Any]]
         guard let first = choices?.first else { return nil }
         let delta = (first["delta"] as? [String: Any]) ?? (first["message"] as? [String: Any]) ?? [:]
-        let text = (delta["content"] as? String) ?? ""
+        // Stream the answer; while a reasoning model is still "thinking" its
+        // deltas carry only `reasoning_content`, so surface that too (otherwise
+        // the panel shows nothing until/unless content arrives).
+        let content = (delta["content"] as? String) ?? ""
+        let reasoning = (delta["reasoning_content"] as? String) ?? ""
+        let text = content.isEmpty ? reasoning : content
         let finishReason = first["finish_reason"] as? String
         let isStop = finishReason != nil
         let usage = obj["usage"] as? [String: Any]

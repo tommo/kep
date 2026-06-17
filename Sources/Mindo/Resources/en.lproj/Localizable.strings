@@ -129,6 +129,10 @@
 "ai.generate.mode.child_topic" = "As child topic";
 
 /* MARK: - Sidebar */
+"sidebar.sort.label" = "Sort By";
+"sidebar.sort.name" = "Name";
+"sidebar.sort.recent" = "Recently Opened";
+"sidebar.sort.modified" = "Date Modified";
 "sidebar.workspaces" = "Workspaces";
 "sidebar.empty.title" = "No Workspaces";
 "sidebar.empty.description" = "Click + to add a folder.";

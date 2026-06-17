@@ -126,6 +126,10 @@
 "ai.generate.mode.child_topic" = "作为子主题";
 
 /* MARK: - 侧边栏 */
+"sidebar.sort.label" = "排序方式";
+"sidebar.sort.name" = "名称";
+"sidebar.sort.recent" = "最近打开";
+"sidebar.sort.modified" = "修改日期";
 "sidebar.workspaces" = "工作区";
 "sidebar.empty.title" = "暂无工作区";
 "sidebar.empty.description" = "点击 + 添加文件夹。";

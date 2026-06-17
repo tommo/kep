@@ -5,6 +5,7 @@ import MindoCore
 struct SidebarView: View {
     @Binding var session: AppSession
     @Binding var selection: NodeData?
+    @AppStorage(PrefKeys.sidebarSortMode) private var sortModeRaw = SidebarSortMode.name.rawValue
     /// Records what drove the next selection change so ContentView can tell
     /// arrow-key traversal (highlight only) apart from a click (opens).
     var onSelectionSource: (SidebarSelectionSource) -> Void = { _ in }
@@ -16,6 +17,20 @@ struct SidebarView: View {
             HStack {
                 Text(L("sidebar.workspaces")).font(.headline)
                 Spacer()
+                Menu {
+                    Picker(L("sidebar.sort.label"), selection: $sortModeRaw) {
+                        ForEach(SidebarSortMode.allCases, id: \.rawValue) { mode in
+                            Text(L(.init(stringLiteral: "sidebar.sort.\(mode.rawValue)"))).tag(mode.rawValue)
+                        }
+                    }
+                    .pickerStyle(.inline)
+                } label: {
+                    Image(systemName: "arrow.up.arrow.down")
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .help(L("sidebar.sort.label"))
                 Button { session.openWorkspace() } label: {
                     Image(systemName: "plus")
                 }.buttonStyle(.plain)
@@ -174,6 +189,7 @@ struct NodeRow: View {
     @Binding var session: AppSession
     @Binding var selection: NodeData?
     @AppStorage(PrefKeys.hideFileExtensions) private var hideFileExtensions: Bool = false
+    @AppStorage(PrefKeys.sidebarSortMode) private var sortModeRaw = SidebarSortMode.name.rawValue
 
     /// Persisted expansion binding so the tree reopens the way it was left.
     private var expansion: Binding<Bool> {
@@ -205,28 +221,12 @@ struct NodeRow: View {
                     .foregroundStyle(.secondary)
                 label
                 Spacer(minLength: 0)
-                if isRecent {
-                    // Subtle accent dot for recently-opened files —
-                    // helps the user spot what they were last editing.
-                    Circle()
-                        .fill(Color.accentColor.opacity(0.7))
-                        .frame(width: 5, height: 5)
-                        .help(L("sidebar.recently_opened"))
-                }
             }
             .font(.system(size: 12))
             .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 4))
             .tag(node)
             .contextMenu { menuItems }
         }
-    }
-
-    /// True when this node's URL is in the workspace's recents list.
-    /// Folders never qualify (they're not "opened" in the doc sense).
-    private var isRecent: Bool {
-        guard node.isFile else { return false }
-        let recentPaths = Set(CollectionStore.shared.recents.map { $0.path })
-        return recentPaths.contains(node.url.path)
     }
 
     /// Either the static row name, or — when this node is the inline-rename
@@ -303,13 +303,17 @@ struct NodeRow: View {
     /// Folders always show through so the user can drill in even when
     /// nothing in the immediate folder matches.
     private func filteredChildren() -> [NodeData] {
-        let raw = node.children(config: WorkspaceConfig.fromPreferences())
+        var raw = node.children(config: WorkspaceConfig.fromPreferences())
         let filter = session.sidebarTypeFilter
-        guard !filter.isEmpty else { return raw }
-        return raw.filter { child in
-            if child.isExpandable { return true }
-            guard let type = child.fileType else { return false }
-            return filter.contains(type)
+        if !filter.isEmpty {
+            raw = raw.filter { child in
+                if child.isExpandable { return true }
+                guard let type = child.fileType else { return false }
+                return filter.contains(type)
+            }
         }
+        let mode = SidebarSortMode(rawValue: sortModeRaw) ?? .name
+        return SidebarSort.sorted(raw, mode: mode,
+                                  recents: CollectionStore.shared.recents.map(\.url))
     }
 }

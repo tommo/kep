@@ -36,6 +36,8 @@ public enum PrefKeys {
     /// Whether the sidebar (workspace tree) column is shown. Toggled from
     /// the View menu (⌃⌘S); persisted so it survives relaunch.
     public static let sidebarVisible = "mindo.prefs.sidebarVisible"
+    /// File-tree sort order (raw value of `SidebarSortMode`).
+    public static let sidebarSortMode = "mindo.prefs.sidebarSortMode"
     /// JSON map of folder path → expanded, for folders the user has toggled,
     /// so the tree reopens the way it was left. See SidebarExpansionState.
     public static let sidebarExpansion = "mindo.prefs.sidebarExpansion"

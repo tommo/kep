@@ -18,25 +18,41 @@ struct ContentView: View {
     /// cramped for anything longer than a line or two).
     @State private var noteExpanded = false
 
-    var body: some View {
-        // AppKit NSSplitView-backed (via ThreePaneSplit) so pane widths PERSIST
-        // (autosaveName) and the layout stays the SAME across document modes —
-        // no auto-collapse. Sidebar / inspector visibility = user toggles only;
-        // the detail pane holds the bulk of the width.
-        ThreePaneSplit(
-            showSidebar: session.sidebarVisible,
-            showInspector: session.outlineOpen,
-            sidebar: {
-                SidebarView(
-                    session: $session,
-                    selection: $sidebarSelection,
-                    onSelectionSource: { selectionSource = $0 },
-                    onConfirm: openSelectedFile
-                )
-            },
-            detail: { DetailArea(session: $session) },
-            inspector: { inspectorPane }
+    /// Sidebar visibility bridged to `session.sidebarVisible` (toggled from the
+    /// View menu / sidebar button). `.all` shows it, `.detailOnly` hides it.
+    private var sidebarColumnVisibility: Binding<NavigationSplitViewVisibility> {
+        Binding(
+            get: { session.sidebarVisible ? .all : .detailOnly },
+            set: { session.sidebarVisible = ($0 != .detailOnly) }
         )
+    }
+
+    /// Right inspector presentation bridged to `session.outlineOpen`.
+    private var inspectorPresented: Binding<Bool> {
+        Binding(get: { session.outlineOpen }, set: { session.outlineOpen = $0 })
+    }
+
+    var body: some View {
+        // Native SwiftUI three-pane layout: NavigationSplitView (sidebar |
+        // document) + the purpose-built .inspector (right panel). Both resize and
+        // collapse natively — no AppKit NSSplitViewController/NSHostingController
+        // hosting, which is what made the panes un-resizable.
+        NavigationSplitView(columnVisibility: sidebarColumnVisibility) {
+            SidebarView(
+                session: $session,
+                selection: $sidebarSelection,
+                onSelectionSource: { selectionSource = $0 },
+                onConfirm: openSelectedFile
+            )
+            .navigationSplitViewColumnWidth(min: 170, ideal: 220, max: 460)
+        } detail: {
+            DetailArea(session: $session)
+        }
+        .navigationSplitViewStyle(.balanced)
+        .inspector(isPresented: inspectorPresented) {
+            inspectorPane
+                .inspectorColumnWidth(min: 200, ideal: 280, max: 460)
+        }
         .onChange(of: sidebarSelection) { _, new in
             // A nil here is almost never a real user deselect — SwiftUI's List
             // clears its selection binding when it resigns first responder, and

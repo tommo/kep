@@ -97,7 +97,16 @@ public final class PlantUMLRenderer {
 
     /// Render the given PlantUML source synchronously and return the SVG bytes.
     /// Uses a 30s timeout. Throws `RenderError` on any failure.
-    public func renderSVG(source: String, timeout: TimeInterval = 30) throws -> Data {
+    ///
+    /// Sequence diagrams render **natively** (no Java) via the in-process SVG
+    /// renderer; everything else falls through to the PlantUML CLI/jar. The
+    /// native path needs no external tool, so it works even when Java is absent.
+    public func renderSVG(source: String, isDark: Bool = false, timeout: TimeInterval = 30) throws -> Data {
+        if let native = SequenceSVGRenderer.renderSequenceSVG(source: source, isDark: isDark),
+           let data = native.data(using: .utf8) {
+            return data
+        }
+
         guard let tool = locate() else {
             throw RenderError.toolMissing(installHint: installHint)
         }

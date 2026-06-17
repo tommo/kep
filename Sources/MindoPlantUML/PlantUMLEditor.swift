@@ -320,7 +320,7 @@ public struct PlantUMLEditor: NSViewRepresentable {
                 let html: String
                 var svgData: Data? = nil
                 do {
-                    let svg = try PlantUMLRenderer.shared.renderSVG(source: source)
+                    let svg = try PlantUMLRenderer.shared.renderSVG(source: source, isDark: isDark)
                     svgData = svg
                     html = Self.previewHTML(svg: String(data: svg, encoding: .utf8) ?? "", isDark: isDark)
                 } catch let err as PlantUMLRenderer.RenderError {

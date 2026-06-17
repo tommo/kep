@@ -78,6 +78,17 @@ open class OpenAICompatibleProvider: LLMProvider, @unchecked Sendable {
         return try Self.parsePredictResponse(data)
     }
 
+    /// One non-streaming completion returning BOTH assistant text and any
+    /// requested tool calls — the unit the agent tool-loop runs on.
+    open func complete(_ input: LLMInput) async throws -> (text: String, toolCalls: [ToolCall]) {
+        let req = try makeRequest(input, streaming: false)
+        let (data, response) = try await session.data(for: req)
+        try LLMHTTP.checkResponse(response, body: String(data: data, encoding: .utf8) ?? "")
+        let calls = Self.parseToolCalls(data)
+        let text = (try? Self.parsePredictResponse(data).text) ?? ""
+        return (text, calls)
+    }
+
     // MARK: - Stream
 
     open func stream(_ input: LLMInput, onPartial: @escaping @Sendable (StreamPartial) -> Void) async throws {

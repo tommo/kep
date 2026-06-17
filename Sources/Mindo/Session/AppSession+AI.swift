@@ -57,6 +57,7 @@ extension AppSession {
     /// which one the user is viewing — but NOT any document's content. The
     /// assistant is workspace-wide, not tied to one doc; it fetches content on
     /// demand via the `read_document` tool (and mind-map tools).
+    @MainActor
     func aiWorkspaceContextBlock() -> String? {
         var parts: [String] = []
         let names = wikiLinkDocumentNames()
@@ -72,6 +73,15 @@ extension AppSession {
             case .unsupported: kind = "document"
             }
             parts.append("The user is currently viewing the \(kind) \"\(doc.title)\".")
+        }
+        // The user's current mind-map selection, so "this node" / "the selected
+        // topic" resolves. Path is a stable [outline-path] the mind-map tools accept.
+        if let map = activeMindMap, let path = activeMindMapView?.selectedOutlinePath,
+           let topic = map.topic(atOutlinePath: path) {
+            let text = topic.text.replacingOccurrences(of: "\n", with: " ")
+            let capped = text.count > 120 ? String(text.prefix(120)) + "…" : text
+            parts.append("The user has selected the topic at [outline-path \(path)]: \"\(capped)\". "
+                         + "When they say \"this\"/\"the selected node\", act on that topic (target it by path).")
         }
         return parts.isEmpty ? nil : parts.joined(separator: "\n")
     }

@@ -1,6 +1,7 @@
 import Foundation
 import MindoGenAI
 import MindoModel
+import MindoCore
 
 extension AppSession {
 
@@ -65,6 +66,18 @@ extension AppSession {
         }
         if let focus = aiDialogContextBlock() {
             parts.append("Currently focused — \(focus)")
+        }
+        // Knowledge-base links for the focused doc (what it links to / is linked
+        // from) so the agent can reason across the vault.
+        if let doc = activeDocument, let url = doc.fileURL,
+           case .text(let text, _) = doc.kind {
+            let files = quickSwitcherFiles().map(\.url)
+            let corpus: [(url: URL, text: String)] = files.compactMap { u in
+                (try? String(contentsOf: u, encoding: .utf8)).map { (u, $0) }
+            }
+            if let kb = KBContext.summary(for: url, text: text, corpus: corpus, allFiles: files) {
+                parts.append("Knowledge-base links for the focused document — \(kb)")
+            }
         }
         return parts.isEmpty ? nil : parts.joined(separator: "\n\n")
     }

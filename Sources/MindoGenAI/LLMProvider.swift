@@ -31,6 +31,9 @@ public struct LLMInput: Sendable {
     /// non-nil/non-empty the provider sends these verbatim; otherwise it falls
     /// back to a single `{user, text}` message (the legacy one-shot path).
     public let messages: [ChatMessage]?
+    /// Function/tool specs offered to the model (OpenAI tool-calling). When
+    /// present the request includes them and the model may reply with tool_calls.
+    public let tools: [ToolSpec]?
     public let temperature: Float
     public let maxTokens: Int
     public let outputAdjust: OutputAdjust
@@ -43,6 +46,7 @@ public struct LLMInput: Sendable {
         model: String,
         text: String,
         messages: [ChatMessage]? = nil,
+        tools: [ToolSpec]? = nil,
         temperature: Float = 0.7,
         maxTokens: Int = 2048,
         outputAdjust: OutputAdjust = .asText,
@@ -54,6 +58,7 @@ public struct LLMInput: Sendable {
         self.model = model
         self.text = text
         self.messages = messages
+        self.tools = tools
         self.temperature = temperature
         self.maxTokens = maxTokens
         self.outputAdjust = outputAdjust
@@ -67,6 +72,32 @@ public struct LLMInput: Sendable {
     public var wireMessages: [ChatMessage] {
         if let messages, !messages.isEmpty { return messages }
         return [.user(text)]
+    }
+}
+
+/// A function the model may call. `parametersJSON` is a JSON-Schema object
+/// (as a string) describing the arguments.
+public struct ToolSpec: Sendable, Equatable {
+    public let name: String
+    public let description: String
+    public let parametersJSON: String
+    public init(name: String, description: String,
+                parametersJSON: String = #"{"type":"object","properties":{}}"#) {
+        self.name = name
+        self.description = description
+        self.parametersJSON = parametersJSON
+    }
+}
+
+/// A tool invocation the model requested in its reply.
+public struct ToolCall: Sendable, Equatable {
+    public let id: String
+    public let name: String
+    public let argumentsJSON: String
+    public init(id: String, name: String, argumentsJSON: String) {
+        self.id = id
+        self.name = name
+        self.argumentsJSON = argumentsJSON
     }
 }
 

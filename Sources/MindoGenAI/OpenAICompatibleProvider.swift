@@ -49,13 +49,22 @@ open class OpenAICompatibleProvider: LLMProvider, @unchecked Sendable {
         if !meta.apiKey.isEmpty {
             req.setValue("Bearer \(meta.apiKey)", forHTTPHeaderField: "Authorization")
         }
-        let body: [String: Any] = [
+        var body: [String: Any] = [
             "model": input.model,
             "stream": streaming,
             "temperature": input.temperature,
             "max_tokens": input.maxTokens,
             "messages": input.wireMessages.map { ["role": $0.role.rawValue, "content": $0.content] },
         ]
+        if let tools = input.tools, !tools.isEmpty {
+            body["tools"] = tools.map { spec -> [String: Any] in
+                let schema = (try? JSONSerialization.jsonObject(with: Data(spec.parametersJSON.utf8)))
+                    ?? ["type": "object", "properties": [:]]
+                return ["type": "function",
+                        "function": ["name": spec.name, "description": spec.description, "parameters": schema]]
+            }
+            body["tool_choice"] = "auto"
+        }
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
         return req
     }
@@ -123,6 +132,22 @@ open class OpenAICompatibleProvider: LLMProvider, @unchecked Sendable {
             throw LLMError.decoding(message)
         }
         throw LLMError.decoding("unrecognized response shape")
+    }
+
+    /// Extract any `tool_calls` the model requested from a (non-streaming)
+    /// chat-completion response. Empty when the model returned plain content.
+    public static func parseToolCalls(_ data: Data) -> [ToolCall] {
+        guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let choices = obj["choices"] as? [[String: Any]],
+              let message = choices.first?["message"] as? [String: Any],
+              let calls = message["tool_calls"] as? [[String: Any]] else { return [] }
+        return calls.compactMap { call in
+            guard let fn = call["function"] as? [String: Any],
+                  let name = fn["name"] as? String else { return nil }
+            let id = (call["id"] as? String) ?? name
+            let args = (fn["arguments"] as? String) ?? "{}"
+            return ToolCall(id: id, name: name, argumentsJSON: args)
+        }
     }
 
     public static func parseStreamEvent(_ json: String) -> StreamPartial? {

@@ -6,11 +6,11 @@ final class ToolCallingTests: XCTestCase {
 
     private func provider() -> DeepSeekProvider {
         DeepSeekProvider(meta: ProviderMeta(apiKey: "k", endpoint: GenAIProviderID.deepSeek.defaultEndpoint),
-                         model: ModelMeta(name: "deepseek-chat"))
+                         model: ModelMeta(name: "deepseek-v4-flash"))
     }
 
     func testRequestOmitsToolsWhenNone() throws {
-        let input = LLMInput(providerID: GenAIProviderID.deepSeek.rawValue, model: "deepseek-chat", text: "hi")
+        let input = LLMInput(providerID: GenAIProviderID.deepSeek.rawValue, model: "deepseek-v4-flash", text: "hi")
         let req = try provider().makeRequest(input, streaming: false)
         let obj = try JSONSerialization.jsonObject(with: req.httpBody!) as! [String: Any]
         XCTAssertNil(obj["tools"])
@@ -22,7 +22,7 @@ final class ToolCallingTests: XCTestCase {
                      parametersJSON: #"{"type":"object","properties":{"target":{"type":"string"}},"required":["target"]}"#),
             ToolSpec(name: "list_docs", description: "List workspace docs"),
         ]
-        let input = LLMInput(providerID: GenAIProviderID.deepSeek.rawValue, model: "deepseek-chat",
+        let input = LLMInput(providerID: GenAIProviderID.deepSeek.rawValue, model: "deepseek-v4-flash",
                              text: "use a tool", tools: tools)
         let req = try provider().makeRequest(input, streaming: false)
         let obj = try JSONSerialization.jsonObject(with: req.httpBody!) as! [String: Any]

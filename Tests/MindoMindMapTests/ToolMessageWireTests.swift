@@ -6,11 +6,11 @@ final class ToolMessageWireTests: XCTestCase {
 
     private func provider() -> DeepSeekProvider {
         DeepSeekProvider(meta: ProviderMeta(apiKey: "k", endpoint: GenAIProviderID.deepSeek.defaultEndpoint),
-                         model: ModelMeta(name: "deepseek-chat"))
+                         model: ModelMeta(name: "deepseek-v4-flash"))
     }
 
     private func messages(_ ms: [ChatMessage]) throws -> [[String: Any]] {
-        let input = LLMInput(providerID: GenAIProviderID.deepSeek.rawValue, model: "deepseek-chat",
+        let input = LLMInput(providerID: GenAIProviderID.deepSeek.rawValue, model: "deepseek-v4-flash",
                              text: "x", messages: ms)
         let body = try JSONSerialization.jsonObject(with: provider().makeRequest(input, streaming: false).httpBody!) as! [String: Any]
         return body["messages"] as! [[String: Any]]

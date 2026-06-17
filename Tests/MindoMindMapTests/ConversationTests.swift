@@ -74,9 +74,9 @@ final class ConversationTests: XCTestCase {
     func testMakeRequestSerializesAllMessages() throws {
         let provider = DeepSeekProvider(
             meta: ProviderMeta(apiKey: "k", endpoint: GenAIProviderID.deepSeek.defaultEndpoint),
-            model: ModelMeta(name: "deepseek-chat")
+            model: ModelMeta(name: "deepseek-v4-flash")
         )
-        let input = LLMInput(providerID: GenAIProviderID.deepSeek.rawValue, model: "deepseek-chat",
+        let input = LLMInput(providerID: GenAIProviderID.deepSeek.rawValue, model: "deepseek-v4-flash",
                              text: "x", messages: [.system("be nice"), .user("hello"), .assistant("hi"), .user("bye")])
         let req = try provider.makeRequest(input, streaming: false)
         let body = try XCTUnwrap(req.httpBody)

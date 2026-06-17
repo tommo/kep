@@ -98,6 +98,47 @@ public final class MindoLuaAPI {
             t.parent?.removeChild(t)
             return .nil
         }
+        // Structure: find, move/reparent, jump-links, notes, collapse, path
+        engine.register("__mindo_find") { [self] a in
+            let needle = (try string(a, 0)).lowercased()
+            guard let root = map.root else { return .array([]) }
+            var hits: [LuaValue] = []
+            root.traverse { if $0.text.lowercased().contains(needle) { hits.append(.number(Double(id(for: $0)))) } }
+            return .array(hits)
+        }
+        engine.register("__mindo_move") { [self] a in
+            let t = try topic(a)
+            let newParent = try topic(a, 1)
+            guard t.parent != nil else { throw MindoScriptError(message: "mindo.move: can't move the root") }
+            if newParent === t || Self.isDescendant(newParent, of: t) {
+                throw MindoScriptError(message: "mindo.move: can't move a topic under itself or its descendant")
+            }
+            t.parent?.removeChild(t)
+            if a.count > 2, let idx = a[2].intValue { newParent.insert(t, at: idx) } else { newParent.append(t) }
+            return .nil
+        }
+        engine.register("__mindo_link") { [self] a in
+            let source = try topic(a)
+            let target = try topic(a, 1)
+            guard source !== target else { throw MindoScriptError(message: "mindo.link: source and target are the same") }
+            var uid = target.attribute(ExtraTopic.topicUidAttr)
+            if uid == nil { let g = UUID().uuidString; target.setAttribute(ExtraTopic.topicUidAttr, g); uid = g }
+            source.setExtra(ExtraTopic(topicUID: uid!))
+            return .nil
+        }
+        engine.register("__mindo_note") { [self] a in
+            (try topic(a).extra(.note) as? ExtraNote).map { LuaValue.string($0.text) } ?? .nil
+        }
+        engine.register("__mindo_setNote") { [self] a in
+            try topic(a).setExtra(ExtraNote(text: try string(a, 1))); return .nil
+        }
+        engine.register("__mindo_setCollapsed") { [self] a in
+            let t = try topic(a)
+            let on = a.count > 1 ? (a[1].boolValue ?? false) : true
+            t.setAttribute("collapsed", on ? "true" : nil)
+            return .nil
+        }
+        engine.register("__mindo_path") { [self] a in .string(Self.outlinePath(of: try topic(a))) }
         // Knowledge base
         engine.register("__mindo_resolve") { [self] a in
             let target = try string(a, 0)
@@ -113,8 +154,35 @@ public final class MindoLuaAPI {
         engine.register("__mindo_docs") { [self] _ in
             .array(allFiles.map { .string(baseName($0)) })
         }
+        engine.register("__mindo_readDoc") { [self] a in
+            let name = try string(a, 0)
+            guard let url = WikiLinkResolver.resolve(name, in: allFiles) else { return .nil }
+            if let entry = corpus.first(where: { $0.url.standardizedFileURL == url.standardizedFileURL }) {
+                return .string(entry.text)
+            }
+            return (try? String(contentsOf: url, encoding: .utf8)).map { LuaValue.string($0) } ?? .nil
+        }
 
         try engine.run(Self.prelude)
+    }
+
+    /// Outline path of a topic ("" for root, "0/2" for the 3rd child of the 1st
+    /// child of root), by walking up to the root.
+    static func outlinePath(of topic: Topic) -> String {
+        var comps: [String] = []
+        var node = topic
+        while let parent = node.parent {
+            guard let idx = parent.children.firstIndex(where: { $0 === node }) else { break }
+            comps.append(String(idx)); node = parent
+        }
+        return comps.reversed().joined(separator: "/")
+    }
+
+    /// True if `candidate` is `ancestor` itself or anywhere in its subtree.
+    static func isDescendant(_ candidate: Topic, of ancestor: Topic) -> Bool {
+        var node: Topic? = candidate
+        while let n = node { if n === ancestor { return true }; node = n.parent }
+        return false
     }
 
     /// Lua prelude wiring the registered globals into the `mindo` namespace.
@@ -133,9 +201,17 @@ public final class MindoLuaAPI {
       depth = __mindo_depth,
       count = __mindo_count,
       remove = __mindo_remove,
+      find = __mindo_find,
+      move = __mindo_move,
+      link = __mindo_link,
+      note = __mindo_note,
+      setNote = __mindo_setNote,
+      setCollapsed = __mindo_setCollapsed,
+      path = __mindo_path,
       resolve = __mindo_resolve,
       backlinks = __mindo_backlinks,
       docs = __mindo_docs,
+      readDoc = __mindo_readDoc,
     }
     """
 }

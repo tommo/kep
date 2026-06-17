@@ -69,14 +69,13 @@ struct LuaRunnerView: View {
     }
 
     static let example = """
-    -- Color every node whose text contains "TODO".
-    local n = 0
-    for _, id in ipairs(mindo.all()) do
-      if string.find(mindo.text(id), "TODO") then
-        mindo.setAttr(id, "fillColor", "#ffcdd2")
-        n = n + 1
-      end
+    -- Flag every "TODO" node red and attach a note. `mindo.find` searches the
+    -- whole tree; see also move / link / setNote / path / readDoc / backlinks.
+    local hits = mindo.find("TODO")
+    for _, id in ipairs(hits) do
+      mindo.setAttr(id, "fillColor", "#ffcdd2")
+      mindo.setNote(id, "flagged by script")
     end
-    return n .. " node(s) flagged"
+    return #hits .. " node(s) flagged"
     """
 }

@@ -162,4 +162,107 @@ final class MindoLuaAPITests: XCTestCase {
         let map = MindMap(root: Topic(text: "Root"))
         XCTAssertThrowsError(try run("return mindo.text(999)", map: map))
     }
+
+    // MARK: - Extended API (find / move / link / note / collapse / path / readDoc)
+
+    func testFindReturnsMatchingTopics() throws {
+        let map = MindMap(root: Topic(text: "Espresso"))
+        let r = map.root!
+        let eq = r.addChild(text: "Equipment")
+        _ = eq.addChild(text: "Espresso Machine")
+        _ = r.addChild(text: "Beans")
+        let out = try run("""
+            local hits = mindo.find("espresso")
+            local t = {}
+            for _, id in ipairs(hits) do t[#t+1] = mindo.text(id) end
+            return table.concat(t, "|")
+            """, map: map)
+        XCTAssertEqual(Set(out.stringValue!.split(separator: "|").map(String.init)),
+                       ["Espresso", "Espresso Machine"])
+    }
+
+    func testMoveReparents() throws {
+        let map = MindMap(root: Topic(text: "R"))
+        _ = try run("""
+            local r = mindo.root()
+            local a = mindo.addChild(r, "A")
+            local b = mindo.addChild(r, "B")
+            local x = mindo.addChild(a, "X")
+            mindo.move(x, b)          -- move X from A to B
+            """, map: map)
+        let r = map.root!
+        XCTAssertEqual(r.children[0].children.map(\.text), [])          // A now empty
+        XCTAssertEqual(r.children[1].children.map(\.text), ["X"])       // B has X
+    }
+
+    func testMoveRejectsCycle() {
+        let map = MindMap(root: Topic(text: "R"))
+        XCTAssertThrowsError(try run("""
+            local r = mindo.root()
+            local a = mindo.addChild(r, "A")
+            local b = mindo.addChild(a, "B")
+            mindo.move(a, b)          -- a under its own descendant → error
+            """, map: map))
+    }
+
+    func testMoveWithIndex() throws {
+        let map = MindMap(root: Topic(text: "R"))
+        _ = try run("""
+            local r = mindo.root()
+            local a = mindo.addChild(r, "A")
+            local b = mindo.addChild(r, "B")
+            local c = mindo.addChild(r, "C")
+            mindo.move(c, r, 0)       -- move C to front of root's children
+            """, map: map)
+        XCTAssertEqual(map.root!.children.map(\.text), ["C", "A", "B"])
+    }
+
+    func testNoteRoundTrip() throws {
+        let map = MindMap(root: Topic(text: "R"))
+        let out = try run("""
+            local r = mindo.root()
+            mindo.setNote(r, "remember this")
+            return mindo.note(r)
+            """, map: map)
+        XCTAssertEqual(out.stringValue, "remember this")
+        XCTAssertEqual((map.root?.extra(.note) as? ExtraNote)?.text, "remember this")
+    }
+
+    func testLinkCreatesJumpLink() throws {
+        let map = MindMap(root: Topic(text: "R"))
+        _ = try run("""
+            local r = mindo.root()
+            local a = mindo.addChild(r, "A")
+            local b = mindo.addChild(r, "B")
+            mindo.link(a, b)
+            """, map: map)
+        let r = map.root!
+        let a = r.children[0], b = r.children[1]
+        let uid = b.attribute(ExtraTopic.topicUidAttr)
+        XCTAssertNotNil(uid)
+        XCTAssertEqual((a.extra(.topic) as? ExtraTopic)?.topicUID, uid)
+    }
+
+    func testSetCollapsedAndPath() throws {
+        let map = MindMap(root: Topic(text: "R"))
+        let out = try run("""
+            local r = mindo.root()
+            local a = mindo.addChild(r, "A")
+            local x = mindo.addChild(a, "X")
+            mindo.setCollapsed(a, true)
+            return mindo.path(x)
+            """, map: map)
+        XCTAssertEqual(out.stringValue, "0/0")
+        XCTAssertEqual(map.root?.children[0].attribute("collapsed"), "true")
+    }
+
+    func testReadDoc() throws {
+        let files = [URL(fileURLWithPath: "/ws/Notes.md")]
+        let corpus: [(url: URL, text: String)] = [(files[0], "# Notes\nbody here")]
+        let map = MindMap(root: Topic(text: "R"))
+        let out = try run("return mindo.readDoc('Notes')", map: map, corpus: corpus, allFiles: files)
+        XCTAssertEqual(out.stringValue, "# Notes\nbody here")
+        let miss = try run("return mindo.readDoc('Nope') == nil", map: map, corpus: corpus, allFiles: files)
+        XCTAssertEqual(miss.boolValue, true)
+    }
 }

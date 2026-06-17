@@ -29,6 +29,8 @@ public struct MindoAgentTools {
          #"{"type":"object","properties":{"target":{"type":"string"}},"required":["target"]}"#),
         ("backlinks", "List documents that link to the named document.",
          #"{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}"#),
+        ("find_topics", "List mind-map topics whose text contains a substring (case-insensitive).",
+         #"{"type":"object","properties":{"query":{"type":"string"}},"required":["query"]}"#),
         ("add_child_topic", "Add a child topic under the mind map's root.",
          #"{"type":"object","properties":{"text":{"type":"string"}},"required":["text"]}"#),
         ("run_lua", "Run a Lua script against the mind map via the `mindo` API; returns its result.",
@@ -57,6 +59,14 @@ public struct MindoAgentTools {
             let sources = Backlinks.sources(to: target, corpus: corpus, allFiles: allFiles)
                 .map { $0.deletingPathExtension().lastPathComponent }
             return sources.isEmpty ? "(none)" : sources.joined(separator: ", ")
+
+        case "find_topics":
+            guard let query = str("query") else { return "error: missing 'query'" }
+            guard let root = map.root else { return "(none)" }
+            let needle = query.lowercased()
+            var hits: [String] = []
+            root.traverse { if $0.text.lowercased().contains(needle) { hits.append($0.text) } }
+            return hits.isEmpty ? "(none)" : hits.joined(separator: "\n")
 
         case "add_child_topic":
             guard let text = str("text") else { return "error: missing 'text'" }

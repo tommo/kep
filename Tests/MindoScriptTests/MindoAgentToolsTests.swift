@@ -54,8 +54,19 @@ final class MindoAgentToolsTests: XCTestCase {
         XCTAssertTrue(t.handle(name: "bogus", argumentsJSON: "{}").hasPrefix("error: unknown tool"))
     }
 
+    func testFindTopics() {
+        let map = MindMap(root: Topic(text: "Espresso"))
+        let r = map.root!
+        let eq = r.addChild(text: "Equipment")
+        _ = eq.addChild(text: "Espresso Machine")
+        _ = r.addChild(text: "Beans")
+        let out = tools(map).handle(name: "find_topics", argumentsJSON: #"{"query":"espresso"}"#)
+        XCTAssertEqual(Set(out.split(separator: "\n").map(String.init)), ["Espresso", "Espresso Machine"])
+        XCTAssertEqual(tools(map).handle(name: "find_topics", argumentsJSON: #"{"query":"zzz"}"#), "(none)")
+    }
+
     func testDescriptorsCoverAllHandledTools() {
         XCTAssertEqual(Set(MindoAgentTools.descriptors.map(\.name)),
-                       ["list_docs", "resolve_link", "backlinks", "add_child_topic", "run_lua"])
+                       ["list_docs", "resolve_link", "backlinks", "find_topics", "add_child_topic", "run_lua"])
     }
 }

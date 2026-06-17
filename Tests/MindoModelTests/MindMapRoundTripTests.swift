@@ -81,6 +81,43 @@ final class MindMapRoundTripTests: XCTestCase {
         XCTAssertGreaterThan(total, 30, "demo fixture should contain a non-trivial number of topics")
     }
 
+    /// The snapshot-undo mechanism used for Lua/agent runs: write() a snapshot,
+    /// mutate the map in place, then restore the snapshot by swapping root +
+    /// reattaching the map backref across the tree. Restoring `before` must
+    /// reproduce the original serialization exactly, and leave the live `map`
+    /// reference usable (every topic.map points back at it).
+    func testSnapshotRestoreRoundTrip() throws {
+        let map = MindMap()
+        let root = Topic(text: "Root")
+        map.root = root
+        let a = root.addChild(text: "Alpha")
+        _ = a.addChild(text: "A1")
+        _ = root.addChild(text: "Beta")
+
+        let before = map.write()
+
+        // Mutate in place (as a script would): rename, add, remove.
+        a.text = "Alpha renamed"
+        _ = a.addChild(text: "A2")
+        if let beta = root.children.last { root.removeChild(beta) }
+        XCTAssertNotEqual(map.write(), before, "precondition: the mutation changed the map")
+
+        // Restore — the exact logic in AppSession.registerMapSnapshotUndo.
+        func restore(_ mmd: String) throws {
+            let parsed = try MindMap(text: mmd)
+            map.root = parsed.root
+            map.root?.traverse { $0.map = map }
+        }
+        try restore(before)
+
+        XCTAssertEqual(map.write(), before, "restoring the snapshot must reproduce the original exactly")
+        XCTAssertEqual(map.root?.children.map(\.text), ["Alpha", "Beta"])
+        // Backref reattached across the whole tree → further edits stay consistent.
+        var allReattached = true
+        map.root?.traverse { if $0.map !== map { allReattached = false } }
+        XCTAssertTrue(allReattached, "every topic.map must point back at the live map")
+    }
+
     // MARK: - Helpers
 
     private func fixtureURL(named name: String) throws -> URL {

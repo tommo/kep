@@ -32,6 +32,7 @@ extension AppSession {
         }
         let hadMindMap = activeMindMap != nil
         let map = activeMindMap ?? MindMap(root: Topic(text: "Scratch"))
+        let mapBefore = hadMindMap ? map.write() : ""
         let effects = AgentToolEffects()
         let tools = MindoAgentTools(map: map, corpus: corpus, allFiles: files,
                                     workspaceRoot: workspaceRoots.first?.url, effects: effects)
@@ -52,9 +53,11 @@ extension AppSession {
             return tools.handle(name: call.name, argumentsJSON: call.argumentsJSON)
         }
 
-        // Reflect any map mutations the tools made on the active canvas.
+        // Reflect any map mutations the tools made on the active canvas, as one
+        // undoable step.
         if effects.mapMutated, hadMindMap, let id = activeDocumentID,
            let idx = openDocuments.firstIndex(where: { $0.id == id }) {
+            registerMapSnapshotUndo(map, before: mapBefore, after: map.write(), name: "AI Edit")
             openDocuments[idx].isDirty = true
             mindmapCommand = .reload
             mindmapCommandTick &+= 1

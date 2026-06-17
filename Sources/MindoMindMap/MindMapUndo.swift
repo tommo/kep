@@ -12,7 +12,7 @@ extension MindMapView {
     /// has already been called by the caller — we only enqueue the inverse.
     /// Always wraps the registration in a group so callers don't need to
     /// rely on NSUndoManager's "groupsByEvent" runloop coalescing.
-    func registerUndo(name: String, forward: @escaping () -> Void, inverse: @escaping () -> Void) {
+    public func registerUndo(name: String, forward: @escaping () -> Void, inverse: @escaping () -> Void) {
         guard let manager = self.undoManager else { return }
         let needsGroup = manager.groupingLevel == 0
         if needsGroup { manager.beginUndoGrouping() }

@@ -40,22 +40,22 @@ public struct DialogView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "bubble.left.and.bubble.right").foregroundStyle(.purple)
-            Text(vm.providerLabel).font(.caption).foregroundStyle(.secondary)
-            // Model selection — fills the header; persisted as the active model.
+        HStack(spacing: 6) {
+            // Model — the one thing users must see. Picker (full name) when there
+            // are choices, else plain text. Provider is implied by the model name.
             if vm.availableModels.count > 1 {
                 Picker("", selection: $vm.selectedModel) {
                     ForEach(vm.availableModels, id: \.self) { Text($0).tag($0) }
                 }
                 .labelsHidden()
                 .controlSize(.small)
-                .frame(maxWidth: 180)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .disabled(vm.isRunning)
-            } else if !vm.selectedModel.isEmpty {
-                Text(vm.selectedModel).font(.caption).foregroundStyle(.secondary)
+            } else {
+                Text(vm.selectedModel.isEmpty ? vm.providerLabel : vm.selectedModel)
+                    .font(.callout).foregroundStyle(.secondary).lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-            Spacer()
             if vm.hasAgent {
                 Toggle(isOn: $vm.agentMode) { Image(systemName: "wrench.and.screwdriver") }
                     .toggleStyle(.button)
@@ -63,16 +63,12 @@ public struct DialogView: View {
                     .help("Agent mode — let the assistant use tools to edit the map / query the knowledge base")
                     .disabled(vm.isRunning)
             }
-            Button {
-                vm.clear()
-            } label: { Image(systemName: "trash") }
-                .buttonStyle(.borderless)
+            Button { vm.clear() } label: { Image(systemName: "trash") }
+                .buttonStyle(.borderless).controlSize(.small)
                 .help("Clear conversation")
                 .disabled(vm.conversation.turns.isEmpty)
-            Button {
-                openSettings()
-            } label: { Image(systemName: "gearshape") }
-                .buttonStyle(.borderless)
+            Button { openSettings() } label: { Image(systemName: "gearshape") }
+                .buttonStyle(.borderless).controlSize(.small)
                 .help("AI provider & model settings")
         }
         .padding(.horizontal, 10)
@@ -141,27 +137,50 @@ public struct DialogView: View {
     }
 
     private var composer: some View {
-        HStack(alignment: .bottom, spacing: 8) {
-            TextEditor(text: $vm.draft)
-                .font(.body)
-                .frame(minHeight: 38, maxHeight: 110)
-                .padding(4)
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.3)))
-                .focused($inputFocused)
-            if vm.isRunning {
-                Button { vm.cancel() } label: { Image(systemName: "stop.circle.fill").font(.title2) }
-                    .buttonStyle(.borderless).help("Stop")
-            } else {
-                Button {
-                    vm.setContext(contextProvider?())
-                    vm.send()
-                } label: { Image(systemName: "arrow.up.circle.fill").font(.title2) }
-                    .buttonStyle(.borderless)
-                    .keyboardShortcut(.return, modifiers: [.command])
-                    .disabled(!vm.canSend)
-                    .help("Send (⌘↩)")
+        // One rounded field with the send/stop control tucked into its corner —
+        // the standard chat composer shape.
+        HStack(alignment: .bottom, spacing: 0) {
+            ZStack(alignment: .topLeading) {
+                if vm.draft.isEmpty {
+                    Text(vm.agentMode ? "Ask the assistant to do something…" : "Message the assistant…")
+                        .foregroundStyle(.tertiary)
+                        .padding(.horizontal, 5).padding(.vertical, 8)
+                        .allowsHitTesting(false)
+                }
+                TextEditor(text: $vm.draft)
+                    .font(.body)
+                    .scrollContentBackground(.hidden)
+                    .frame(minHeight: 34, maxHeight: 110)
+                    .focused($inputFocused)
             }
+            sendControl
+                .padding(.bottom, 1)
         }
+        .padding(6)
+        .background(RoundedRectangle(cornerRadius: 12).fill(Color(nsColor: .textBackgroundColor)))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.secondary.opacity(0.28)))
         .padding(10)
+    }
+
+    @ViewBuilder private var sendControl: some View {
+        if vm.isRunning {
+            Button { vm.cancel() } label: {
+                Image(systemName: "stop.circle.fill").font(.title2).foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain).help("Stop")
+        } else {
+            Button {
+                vm.setContext(contextProvider?())
+                vm.send()
+            } label: {
+                Image(systemName: "arrow.up.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(vm.canSend ? Color.accentColor : Color.secondary.opacity(0.35))
+            }
+            .buttonStyle(.plain)
+            .keyboardShortcut(.return, modifiers: [.command])
+            .disabled(!vm.canSend)
+            .help("Send (⌘↩)")
+        }
     }
 }

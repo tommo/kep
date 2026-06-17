@@ -14,6 +14,7 @@ let package = Package(
         .library(name: "MindoPlantUML", targets: ["MindoPlantUML"]),
         .library(name: "MindoCSV", targets: ["MindoCSV"]),
         .library(name: "MindoGenAI", targets: ["MindoGenAI"]),
+        .library(name: "MindoScript", targets: ["MindoScript"]),
         .executable(name: "Mindo", targets: ["Mindo"]),
     ],
     dependencies: [
@@ -21,6 +22,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-log.git", from: "1.5.0"),
         .package(url: "https://github.com/apple/swift-markdown.git", from: "0.4.0"),
         .package(url: "https://github.com/scinfu/SwiftSoup.git", from: "2.7.0"),
+        .package(url: "https://github.com/ChrisGVE/LuaSwift.git", from: "1.12.0"),
     ],
     targets: [
         .target(
@@ -57,12 +59,21 @@ let package = Package(
         .target(name: "MindoPlantUML", dependencies: ["MindoBase", "MindoCore"]),
         .target(name: "MindoCSV", dependencies: ["MindoBase"]),
         .target(name: "MindoGenAI", dependencies: ["MindoBase", "MindoCore"]),
+        // Lua-backed scripting: embeds LuaSwift (vendored Lua, no system dep) and
+        // exposes a `mindo` API to scripts. NOT a custom language.
+        .target(
+            name: "MindoScript",
+            dependencies: [
+                "MindoCore", "MindoModel",
+                .product(name: "LuaSwift", package: "LuaSwift"),
+            ]
+        ),
         .executableTarget(
             name: "Mindo",
             dependencies: [
                 "MindoModel", "MindoCore", "MindoBase",
                 "MindoMindMap", "MindoMarkdown", "MindoPlantUML",
-                "MindoCSV", "MindoGenAI",
+                "MindoCSV", "MindoGenAI", "MindoScript",
             ],
             resources: [.process("Resources")]
         ),
@@ -74,5 +85,6 @@ let package = Package(
         ),
         .testTarget(name: "MindoCoreTests", dependencies: ["MindoCore", "MindoBase"]),
         .testTarget(name: "MindoMindMapTests", dependencies: ["MindoMindMap", "MindoMarkdown", "MindoPlantUML", "MindoCSV", "MindoGenAI"]),
+        .testTarget(name: "MindoScriptTests", dependencies: ["MindoScript", "MindoModel"]),
     ]
 )

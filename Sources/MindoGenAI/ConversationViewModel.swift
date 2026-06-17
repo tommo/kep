@@ -12,6 +12,17 @@ public final class ConversationViewModel: ObservableObject {
     @Published public var isRunning: Bool = false
     @Published public var errorText: String?
     @Published public private(set) var providerLabel: String = ""
+    /// Models offered for the active provider (built-in + custom).
+    @Published public var availableModels: [String] = []
+    /// Selected model — persisted as the active selection so it carries across
+    /// the app. Drives the model picker in the dialog header.
+    @Published public var selectedModel: String = "" {
+        didSet {
+            guard selectedModel != oldValue, let p = activeProvider, !selectedModel.isEmpty else { return }
+            LLMConfigStore.shared.setActive(provider: p, model: selectedModel)
+        }
+    }
+    private var activeProvider: GenAIProviderID?
 
     private var subscriptions: Set<AnyCancellable> = []
     private let service: LLMService
@@ -30,9 +41,17 @@ public final class ConversationViewModel: ObservableObject {
 
     public func refreshProviderLabel() {
         if let (provider, model) = LLMConfigStore.shared.activeSelection() {
-            providerLabel = "\(provider.displayName) · \(model)"
+            activeProvider = provider
+            providerLabel = provider.displayName
+            var models = LLMConfigStore.shared.allModels(for: provider).map(\.name)
+            if !models.contains(model) { models.insert(model, at: 0) }
+            availableModels = models
+            if selectedModel != model { selectedModel = model }
         } else {
+            activeProvider = nil
             providerLabel = "No provider configured"
+            availableModels = []
+            selectedModel = ""
         }
     }
 
@@ -43,10 +62,11 @@ public final class ConversationViewModel: ObservableObject {
     public func send() {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !isRunning else { return }
-        guard let (provider, model) = LLMConfigStore.shared.activeSelection() else {
+        guard let provider = activeProvider, !selectedModel.isEmpty else {
             errorText = "Configure a provider in Settings first."
             return
         }
+        let model = selectedModel
         conversation.addUser(text)
         draft = ""
         errorText = nil

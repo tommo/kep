@@ -37,9 +37,20 @@ public struct DialogView: View {
     private var header: some View {
         HStack(spacing: 8) {
             Image(systemName: "bubble.left.and.bubble.right").foregroundStyle(.purple)
-            Text("Assistant").font(.headline)
-            Spacer()
             Text(vm.providerLabel).font(.caption).foregroundStyle(.secondary)
+            // Model selection — fills the header; persisted as the active model.
+            if vm.availableModels.count > 1 {
+                Picker("", selection: $vm.selectedModel) {
+                    ForEach(vm.availableModels, id: \.self) { Text($0).tag($0) }
+                }
+                .labelsHidden()
+                .controlSize(.small)
+                .frame(maxWidth: 180)
+                .disabled(vm.isRunning)
+            } else if !vm.selectedModel.isEmpty {
+                Text(vm.selectedModel).font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
             Button {
                 vm.clear()
             } label: { Image(systemName: "trash") }
@@ -47,7 +58,8 @@ public struct DialogView: View {
                 .help("Clear conversation")
                 .disabled(vm.conversation.turns.isEmpty)
         }
-        .padding(10)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
     }
 
     private var transcript: some View {

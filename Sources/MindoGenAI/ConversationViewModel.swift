@@ -81,12 +81,14 @@ public final class ConversationViewModel: ObservableObject {
             maxTokens: meta.maxTokens,
             isStreaming: true
         )
+        Self.diag("SEND provider=\(provider.rawValue) model=\(model) keySet=\(!LLMConfigStore.shared.providerMeta(for: provider).apiKey.isEmpty) msgs=\(input.wireMessages.count)")
 
         subscriptions.removeAll()
         service.partials
             .receive(on: RunLoop.main)
             .sink { [weak self] partial in
                 guard let self else { return }
+                Self.diag("PARTIAL len=\(partial.text.count) stop=\(partial.isStop)")
                 if !partial.text.isEmpty { self.conversation.appendToLastAssistant(partial.text) }
                 if partial.isStop { self.isRunning = false }
             }
@@ -95,11 +97,24 @@ public final class ConversationViewModel: ObservableObject {
             .receive(on: RunLoop.main)
             .sink { [weak self] err in
                 guard let self else { return }
+                Self.diag("ERROR \(err.errorDescription ?? "?")")
                 self.errorText = err.errorDescription
                 self.isRunning = false
             }
             .store(in: &subscriptions)
         service.stream(input: input)
+    }
+
+    /// Temporary file diagnostics for the "no response" report — /tmp/mindo-ai.log.
+    static func diag(_ s: String) {
+        let url = URL(fileURLWithPath: "/tmp/mindo-ai.log")
+        let line = s + "\n"
+        if let h = try? FileHandle(forWritingTo: url) {
+            defer { try? h.close() }
+            h.seekToEndOfFile(); h.write(Data(line.utf8))
+        } else {
+            try? Data(line.utf8).write(to: url)
+        }
     }
 
     public func cancel() {

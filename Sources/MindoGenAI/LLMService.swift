@@ -18,10 +18,15 @@ public final class LLMService {
 
     public func provider(for providerID: GenAIProviderID, model: ModelMeta) -> LLMProvider? {
         return queue.sync {
-            if let existing = cache[providerID], existing.model.name == model.name {
+            // Always re-read the meta so a key/endpoint configured AFTER a
+            // provider was first created takes effect (the cached provider would
+            // otherwise keep an empty/stale API key).
+            let meta = LLMConfigStore.shared.providerMeta(for: providerID)
+            if let existing = cache[providerID] as? OpenAICompatibleProvider,
+               existing.model.name == model.name {
+                existing.meta = meta
                 return existing
             }
-            let meta = LLMConfigStore.shared.providerMeta(for: providerID)
             guard let p = LLMProviderFactory.create(providerID: providerID, meta: meta, model: model) else {
                 return nil
             }

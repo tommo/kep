@@ -54,7 +54,7 @@ open class OpenAICompatibleProvider: LLMProvider, @unchecked Sendable {
             "stream": streaming,
             "temperature": input.temperature,
             "max_tokens": input.maxTokens,
-            "messages": input.wireMessages.map { ["role": $0.role.rawValue, "content": $0.content] },
+            "messages": input.wireMessages.map(Self.wireMessage),
         ]
         if let tools = input.tools, !tools.isEmpty {
             body["tools"] = tools.map { spec -> [String: Any] in
@@ -132,6 +132,21 @@ open class OpenAICompatibleProvider: LLMProvider, @unchecked Sendable {
             throw LLMError.decoding(message)
         }
         throw LLMError.decoding("unrecognized response shape")
+    }
+
+    /// Serialize one chat message to the OpenAI wire shape, including
+    /// assistant `tool_calls` and `tool` result messages.
+    static func wireMessage(_ m: ChatMessage) -> [String: Any] {
+        var d: [String: Any] = ["role": m.role.rawValue, "content": m.content]
+        if let calls = m.toolCalls, !calls.isEmpty {
+            d["tool_calls"] = calls.map { c -> [String: Any] in
+                ["id": c.id, "type": "function",
+                 "function": ["name": c.name, "arguments": c.argumentsJSON]]
+            }
+        }
+        if let id = m.toolCallID { d["tool_call_id"] = id }
+        if let name = m.name { d["name"] = name }
+        return d
     }
 
     /// Extract any `tool_calls` the model requested from a (non-streaming)

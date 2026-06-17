@@ -10,16 +10,34 @@ public enum OutputAdjust: String, Codable, Sendable {
 /// A single chat turn. Mirrors the OpenAI chat-completions message shape so a
 /// multi-turn conversation (and an optional system prompt) can be sent as-is.
 public struct ChatMessage: Sendable, Equatable, Codable {
-    public enum Role: String, Sendable, Codable { case system, user, assistant }
+    public enum Role: String, Sendable, Codable { case system, user, assistant, tool }
     public let role: Role
     public let content: String
-    public init(role: Role, content: String) {
+    /// Tool calls an assistant message is requesting (OpenAI tool-calling).
+    public let toolCalls: [ToolCall]?
+    /// For a `tool` (result) message: which call it answers + the function name.
+    public let toolCallID: String?
+    public let name: String?
+
+    public init(role: Role, content: String,
+                toolCalls: [ToolCall]? = nil, toolCallID: String? = nil, name: String? = nil) {
         self.role = role
         self.content = content
+        self.toolCalls = toolCalls
+        self.toolCallID = toolCallID
+        self.name = name
     }
     public static func system(_ c: String) -> ChatMessage { .init(role: .system, content: c) }
     public static func user(_ c: String) -> ChatMessage { .init(role: .user, content: c) }
     public static func assistant(_ c: String) -> ChatMessage { .init(role: .assistant, content: c) }
+    /// An assistant turn that requested tools.
+    public static func assistant(_ c: String, toolCalls: [ToolCall]) -> ChatMessage {
+        .init(role: .assistant, content: c, toolCalls: toolCalls)
+    }
+    /// A tool-result turn fed back to the model.
+    public static func toolResult(id: String, name: String, _ content: String) -> ChatMessage {
+        .init(role: .tool, content: content, toolCallID: id, name: name)
+    }
 }
 
 /// Per-request input. Mirrors `GenAiEvents.Input`.
@@ -90,7 +108,7 @@ public struct ToolSpec: Sendable, Equatable {
 }
 
 /// A tool invocation the model requested in its reply.
-public struct ToolCall: Sendable, Equatable {
+public struct ToolCall: Sendable, Equatable, Codable {
     public let id: String
     public let name: String
     public let argumentsJSON: String

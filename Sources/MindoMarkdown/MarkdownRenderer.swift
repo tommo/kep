@@ -82,7 +82,7 @@ public enum MarkdownRenderer {
     /// the user's preview font overrides (PrefKeys) so the preview and the
     /// HTML/PDF exporters — which both call this — match.
     public static func render(markdown: String) -> String {
-        let document = Document(parsing: markdown, options: [.parseBlockDirectives])
+        let document = Document(parsing: WikiLinkMarkdown.linkify(markdown), options: [.parseBlockDirectives])
         var formatter = HTMLFormatter()
         formatter.visit(document)
         let body = formatter.result
@@ -165,7 +165,7 @@ public enum MarkdownRenderer {
 
     /// Plain HTML body (no `<html>` wrapper), useful for embedding in larger templates.
     public static func renderBody(markdown: String) -> String {
-        let document = Document(parsing: markdown, options: [.parseBlockDirectives])
+        let document = Document(parsing: WikiLinkMarkdown.linkify(markdown), options: [.parseBlockDirectives])
         var formatter = HTMLFormatter()
         formatter.visit(document)
         return formatter.result

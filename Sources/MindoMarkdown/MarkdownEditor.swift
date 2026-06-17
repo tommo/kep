@@ -22,14 +22,19 @@ public struct MarkdownEditor: NSViewRepresentable {
     /// Defaults to none, so the editor only surfaces knowledge-base completions
     /// where the app wires up a workspace file list.
     public var wikiLinkCandidates: () -> [String]
+    /// Invoked when a `[[wiki link]]` is clicked in the preview: (target, heading?).
+    /// The host resolves the target to a workspace doc and opens it.
+    public var onOpenWikiLink: ((String, String?) -> Void)?
 
     public init(text: Binding<String>, isDarkMode: Bool = false, navigationTarget: String? = nil, documentURL: URL? = nil,
-                wikiLinkCandidates: @escaping () -> [String] = { [] }) {
+                wikiLinkCandidates: @escaping () -> [String] = { [] },
+                onOpenWikiLink: ((String, String?) -> Void)? = nil) {
         self._text = text
         self.isDarkMode = isDarkMode
         self.navigationTarget = navigationTarget
         self.documentURL = documentURL
         self.wikiLinkCandidates = wikiLinkCandidates
+        self.onOpenWikiLink = onOpenWikiLink
     }
 
     public func makeNSView(context: Context) -> NSView {
@@ -504,6 +509,13 @@ public struct MarkdownEditor: NSViewRepresentable {
             decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
         ) {
             let isClick = navigationAction.navigationType == .linkActivated
+            // Wiki links resolve in-app to a workspace document.
+            if isClick, let url = navigationAction.request.url, url.scheme == WikiLinkMarkdown.scheme,
+               let decoded = WikiLinkMarkdown.decode(url.absoluteString) {
+                parent.onOpenWikiLink?(decoded.target, decoded.heading)
+                decisionHandler(.cancel)
+                return
+            }
             switch MarkdownLinkPolicy.decide(url: navigationAction.request.url, isLinkActivation: isClick) {
             case .allow:
                 decisionHandler(.allow)

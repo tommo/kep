@@ -91,7 +91,8 @@ struct EditorPane: View {
                 isDarkMode: colorScheme == .dark,
                 navigationTarget: session.sanitizedNavigationTarget,
                 documentURL: session.openDocuments.first(where: { $0.id == documentID })?.fileURL,
-                wikiLinkCandidates: { session.wikiLinkDocumentNames() }
+                wikiLinkCandidates: { session.wikiLinkDocumentNames() },
+                onOpenWikiLink: { target, heading in session.openWikiLink(target: target, heading: heading) }
             )
         case .text(_, .plantUML):
             PlantUMLEditor(

@@ -459,6 +459,18 @@ final class AppSession {
         )
     }
 
+    /// Resolve a clicked `[[wiki link]]` target to a workspace document and open
+    /// it. Heading navigation is best-effort (v0 opens the doc). Surfaces an
+    /// error when nothing resolves.
+    func openWikiLink(target: String, heading: String?) {
+        let files = quickSwitcherFiles().map(\.url)
+        if let url = WikiLinkResolver.resolve(target, in: files) {
+            open(url: url)
+        } else {
+            lastError = "No workspace document matches “\(target)”."
+        }
+    }
+
     /// Distinct workspace document base names (no extension), for `[[wiki link]]`
     /// autocomplete in the markdown editor — the resolver matches links by base
     /// name, so the names offered mirror what a click would resolve.

@@ -26,21 +26,30 @@ struct ThreePaneSplit<Sidebar: View, Detail: View, Inspector: View>: NSViewContr
         context.coordinator.detailHost = detailHost
         context.coordinator.inspectorHost = inspectorHost
 
+        // DISTINCT, ordered holding priorities are load-bearing: the detail pane
+        // must be the SOLE lowest-priority (flexible) pane so it alone absorbs a
+        // resize, and the two side panes must DIFFER from each other. With equal
+        // side priorities, dragging one divider lets NSSplitView redistribute
+        // ambiguously — moving BOTH dividers and resizing the document (the bug:
+        // "dragging the right sidebar changes the entire layout"). Sidebar is
+        // strictly highest so a right-divider drag trades inspector↔detail only.
+        let sidebarPriority = NSLayoutConstraint.Priority(rawValue: NSLayoutConstraint.Priority.defaultHigh.rawValue + 1)
+
         let sb = NSSplitViewItem(viewController: sidebarHost)
         sb.canCollapse = true
         sb.minimumThickness = 170
         sb.maximumThickness = 460
-        sb.holdingPriority = .defaultHigh          // keeps its width when the window resizes
+        sb.holdingPriority = sidebarPriority       // strictly highest → never perturbed by an inspector drag
 
         let dt = NSSplitViewItem(viewController: detailHost)
         dt.minimumThickness = 320
-        dt.holdingPriority = .defaultLow           // absorbs resize → gets the bulk of the space
+        dt.holdingPriority = .defaultLow           // sole flexible pane → absorbs resize, gets the bulk
 
         let ins = NSSplitViewItem(viewController: inspectorHost)
         ins.canCollapse = true
         ins.minimumThickness = 200
         ins.maximumThickness = 440
-        ins.holdingPriority = .defaultHigh
+        ins.holdingPriority = .defaultHigh         // between sidebar and detail
 
         svc.addSplitViewItem(sb)
         svc.addSplitViewItem(dt)

@@ -35,6 +35,20 @@ public final class LLMService {
         }
     }
 
+    /// Non-streaming completion (text + any tool calls). More robust than the
+    /// SSE stream for reasoning models (deepseek-v4-flash etc.), which is why
+    /// the dialog uses it.
+    public func complete(_ input: LLMInput) async throws -> (text: String, toolCalls: [ToolCall]) {
+        guard let providerID = GenAIProviderID(rawValue: input.providerID) else {
+            throw LLMError.transport("Unknown provider \(input.providerID)")
+        }
+        let modelMeta = LLMConfigStore.shared.modelMeta(for: providerID, name: input.model)
+        guard let provider = provider(for: providerID, model: modelMeta) as? OpenAICompatibleProvider else {
+            throw LLMError.transport("Provider \(providerID.displayName) is not available")
+        }
+        return try await provider.complete(input)
+    }
+
     public func cancel() {
         currentProvider?.cancel()
         currentProvider = nil

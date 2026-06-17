@@ -12,7 +12,7 @@ public struct DialogView: View {
     private let contextProvider: (() -> String?)?
 
     @FocusState private var inputFocused: Bool
-    @State private var showSettings = false
+    @Environment(\.openSettings) private var openSettings
 
     public init(systemPrompt: String = Conversation.defaultSystemPrompt,
                 contextProvider: (() -> String?)? = nil,
@@ -33,9 +33,6 @@ public struct DialogView: View {
         }
         .frame(minWidth: 220, minHeight: 280)
         .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { inputFocused = true } }
-        .sheet(isPresented: $showSettings, onDismiss: { vm.refreshProviderLabel() }) {
-            AISettingsView()
-        }
     }
 
     private var header: some View {
@@ -62,7 +59,7 @@ public struct DialogView: View {
                 .help("Clear conversation")
                 .disabled(vm.conversation.turns.isEmpty)
             Button {
-                showSettings = true
+                openSettings()
             } label: { Image(systemName: "gearshape") }
                 .buttonStyle(.borderless)
                 .help("AI provider & model settings")
@@ -80,7 +77,7 @@ public struct DialogView: View {
                             if vm.selectedModel.isEmpty {
                                 Text("No AI provider configured.")
                                     .font(.callout).foregroundStyle(.secondary)
-                                Button("Configure AI provider…") { showSettings = true }
+                                Button("Configure AI provider…") { openSettings() }
                                     .buttonStyle(.borderedProminent)
                             } else {
                                 Text("Ask about the document you're editing — mind maps, notes, PlantUML, CSV.")

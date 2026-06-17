@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 import MindoBase
 import MindoCore
+import MindoGenAI
 
 /// Tabbed preferences sheet wired into SwiftUI's Settings scene (⌘,).
 /// Persists via @AppStorage so editors that observe the same keys
@@ -18,7 +19,7 @@ struct PreferencesView: View {
             AIPrefs()
                 .tabItem { Label(L("prefs.tab.ai"), systemImage: "sparkles") }
         }
-        .frame(width: 480, height: 320)
+        .frame(width: 500, height: 460)
     }
 }
 
@@ -226,6 +227,8 @@ private struct AIPrefs: View {
 
     var body: some View {
         Form {
+            // Provider / API key / endpoint / model — the actual AI config.
+            AIProviderConfig()
             Section(L("prefs.ai.section.behavior")) {
                 Toggle(L("prefs.ai.streaming"), isOn: $streaming)
             }

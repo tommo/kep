@@ -70,7 +70,6 @@ struct MindoApp: App {
                     session.captureActiveCanvasViewState()
                     session.persistOpenTabs()
                 }
-                .sheet(isPresented: $session.aiSettingsOpen) { AISettingsView() }
                 .sheet(isPresented: $session.aiGenerateOpen) {
                     AIGeneratePane(
                         context: AIGeneratePane.Context(
@@ -305,7 +304,7 @@ struct MindoApp: App {
                     .keyboardShortcut("r", modifiers: [.command, .control])
                     .disabled(session.activeDocument == nil)
                 Divider()
-                Button(L("menu.ai.settings")) { session.aiSettingsOpen = true }
+                SettingsLink { Text(L("menu.ai.settings")) }
                     .keyboardShortcut(",", modifiers: [.command, .shift])
             }
             CommandMenu("Window") {

@@ -42,8 +42,10 @@ extension AppSession {
                                  messages: msgs, tools: offered, isStreaming: false)
             return try await provider.complete(input)
         }
+        var usedTools: [String] = []
         let reply = try await AgentLoop.run(backend: backend, maxIterations: 6) { call in
-            tools.handle(name: call.name, argumentsJSON: call.argumentsJSON)
+            usedTools.append(call.name)
+            return tools.handle(name: call.name, argumentsJSON: call.argumentsJSON)
         }
 
         // Reflect any map mutations the tools made.
@@ -53,7 +55,10 @@ extension AppSession {
             mindmapCommand = .reload
             mindmapCommandTick &+= 1
         }
-        return reply
+        // Show which tools ran, so the user sees what the agent did.
+        guard !usedTools.isEmpty else { return reply }
+        let trail = "🔧 " + usedTools.joined(separator: ", ")
+        return reply.isEmpty ? trail : "\(trail)\n\n\(reply)"
     }
 }
 

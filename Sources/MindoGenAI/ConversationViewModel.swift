@@ -86,7 +86,6 @@ public final class ConversationViewModel: ObservableObject {
         // final reply. The agent may call mindo tools that edit the doc.
         if agentMode, let agentReply {
             let messages = conversation.llmMessages()
-            Self.diag("AGENT send model=\(model) msgs=\(messages.count)")
             Task { @MainActor in
                 do {
                     let reply = try await agentReply(messages)
@@ -108,37 +107,21 @@ public final class ConversationViewModel: ObservableObject {
             maxTokens: meta.maxTokens,
             isStreaming: false
         )
-        Self.diag("SEND provider=\(provider.rawValue) model=\(model) keySet=\(!LLMConfigStore.shared.providerMeta(for: provider).apiKey.isEmpty) msgs=\(input.wireMessages.count)")
 
         // Non-streaming completion — robust for reasoning models (deepseek-v4-flash
         // streams only reasoning_content frames, which the SSE path mishandled).
         Task { @MainActor in
             do {
                 let (reply, _) = try await self.service.complete(input)
-                Self.diag("REPLY len=\(reply.count)")
                 if reply.isEmpty {
                     self.errorText = "The model returned an empty response."
                 } else {
                     self.conversation.addAssistant(reply)
                 }
             } catch {
-                let msg = (error as? LocalizedError)?.errorDescription ?? "\(error)"
-                Self.diag("ERROR \(msg)")
-                self.errorText = msg
+                self.errorText = (error as? LocalizedError)?.errorDescription ?? "\(error)"
             }
             self.isRunning = false
-        }
-    }
-
-    /// Temporary file diagnostics for the "no response" report — /tmp/mindo-ai.log.
-    static func diag(_ s: String) {
-        let url = URL(fileURLWithPath: "/tmp/mindo-ai.log")
-        let line = s + "\n"
-        if let h = try? FileHandle(forWritingTo: url) {
-            defer { try? h.close() }
-            h.seekToEndOfFile(); h.write(Data(line.utf8))
-        } else {
-            try? Data(line.utf8).write(to: url)
         }
     }
 

@@ -4,9 +4,9 @@ import MindoCore
 import MindoMarkdown
 import MindoGenAI
 
-/// Which sidebar surface is showing: the workspace file tree, or the
-/// cross-document AI assistant.
-enum SidebarTab: Sendable { case files, agent }
+/// Which surface the right inspector is showing: the document outline (+ node
+/// note), or the cross-document AI assistant.
+enum InspectorTab: Sendable { case outline, agent }
 
 /// Top-level window content: split view (sidebar | detail with outline
 /// inspector), plus the global error alert. Owned by `MindoApp.body`.
@@ -43,8 +43,13 @@ struct ContentView: View {
         // collapse natively — no AppKit NSSplitViewController/NSHostingController
         // hosting, which is what made the panes un-resizable.
         NavigationSplitView(columnVisibility: sidebarColumnVisibility) {
-            sidebarColumn
-                .navigationSplitViewColumnWidth(min: 220, ideal: 300, max: 560)
+            SidebarView(
+                session: $session,
+                selection: $sidebarSelection,
+                onSelectionSource: { selectionSource = $0 },
+                onConfirm: openSelectedFile
+            )
+            .navigationSplitViewColumnWidth(min: 170, ideal: 220, max: 460)
         } detail: {
             DetailArea(session: $session)
         }
@@ -112,29 +117,33 @@ struct ContentView: View {
         }
     }
 
-    /// Sidebar contents: a Files / Assistant switch, then either the workspace
-    /// tree or the cross-document AI assistant. The assistant lives here (not a
-    /// modal sheet) so it stays open while you work and operates over the WHOLE
-    /// workspace, not just the active document.
-    @ViewBuilder private var sidebarColumn: some View {
+    private var inspectorTabBinding: Binding<InspectorTab> {
+        Binding(get: { session.inspectorTab }, set: { session.inspectorTab = $0 })
+    }
+
+    /// System prompt for the assistant — framed as a whole-workspace agent
+    /// rather than a single-document helper.
+    static let agentSystemPrompt =
+        "You are Mindo's assistant for the user's entire knowledge base — multiple mind maps and "
+        + "Markdown/PlantUML/CSV documents linked by [[wiki links]]. Reason and act ACROSS documents, "
+        + "not just the one that's open. Be concise; when producing a diagram or table, output only "
+        + "valid source for that format."
+
+    /// The right-hand inspector: a toggle between the document Outline (+ node
+    /// Note editor) and the cross-document AI Assistant.
+    private var inspectorPane: some View {
         VStack(spacing: 0) {
-            Picker("", selection: sidebarTabBinding) {
-                Image(systemName: "folder").tag(SidebarTab.files)
-                Image(systemName: "bubble.left.and.bubble.right").tag(SidebarTab.agent)
+            Picker("", selection: inspectorTabBinding) {
+                Image(systemName: "list.bullet.indent").tag(InspectorTab.outline)
+                Image(systemName: "bubble.left.and.bubble.right").tag(InspectorTab.agent)
             }
             .pickerStyle(.segmented)
             .labelsHidden()
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
             Divider()
-            switch session.sidebarTab {
-            case .files:
-                SidebarView(
-                    session: $session,
-                    selection: $sidebarSelection,
-                    onSelectionSource: { selectionSource = $0 },
-                    onConfirm: openSelectedFile
-                )
+            switch session.inspectorTab {
+            case .outline: outlineInspector
             case .agent:
                 DialogView(
                     systemPrompt: Self.agentSystemPrompt,
@@ -143,23 +152,18 @@ struct ContentView: View {
                 )
             }
         }
+        .sheet(isPresented: $noteExpanded) {
+            NoteEditorSheet(
+                text: nodeContentBinding,
+                isDarkMode: colorScheme == .dark,
+                title: session.selectedNodeProperties?.title
+            )
+        }
     }
 
-    private var sidebarTabBinding: Binding<SidebarTab> {
-        Binding(get: { session.sidebarTab }, set: { session.sidebarTab = $0 })
-    }
-
-    /// System prompt for the sidebar assistant — framed as a whole-workspace
-    /// agent rather than a single-document helper.
-    static let agentSystemPrompt =
-        "You are Mindo's assistant for the user's entire knowledge base — multiple mind maps and "
-        + "Markdown/PlantUML/CSV documents linked by [[wiki links]]. Reason and act ACROSS documents, "
-        + "not just the one that's open. Be concise; when producing a diagram or table, output only "
-        + "valid source for that format."
-
-    /// The right-hand inspector pane: outline + (when a node is selected) a
+    /// The Outline tab content: outline list + (when a node is selected) a
     /// rendered Note editor. The node-properties strip was removed (unused).
-    private var inspectorPane: some View {
+    private var outlineInspector: some View {
         VSplitView {
             OutlinePanel(
                 items: session.outlineItems,
@@ -195,13 +199,6 @@ struct ContentView: View {
                 }
                 .frame(minHeight: 160, maxHeight: .infinity)
             }
-        }
-        .sheet(isPresented: $noteExpanded) {
-            NoteEditorSheet(
-                text: nodeContentBinding,
-                isDarkMode: colorScheme == .dark,
-                title: session.selectedNodeProperties?.title
-            )
         }
     }
 

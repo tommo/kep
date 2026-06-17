@@ -290,8 +290,8 @@ struct MindoApp: App {
             }
             CommandMenu(L("menu.ai")) {
                 Button("Assistant") {
-                    session.sidebarVisible = true
-                    session.sidebarTab = .agent
+                    session.outlineOpen = true
+                    session.inspectorTab = .agent
                 }
                 .keyboardShortcut("0", modifiers: [.command])
                 Divider()
@@ -362,8 +362,8 @@ final class AppSession {
     // AI sheets
     var aiSettingsOpen: Bool = false
     var aiGenerateOpen: Bool = false
-    /// Which sidebar surface is showing — workspace tree or the AI assistant.
-    var sidebarTab: SidebarTab = .files
+    /// Which surface the right inspector shows — document outline or AI assistant.
+    var inspectorTab: InspectorTab = .outline
     var aiSupportedModes: [AIGeneratePane.InsertionMode] = [.append]
     var aiDefaultPrompt: String = ""
 

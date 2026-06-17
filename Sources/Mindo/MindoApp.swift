@@ -179,6 +179,7 @@ struct MindoApp: App {
                     Button(L("menu.file.import_mindmup")) { session.importMindmup() }
                     Button(L("menu.file.import_coggle")) { session.importCoggle() }
                     Button(L("menu.file.import_xmind")) { session.importXMind() }
+                    Button(L("menu.file.import_novamind")) { session.importNovamind() }
                 }
                 Divider()
                 Menu(L("menu.file.open_recent")) {

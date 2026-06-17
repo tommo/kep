@@ -38,6 +38,7 @@
 "menu.file.import_mindmup" = "Mindmup (.mup)…";
 "menu.file.import_coggle" = "Coggle (.mm)…";
 "menu.file.import_xmind" = "XMind (.xmind)…";
+"menu.file.import_novamind" = "Novamind (.nm5)…";
 "menu.file.export" = "Export";
 "menu.file.export_markdown_html" = "Markdown to HTML…";
 "menu.file.export_markdown_pdf" = "Markdown to PDF…";

@@ -167,6 +167,14 @@ extension AppSession {
         }
     }
 
+    /// Import a Novamind `.nm5` bundle (a ZIP with content.xml).
+    func importNovamind() {
+        importMindMap(extension: "nm5") { url in
+            let data = try Data(contentsOf: url)
+            return try NovamindImporter.parse(data: data)
+        }
+    }
+
     /// Shared scaffolding for any mindmap importer: open panel scoped to one
     /// extension, parse via the supplied closure, present as an untitled
     /// .mmd doc. Errors route to lastError.

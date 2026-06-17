@@ -125,6 +125,10 @@ struct MindoApp: App {
                 }
         }
         .commands {
+            // Close Tab (⌘W) — scoped to the document window via a focused scene
+            // value, so it's INACTIVE when the Settings window is key (⌘W then
+            // closes Settings natively instead of tearing down the document).
+            DocumentCloseCommands(close: { session.closeActive() })
             CommandGroup(replacing: .appInfo) {
                 Button(L("menu.help.about")) { session.aboutOpen = true }
             }
@@ -163,9 +167,6 @@ struct MindoApp: App {
                 Button(L("menu.file.save_all")) { session.saveAllDirty() }
                     .keyboardShortcut("s", modifiers: [.command, .option])
                     .disabled(!session.hasDirtyOpenDocuments)
-                Button(L("menu.file.close_tab")) { session.closeActive() }
-                    .keyboardShortcut("w", modifiers: .command)
-                    .disabled(session.activeDocument == nil)
                 Button(L("menu.file.print")) { session.printActiveDocument() }
                     .disabled(session.activeDocument == nil)
                 Divider()
@@ -325,6 +326,33 @@ struct MindoApp: App {
         // environment — inject the session explicitly or PreferencesView's
         // @Environment(AppSession.self) crashes ("No Observable object…").
         Settings { PreferencesView().environment(session) }
+    }
+}
+
+// MARK: - Document-scoped commands
+
+/// Set by the document window's content; absent when another scene (e.g. the
+/// Settings window) is key. Used to scope ⌘W to documents.
+private struct DocumentSceneActiveKey: FocusedValueKey { typealias Value = Bool }
+extension FocusedValues {
+    var documentSceneActive: Bool? {
+        get { self[DocumentSceneActiveKey.self] }
+        set { self[DocumentSceneActiveKey.self] = newValue }
+    }
+}
+
+/// The File ▸ Close Tab (⌘W) command, enabled only while a document scene is
+/// focused. When the Settings window is key the focused value is nil, so this
+/// command is disabled and ⌘W falls through to AppKit's native window close.
+private struct DocumentCloseCommands: Commands {
+    @FocusedValue(\.documentSceneActive) private var documentActive
+    let close: () -> Void
+    var body: some Commands {
+        CommandGroup(after: .saveItem) {
+            Button(L("menu.file.close_tab"), action: close)
+                .keyboardShortcut("w", modifiers: .command)
+                .disabled(documentActive != true)
+        }
     }
 }
 

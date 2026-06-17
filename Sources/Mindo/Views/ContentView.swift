@@ -107,6 +107,9 @@ struct ContentView: View {
                   let node = sidebarNode(for: url) else { return }
             sidebarSelection = node
         }
+        // Marks the document window as focused so ⌘W (Close Tab) is scoped here
+        // and doesn't fire when the Settings window is key.
+        .focusedSceneValue(\.documentSceneActive, true)
         .alert(L("error.alert_title"), isPresented: Binding(
             get: { session.lastError != nil },
             set: { if !$0 { session.lastError = nil } }

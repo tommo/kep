@@ -9,6 +9,10 @@ public final class AgentToolEffects {
     public var changedFiles: Set<URL> = []
     public var createdFiles: Set<URL> = []
     public var mapMutated = false
+    /// Live overlay of documents written *this run*, keyed by standardized URL.
+    /// Lets a later tool call in the same agent loop read the freshest bytes
+    /// (the start-of-run `corpus`/`allFiles` snapshot can't see same-run writes).
+    public var liveDocs: [URL: String] = [:]
     public init() {}
 }
 
@@ -99,6 +103,15 @@ public struct MindoAgentTools {
          #"{"type":"object","properties":{"script":{"type":"string"}},"required":["script"]}"#),
     ]
 
+    /// Tools that mutate the active mind map. The host omits these from the
+    /// offered specs when no mind map is open, so the model isn't tempted to
+    /// edit a throwaway scratch map whose changes would be discarded.
+    public static let mapMutatingToolNames: Set<String> = [
+        "add_child_topic", "rename_topic", "remove_topic", "set_topic_attr", "run_lua",
+        "add_sibling_topic", "move_topic", "build_subtree",
+        "set_topic_note", "link_topics", "set_topic_collapsed",
+    ]
+
     /// Execute a tool by name. Unknown tools and bad arguments return an error
     /// string (fed back to the model rather than thrown).
     public func handle(name: String, argumentsJSON: String) -> String {
@@ -175,6 +188,7 @@ public struct MindoAgentTools {
             guard let text = a.str("text") else { return "error: missing 'text'" }
             guard let t = resolveTopic(a) else { return "error: no topic matches the given path/query" }
             let old = t.text
+            guard old != text else { return "renamed (no change)" }
             t.text = text
             effects.mapMutated = true
             return "renamed \"\(old)\" → \"\(text)\""
@@ -190,14 +204,17 @@ public struct MindoAgentTools {
         case "set_topic_attr":
             guard let key = a.str("key") else { return "error: missing 'key'" }
             guard let t = resolveTopic(a) else { return "error: no topic matches the given path/query" }
-            t.setAttribute(key, a.str("value"))   // nil value clears
+            let newValue = a.str("value")
+            guard t.attribute(key) != newValue else { return "set @\(key) (no change)" }
+            t.setAttribute(key, newValue)   // nil value clears
             effects.mapMutated = true
-            return "set @\(key)=\(a.str("value") ?? "nil") on \"\(t.text)\""
+            return "set @\(key)=\(newValue ?? "nil") on \"\(t.text)\""
 
         case "run_lua":
             guard let script = a.str("script") else { return "error: missing 'script'" }
             let result = MindoScriptRunner.run(script, on: map, corpus: corpus, allFiles: allFiles)
-            effects.mapMutated = true
+            // Only dirty the canvas when the script actually ran to completion.
+            if result.error == nil { effects.mapMutated = true }
             return result.error.map { "error: \($0)" } ?? result.output
 
         default:
@@ -251,38 +268,76 @@ public struct MindoAgentTools {
         map.root?.traverse(visit)
     }
 
-    /// Text of a workspace document by name, from the in-memory corpus (falls
-    /// back to reading disk if the corpus doesn't carry it).
+    static let knownDocExtensions: Set<String> = ["md", "mmd", "puml", "csv", "txt"]
+
+    /// URL of an existing document by name — the start-of-run snapshot first,
+    /// then any file *created this run* (so sequential edits find their own
+    /// output). nil if neither knows it.
+    func documentURL(named name: String) -> URL? {
+        if let u = WikiLinkResolver.resolve(name, in: allFiles) { return u }
+        let base = (name as NSString).lastPathComponent.lowercased()
+        let bareBase = (base as NSString).deletingPathExtension
+        for u in effects.createdFiles {
+            let full = u.lastPathComponent.lowercased()
+            let stem = u.deletingPathExtension().lastPathComponent.lowercased()
+            if full == base || stem == base || stem == bareBase { return u }
+        }
+        return nil
+    }
+
+    /// Text of a workspace document by name. Prefers same-run writes (live
+    /// overlay), then the start-of-run corpus, then disk.
     func documentText(named name: String) -> String? {
-        guard let url = WikiLinkResolver.resolve(name, in: allFiles) else { return nil }
-        if let entry = corpus.first(where: { $0.url.standardizedFileURL == url.standardizedFileURL }) {
+        guard let url = documentURL(named: name) else { return nil }
+        let key = url.standardizedFileURL
+        if let live = effects.liveDocs[key] { return live }
+        if let entry = corpus.first(where: { $0.url.standardizedFileURL == key }) {
             return entry.text
         }
         return try? String(contentsOf: url, encoding: .utf8)
     }
 
-    /// URL of an existing document by name, or nil.
-    func documentURL(named name: String) -> URL? {
-        WikiLinkResolver.resolve(name, in: allFiles)
+    /// When a bare (extension-less) name matches more than one workspace file by
+    /// base name, return those candidates so write tools can refuse to guess.
+    /// Empty when unambiguous (single/no match, or the name carries an extension).
+    func ambiguousWriteCandidates(named name: String) -> [URL] {
+        guard (name as NSString).pathExtension.isEmpty else { return [] }
+        let base = name.lowercased()
+        let matches = allFiles.filter { $0.deletingPathExtension().lastPathComponent.lowercased() == base }
+        return matches.count > 1 ? matches : []
     }
 
-    /// Resolve a name to an existing file, or build a URL for a new file of the
-    /// given extension under the workspace root. nil when no creation dir known.
+    /// Error string when a bare write target is ambiguous (matches >1 file by
+    /// base name), else nil. Write tools call this to refuse to guess.
+    func ambiguityError(forWriteName name: String) -> String? {
+        let c = ambiguousWriteCandidates(named: name)
+        guard !c.isEmpty else { return nil }
+        let names = c.map { $0.lastPathComponent }.sorted().joined(separator: ", ")
+        return "error: \"\(name)\" is ambiguous — matches \(names); pass the full filename with extension."
+    }
+
+    /// Resolve a name to an existing file (incl. same-run creations), or build a
+    /// URL for a new file of the given extension under the workspace root. nil
+    /// when no creation dir is known.
     func resolveOrCreateURL(name: String, ext: String) -> URL? {
-        if let existing = WikiLinkResolver.resolve(name, in: allFiles) { return existing }
+        if let existing = documentURL(named: name) { return existing }
         guard let dir = workspaceRoot ?? allFiles.first?.deletingLastPathComponent() else { return nil }
-        let base = name.hasSuffix(".\(ext)") ? name : "\(name).\(ext)"
-        // Guard against path traversal: only the last path component is used.
-        let safe = (base as NSString).lastPathComponent
-        return dir.appendingPathComponent(safe)
+        // Path-traversal guard: only the last component is used.
+        let safe = (name as NSString).lastPathComponent
+        // Keep an already-recognized extension; otherwise append the default.
+        let existingExt = (safe as NSString).pathExtension.lowercased()
+        let base = Self.knownDocExtensions.contains(existingExt) ? safe : "\(safe).\(ext)"
+        return dir.appendingPathComponent(base)
     }
 
-    /// Write text to a document URL, recording the effect. Returns a status line.
+    /// Write text to a document URL, recording the effect + live overlay. Returns
+    /// a status line.
     func writeDocument(_ url: URL, _ content: String, created: Bool) -> String {
         do {
             try content.data(using: .utf8)?.write(to: url, options: .atomic)
             if created { effects.createdFiles.insert(url) }
             effects.changedFiles.insert(url)
+            effects.liveDocs[url.standardizedFileURL] = content
             let n = url.deletingPathExtension().lastPathComponent
             return created ? "created \"\(n)\" (\(content.count) chars)" : "wrote \"\(n)\" (\(content.count) chars)"
         } catch {

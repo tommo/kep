@@ -128,10 +128,18 @@ struct ContentView: View {
     /// rather than a single-document helper.
     static let agentSystemPrompt =
         "You are Mindo's assistant for the user's entire knowledge base — multiple mind maps and "
-        + "Markdown/PlantUML/CSV documents linked by [[wiki links]]. You are not tied to one document: "
-        + "fetch a document's content with the read_document tool when you need it (don't assume it's "
-        + "already provided), and use the other tools to query links/backlinks and edit the mind map. "
-        + "Be concise; when producing a diagram or table, output only valid source for that format."
+        + "Markdown/PlantUML/CSV documents linked by [[wiki links]]. You are not tied to one document. "
+        + "You have a comprehensive toolset; prefer tools over guessing:\n"
+        + "• Explore: list_docs, search_workspace (text/regex across files), read_document, read_section, "
+        + "document_outline, resolve_link, backlinks, outgoing_links.\n"
+        + "• Edit documents on disk: create_document, overwrite_document, append_to_document, "
+        + "replace_section, insert_after_heading.\n"
+        + "• Edit the active mind map: get_mindmap (shows each topic's stable [outline-path]), find_topics, "
+        + "add_child_topic, add_sibling_topic, rename_topic, remove_topic, move_topic, build_subtree "
+        + "(bulk-build from an indented outline), set_topic_attr, set_topic_note/get_topic_note, "
+        + "link_topics, set_topic_collapsed; run_lua for anything bespoke.\n"
+        + "Target topics by their [outline-path] when you can (stable); fall back to a text query. "
+        + "Read before you write. Be concise; when producing a diagram or table, output only valid source."
 
     /// The right-hand inspector: a toggle between the document Outline (+ node
     /// Note editor) and the cross-document AI Assistant.

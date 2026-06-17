@@ -32,10 +32,14 @@ extension AppSession {
         }
         let hadMindMap = activeMindMap != nil
         let map = activeMindMap ?? MindMap(root: Topic(text: "Scratch"))
-        let tools = MindoAgentTools(map: map, corpus: corpus, allFiles: files)
-        let specs = MindoAgentTools.descriptors.map {
-            ToolSpec(name: $0.name, description: $0.description, parametersJSON: $0.parametersJSON)
-        }
+        let effects = AgentToolEffects()
+        let tools = MindoAgentTools(map: map, corpus: corpus, allFiles: files,
+                                    workspaceRoot: workspaceRoots.first?.url, effects: effects)
+        // Without an open mind map, omit the map-editing tools — their changes
+        // would land on a throwaway scratch map and be discarded.
+        let specs = MindoAgentTools.descriptors
+            .filter { hadMindMap || !MindoAgentTools.mapMutatingToolNames.contains($0.name) }
+            .map { ToolSpec(name: $0.name, description: $0.description, parametersJSON: $0.parametersJSON) }
 
         let backend = AgentToolBackend(messages: messages, tools: specs) { msgs, offered in
             let input = LLMInput(providerID: providerID.rawValue, model: model, text: "",
@@ -48,12 +52,26 @@ extension AppSession {
             return tools.handle(name: call.name, argumentsJSON: call.argumentsJSON)
         }
 
-        // Reflect any map mutations the tools made.
-        if hadMindMap, let id = activeDocumentID,
+        // Reflect any map mutations the tools made on the active canvas.
+        if effects.mapMutated, hadMindMap, let id = activeDocumentID,
            let idx = openDocuments.firstIndex(where: { $0.id == id }) {
             openDocuments[idx].isDirty = true
             mindmapCommand = .reload
             mindmapCommandTick &+= 1
+        }
+        // Reload any *other* open tab whose file the agent wrote to disk. Skip
+        // the active doc — if it's the mutated mind map, the in-memory reload
+        // above already reflects it, and reloading from disk would clobber it.
+        for url in effects.changedFiles {
+            if let doc = openDocuments.first(where: {
+                $0.fileURL?.standardizedFileURL == url.standardizedFileURL
+            }), doc.id != activeDocumentID {
+                reloadTab(doc.id)
+            }
+        }
+        // Surface newly-created files in the sidebar.
+        if !effects.createdFiles.isEmpty {
+            reloadAllWorkspaces()
         }
         // Show which tools ran, so the user sees what the agent did.
         guard !usedTools.isEmpty else { return reply }

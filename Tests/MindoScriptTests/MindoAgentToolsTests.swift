@@ -119,10 +119,27 @@ final class MindoAgentToolsTests: XCTestCase {
         XCTAssertEqual(t.handle(name: "read_document", argumentsJSON: #"{"name":"Nope"}"#), "not found")
     }
 
-    func testDescriptorsCoverAllHandledTools() {
-        XCTAssertEqual(Set(MindoAgentTools.descriptors.map(\.name)),
-                       ["list_docs", "resolve_link", "backlinks", "read_document",
-                        "get_mindmap", "find_topics", "add_child_topic",
-                        "rename_topic", "remove_topic", "set_topic_attr", "run_lua"])
+    func testDescriptorsAreUniqueAndValidJSON() {
+        let names = MindoAgentTools.descriptors.map(\.name)
+        // No duplicate tool names across the aggregated groups.
+        XCTAssertEqual(names.count, Set(names).count, "duplicate tool name in descriptors")
+        // Every descriptor advertises a valid JSON-Schema params object.
+        for d in MindoAgentTools.descriptors {
+            let obj = try? JSONSerialization.jsonObject(with: Data(d.parametersJSON.utf8))
+            XCTAssertNotNil(obj as? [String: Any], "\(d.name) has invalid parametersJSON")
+        }
+    }
+
+    func testEveryDescriptorIsHandled() {
+        // A handled tool returns non-nil (even an "error: …") for empty args;
+        // an unknown tool falls through to the unknown-tool message.
+        let tools = self.tools(MindMap(root: Topic(text: "R")))
+        for d in MindoAgentTools.descriptors {
+            let r = tools.handle(name: d.name, argumentsJSON: "{}")
+            XCTAssertFalse(r.hasPrefix("error: unknown tool"),
+                           "\(d.name) is advertised but not handled")
+        }
+        // Sanity: the suite really grew well beyond the original 11 core tools.
+        XCTAssertGreaterThanOrEqual(MindoAgentTools.descriptors.count, 25)
     }
 }

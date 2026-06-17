@@ -1,0 +1,18 @@
+@startuml
+start
+:dose;
+:distribute;
+:tamp;
+:lock portafilter;
+:start pump;
+:watch extraction;
+:stop at target yield;
+:evaluate;
+if (shot ran too fast/slow?) then (yes)
+  :adjust grind;
+  repeat
+else (no)
+  :serve;
+endif
+stop
+@enduml

@@ -141,49 +141,42 @@ public struct DialogView: View {
     }
 
     private var composer: some View {
-        // Input grows with its content (1 line → a few), capped; the send button
-        // sits beside it as a distinct circular control.
-        HStack(alignment: .bottom, spacing: 8) {
-            ZStack(alignment: .topLeading) {
-                if vm.draft.isEmpty {
-                    Text(vm.agentMode ? "Ask the assistant to do something…" : "Message the assistant…")
-                        .foregroundStyle(.tertiary)
-                        .padding(.vertical, 2)
-                        .allowsHitTesting(false)
-                }
-                TextEditor(text: $vm.draft)
-                    .font(.body)
-                    .scrollContentBackground(.hidden)
-                    .frame(minHeight: 20, maxHeight: 96)
-                    .fixedSize(horizontal: false, vertical: true)   // size to content, capped by maxHeight
-                    .focused($inputFocused)
+        // No send button — ⌘↩ sends (Return inserts a newline). The shortcut
+        // lives on a hidden button so removing the visible control keeps it.
+        ZStack(alignment: .topLeading) {
+            if vm.draft.isEmpty {
+                Text(vm.agentMode ? "Ask the assistant to do something… (⌘↩ to send)"
+                                  : "Message the assistant… (⌘↩ to send)")
+                    .foregroundStyle(.tertiary)
+                    .padding(.vertical, 2)
+                    .allowsHitTesting(false)
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
-            .background(RoundedRectangle(cornerRadius: 13).fill(Color(nsColor: .textBackgroundColor)))
-            .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(Color.secondary.opacity(0.28)))
-
-            sendControl
+            TextEditor(text: $vm.draft)
+                .font(.body)
+                .scrollContentBackground(.hidden)
+                .frame(minHeight: 20, maxHeight: 110)
+                .fixedSize(horizontal: false, vertical: true)
+                .focused($inputFocused)
         }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(RoundedRectangle(cornerRadius: 13).fill(Color(nsColor: .textBackgroundColor)))
+        .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(Color.secondary.opacity(0.28)))
         .padding(8)
+        .background(sendShortcut)
     }
 
-    @ViewBuilder private var sendControl: some View {
-        Button {
-            if vm.isRunning { vm.cancel() }
-            else { vm.setContext(contextProvider?()); vm.send() }
-        } label: {
-            Image(systemName: vm.isRunning ? "stop.fill" : "arrow.up")
-                .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(.white)
-                .frame(width: 28, height: 28)
-                .background(Circle().fill(
-                    vm.isRunning ? Color.secondary
-                    : (vm.canSend ? Color.accentColor : Color.secondary.opacity(0.4))))
+    /// Invisible carrier for the ⌘↩ send shortcut.
+    private var sendShortcut: some View {
+        Button("") {
+            guard vm.canSend else { return }
+            vm.setContext(contextProvider?())
+            vm.send()
         }
-        .buttonStyle(.plain)
         .keyboardShortcut(.return, modifiers: [.command])
-        .disabled(!vm.isRunning && !vm.canSend)
-        .help(vm.isRunning ? "Stop" : "Send (⌘↩)")
+        .disabled(!vm.canSend)
+        .opacity(0)
+        .frame(width: 0, height: 0)
+        .accessibilityHidden(true)
     }
 }

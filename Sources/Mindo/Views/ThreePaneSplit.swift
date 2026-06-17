@@ -14,10 +14,14 @@ struct ThreePaneSplit<Sidebar: View, Detail: View, Inspector: View>: NSViewContr
     @ViewBuilder var inspector: () -> Inspector
 
     func makeNSViewController(context: Context) -> NSSplitViewController {
-        let svc = NSSplitViewController()
+        let svc = DiagSplitViewController()
         svc.splitView.isVertical = true
         svc.splitView.dividerStyle = .thin
         svc.splitView.autosaveName = "mindo.mainSplit"   // persists divider positions
+        // DIAGNOSTIC: log geometry whenever subviews resize (incl. live drags).
+        context.coordinator.resizeObserver = NotificationCenter.default.addObserver(
+            forName: NSSplitView.didResizeSubviewsNotification, object: svc.splitView, queue: .main
+        ) { [weak svc] _ in if let svc { SplitDiag.log("didResizeSubviews", svc) } }
 
         let sidebarHost = NSHostingController(rootView: AnyView(sidebar()))
         let detailHost = NSHostingController(rootView: AnyView(detail()))
@@ -104,5 +108,58 @@ struct ThreePaneSplit<Sidebar: View, Detail: View, Inspector: View>: NSViewContr
         var inspectorHost: NSHostingController<AnyView>?
         var sidebarItem: NSSplitViewItem?
         var inspectorItem: NSSplitViewItem?
+        var resizeObserver: NSObjectProtocol?
+        deinit { if let o = resizeObserver { NotificationCenter.default.removeObserver(o) } }
+    }
+}
+
+// MARK: - Diagnostics (temporary)
+
+/// Logs split-view geometry on every layout pass + a live constrain hook, so we
+/// can SEE — not guess — why dividers won't resize: whether the split fills the
+/// window, whether panes are pinned to their fitting/intrinsic size, and what
+/// position the drag actually proposes vs. lands on.
+final class DiagSplitViewController: NSSplitViewController {
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        SplitDiag.log("viewDidLayout", self)
+    }
+    /// Fires live during a divider drag with the proposed position. Return it
+    /// unchanged (no behavior change) after logging.
+    override func splitView(_ splitView: NSSplitView,
+                            constrainSplitPosition proposedPosition: CGFloat,
+                            ofSubviewAt dividerIndex: Int) -> CGFloat {
+        let pos = super.splitView(splitView, constrainSplitPosition: proposedPosition, ofSubviewAt: dividerIndex)
+        NSLog("[SPLITDIAG drag] divider=%d proposed=%.1f -> constrained=%.1f (splitW=%.1f)",
+              dividerIndex, proposedPosition, pos, splitView.bounds.width)
+        return pos
+    }
+}
+
+enum SplitDiag {
+    static func log(_ tag: String, _ svc: NSSplitViewController) {
+        let sv = svc.splitView
+        var lines: [String] = []
+        lines.append("split.frame=\(fmt(sv.frame)) translatesAM=\(sv.translatesAutoresizingMaskIntoConstraints)")
+        if let sup = sv.superview {
+            lines.append("superview=\(type(of: sup)) frame=\(fmt(sup.frame))")
+        }
+        if let win = sv.window {
+            lines.append("window.contentLayoutRect=\(fmt(win.contentLayoutRect))")
+        }
+        for (idx, item) in svc.splitViewItems.enumerated() {
+            let v = item.viewController.view
+            lines.append("  [\(idx)] frame=\(fmt(v.frame)) fitting=\(sz(v.fittingSize)) intrinsic=\(sz(v.intrinsicContentSize)) " +
+                         "hugH=\(v.contentHuggingPriority(for: .horizontal).rawValue) " +
+                         "collapsed=\(item.isCollapsed) hold=\(item.holdingPriority.rawValue) " +
+                         "min=\(Int(item.minimumThickness)) max=\(Int(item.maximumThickness))")
+        }
+        NSLog("[SPLITDIAG %@]\n%@", tag, lines.joined(separator: "\n"))
+    }
+    private static func fmt(_ r: CGRect) -> String {
+        "(\(Int(r.origin.x)),\(Int(r.origin.y)) \(Int(r.width))×\(Int(r.height)))"
+    }
+    private static func sz(_ s: CGSize) -> String {
+        "\(s.width < 0 ? "-" : String(Int(s.width)))×\(s.height < 0 ? "-" : String(Int(s.height)))"
     }
 }

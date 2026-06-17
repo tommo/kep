@@ -23,11 +23,12 @@ public enum XMindImporter {
 
     public static func parse(data: Data) throws -> MindMap {
         guard let zip = ZipArchive(data: data) else { throw ImportError.notAZip }
+        // Modern Zen bundles carry content.json; legacy XMind 8 carries content.xml.
         guard let content = zip.data(for: "content.json")
                 ?? zip.firstData(where: { $0.lowercased().hasSuffix("content.json") }) else {
-            // Distinguish "it's the old XML format" from "no content at all".
-            if zip.firstData(where: { $0.lowercased().hasSuffix("content.xml") }) != nil {
-                throw ImportError.legacyUnsupported
+            if let xml = zip.data(for: "content.xml")
+                ?? zip.firstData(where: { $0.lowercased().hasSuffix("content.xml") }) {
+                return try parseLegacyXML(xml)
             }
             throw ImportError.noContent
         }
@@ -42,6 +43,47 @@ public enum XMindImporter {
         applyNote(rootDict, to: root)
         buildChildren(of: rootDict, under: root)
         return map
+    }
+
+    // MARK: - Legacy XMind 8 (content.xml)
+
+    /// `<xmap-content><sheet><topic><title>… + <children><topics><topic>…`.
+    private static func parseLegacyXML(_ data: Data) throws -> MindMap {
+        let doc = try XMLDocument(data: data)
+        guard let root = doc.rootElement(),
+              let sheet = root.elements(forName: "sheet").first,
+              let rootTopic = sheet.elements(forName: "topic").first else {
+            throw ImportError.emptyDocument
+        }
+        let map = MindMap()
+        let topic = Topic(text: "")
+        map.root = topic
+        applyLegacy(element: rootTopic, to: topic)
+        if topic.text.isEmpty { topic.text = "Central Topic" }
+        return map
+    }
+
+    private static func applyLegacy(element: XMLElement, to topic: Topic) {
+        topic.text = element.elements(forName: "title").first?.stringValue ?? ""
+        if let note = legacyNote(element) { topic.setExtra(ExtraNote(text: note)) }
+        for childTopic in legacyChildTopics(element) {
+            applyLegacy(element: childTopic, to: topic.addChild(text: ""))
+        }
+    }
+
+    /// `<children><topics><topic>` — XMind groups children under typed `<topics>`.
+    private static func legacyChildTopics(_ topic: XMLElement) -> [XMLElement] {
+        topic.elements(forName: "children")
+            .flatMap { $0.elements(forName: "topics") }
+            .flatMap { $0.elements(forName: "topic") }
+    }
+
+    private static func legacyNote(_ topic: XMLElement) -> String? {
+        for notes in topic.elements(forName: "notes") {
+            if let plain = notes.elements(forName: "plain").first?.stringValue, !plain.isEmpty { return plain }
+            if let html = notes.elements(forName: "html").first?.stringValue, !html.isEmpty { return html }
+        }
+        return nil
     }
 
     // MARK: - Helpers

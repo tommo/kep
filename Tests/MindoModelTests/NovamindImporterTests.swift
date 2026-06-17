@@ -63,6 +63,47 @@ final class NovamindImporterTests: XCTestCase {
         XCTAssertEqual(branch?.children.map(\.text), ["Leaf"])
     }
 
+    func testImportsColorsAndJumpLinks() throws {
+        let xml = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <document>
+          <topics>
+            <topic id="c0"><rich-text><text-run>Root</text-run></rich-text></topic>
+            <topic id="c1"><rich-text><text-run>A</text-run></rich-text></topic>
+            <topic id="c2"><rich-text><text-run>B</text-run></rich-text></topic>
+          </topics>
+          <maps>
+            <map>
+              <topic-node id="n0" topic-ref="c0">
+                <sub-topics>
+                  <topic-node id="n1" topic-ref="c1">
+                    <topic-node-view><topic-node-style>
+                      <fill-style><solid-color color="#FFCCDD"/></fill-style>
+                      <line-style color="#112233"/>
+                    </topic-node-style></topic-node-view>
+                  </topic-node>
+                  <topic-node id="n2" topic-ref="c2"/>
+                </sub-topics>
+              </topic-node>
+              <link-lines>
+                <topic-node>
+                  <link-line-data start-topic-node-ref="n1" end-topic-node-ref="n2"/>
+                </topic-node>
+              </link-lines>
+            </map>
+          </maps>
+        </document>
+        """
+        let map = try NovamindImporter.parse(data: makeNm5(xml))
+        let a = try XCTUnwrap(map.root?.children.first { $0.text == "A" })
+        let b = try XCTUnwrap(map.root?.children.first { $0.text == "B" })
+        XCTAssertEqual(a.attribute(TopicAttribute.fillColor), "#FFCCDD")
+        XCTAssertEqual(a.attribute(TopicAttribute.borderColor), "#112233")
+        // Jump-link A → B: B gains a UID, A's ExtraTopic points to it.
+        let uid = try XCTUnwrap(b.attribute(ExtraTopic.topicUidAttr))
+        XCTAssertEqual((a.extra(.topic) as? ExtraTopic)?.topicUID, uid)
+    }
+
     func testRootFallbackWhenNoText() throws {
         let xml = """
         <document><topics></topics>

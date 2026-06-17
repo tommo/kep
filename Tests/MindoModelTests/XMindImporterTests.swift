@@ -63,20 +63,41 @@ final class XMindImporterTests: XCTestCase {
         XCTAssertEqual(try XMindImporter.parse(data: data).root?.text, "Central Topic")
     }
 
-    func testLegacyXmlSurfacesClearError() throws {
-        // A bundle with content.xml but no content.json → legacy, unsupported.
+    func testImportsLegacyXML() throws {
+        // A bundle with content.xml (no content.json) → legacy XMind 8 path.
         try XCTSkipUnless(FileManager.default.isExecutableFile(atPath: "/usr/bin/zip"), "no /usr/bin/zip")
-        try "<xml/>".write(to: dir.appendingPathComponent("content.xml"), atomically: true, encoding: .utf8)
+        let xml = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <xmap-content>
+          <sheet>
+            <topic id="r"><title>Central</title>
+              <notes><plain>root note</plain></notes>
+              <children>
+                <topics type="attached">
+                  <topic id="a"><title>Main 1</title>
+                    <children><topics><topic id="a1"><title>Sub</title></topic></topics></children>
+                  </topic>
+                  <topic id="b"><title>Main 2</title></topic>
+                </topics>
+              </children>
+            </topic>
+          </sheet>
+        </xmap-content>
+        """
+        try xml.write(to: dir.appendingPathComponent("content.xml"), atomically: true, encoding: .utf8)
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/zip")
         p.currentDirectoryURL = dir
         p.arguments = ["-q", "legacy.xmind", "content.xml"]
         p.standardOutput = Pipe(); p.standardError = Pipe()
         try p.run(); p.waitUntilExit()
-        let data = try Data(contentsOf: dir.appendingPathComponent("legacy.xmind"))
-        XCTAssertThrowsError(try XMindImporter.parse(data: data)) { error in
-            XCTAssertEqual(error as? XMindImporter.ImportError, .legacyUnsupported)
-        }
+        try XCTSkipUnless(p.terminationStatus == 0, "zip failed")
+
+        let map = try XMindImporter.parse(data: try Data(contentsOf: dir.appendingPathComponent("legacy.xmind")))
+        XCTAssertEqual(map.root?.text, "Central")
+        XCTAssertEqual((map.root?.extra(.note) as? ExtraNote)?.text, "root note")
+        XCTAssertEqual(map.root?.children.map(\.text), ["Main 1", "Main 2"])
+        XCTAssertEqual(map.root?.children.first?.children.map(\.text), ["Sub"])
     }
 
     func testNonZipThrows() {

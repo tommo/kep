@@ -4,9 +4,10 @@ import Foundation
 /// holds (1) a `<topics>` table of content topics keyed by id (rich text +
 /// notes) and (2) a `<maps><map>` tree of `<topic-node topic-ref=…>` that
 /// references those content topics and nests via `<sub-topics>`. We resolve the
-/// tree against the content table, mapping topic notes → `ExtraNote`. Mirrors
-/// javamind's Novamind2MindMapImporter (tree + text + notes; jump-links between
-/// topics are a possible follow-up).
+/// tree against the content table, mapping topic notes → `ExtraNote`, per-node
+/// fill/line styles → fillColor/borderColor, and `<link-lines>` between
+/// topic-nodes → `ExtraTopic` jump-links. Mirrors javamind's
+/// Novamind2MindMapImporter.
 public enum NovamindImporter {
     public enum ImportError: Error, LocalizedError {
         case notAZip, noContent, emptyDocument
@@ -46,23 +47,75 @@ public enum NovamindImporter {
         let map = MindMap()
         let rootTopic = Topic(text: "")
         map.root = rootTopic
-        apply(node: rootNode, to: rootTopic, content: content)
+        var nodeToTopic: [String: Topic] = [:]
+        apply(node: rootNode, to: rootTopic, content: content, nodeMap: &nodeToTopic)
         if rootTopic.text.isEmpty { rootTopic.text = "Novamind Map" }
+
+        wireJumpLinks(in: firstMap, nodeToTopic: nodeToTopic)
         return map
     }
 
     // MARK: - Tree
 
     private static func apply(node: XMLElement, to topic: Topic,
-                              content: [String: (text: String, notes: String?)]) {
+                              content: [String: (text: String, notes: String?)],
+                              nodeMap: inout [String: Topic]) {
+        if let nodeId = node.attribute(forName: "id")?.stringValue { nodeMap[nodeId] = topic }
         if let ref = node.attribute(forName: "topic-ref")?.stringValue, let c = content[ref] {
             topic.text = c.text
             if let notes = c.notes { topic.setExtra(ExtraNote(text: notes)) }
         }
+        applyStyleColors(from: node, to: topic)
         if let sub = node.elements(forName: "sub-topics").first {
             for childNode in sub.elements(forName: "topic-node") {
                 let child = topic.addChild(text: "")
-                apply(node: childNode, to: child, content: content)
+                apply(node: childNode, to: child, content: content, nodeMap: &nodeMap)
+            }
+        }
+    }
+
+    // MARK: - Styles
+
+    /// `<topic-node-view><topic-node-style><fill-style><solid-color color=…>` →
+    /// fillColor; `<line-style color=…>` → borderColor.
+    private static func applyStyleColors(from node: XMLElement, to topic: Topic) {
+        guard let view = node.elements(forName: "topic-node-view").first,
+              let style = view.elements(forName: "topic-node-style").first else { return }
+        if let fill = style.elements(forName: "fill-style").first,
+           let solid = fill.elements(forName: "solid-color").first,
+           let hex = normalizedHex(solid.attribute(forName: "color")?.stringValue) {
+            topic.setAttribute(TopicAttribute.fillColor, hex)
+        }
+        if let line = style.elements(forName: "line-style").first,
+           let hex = normalizedHex(line.attribute(forName: "color")?.stringValue) {
+            topic.setAttribute(TopicAttribute.borderColor, hex)
+        }
+    }
+
+    /// Accept `#RRGGBB`, `RRGGBB`, or `#RRGGBBAA`/`RRGGBBAA`; return `#RRGGBB`.
+    private static func normalizedHex(_ raw: String?) -> String? {
+        guard var s = raw?.trimmingCharacters(in: .whitespaces), !s.isEmpty else { return nil }
+        if s.hasPrefix("#") { s.removeFirst() }
+        guard s.count == 6 || s.count == 8, s.allSatisfy({ $0.isHexDigit }) else { return nil }
+        return "#" + s.prefix(6)
+    }
+
+    // MARK: - Jump links
+
+    /// `<link-lines><topic-node><link-line-data start-…-ref end-…-ref>` →
+    /// ExtraTopic from the start node's topic to the end node's topic.
+    private static func wireJumpLinks(in firstMap: XMLElement, nodeToTopic: [String: Topic]) {
+        for lines in firstMap.elements(forName: "link-lines") {
+            for tn in lines.elements(forName: "topic-node") {
+                for lld in tn.elements(forName: "link-line-data") {
+                    guard let startRef = lld.attribute(forName: "start-topic-node-ref")?.stringValue,
+                          let endRef = lld.attribute(forName: "end-topic-node-ref")?.stringValue,
+                          let from = nodeToTopic[startRef], let to = nodeToTopic[endRef],
+                          from !== to else { continue }
+                    var uid = to.attribute(ExtraTopic.topicUidAttr)
+                    if uid == nil { let g = UUID().uuidString; to.setAttribute(ExtraTopic.topicUidAttr, g); uid = g }
+                    from.setExtra(ExtraTopic(topicUID: uid!))
+                }
             }
         }
     }

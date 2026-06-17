@@ -108,7 +108,7 @@ public struct MindoAgentTools {
     /// edit a throwaway scratch map whose changes would be discarded.
     public static let mapMutatingToolNames: Set<String> = [
         "add_child_topic", "rename_topic", "remove_topic", "set_topic_attr", "run_lua",
-        "add_sibling_topic", "move_topic", "build_subtree",
+        "add_sibling_topic", "move_topic", "build_subtree", "sort_children",
         "set_topic_note", "link_topics", "set_topic_collapsed",
     ]
 
@@ -250,7 +250,9 @@ public struct MindoAgentTools {
     /// Resolve a topic from args: `path` (stable outline path) wins, else a
     /// substring `query` (or an alternate key, e.g. "parent"). First match wins.
     func resolveTopic(_ a: ToolArgs, queryKey: String = "query") -> Topic? {
-        if let path = a.str("path") { return map.topic(atOutlinePath: path) }
+        // Read the raw value: the root's outline path is "" (empty), which
+        // ToolArgs.str would reject — so a present-but-empty `path` means root.
+        if let path = a.dict["path"] as? String { return map.topic(atOutlinePath: path) }
         if let q = a.str(queryKey) { return firstTopic(matching: q) }
         return nil
     }

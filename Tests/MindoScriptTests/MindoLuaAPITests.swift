@@ -256,6 +256,16 @@ final class MindoLuaAPITests: XCTestCase {
         XCTAssertEqual(map.root?.children[0].attribute("collapsed"), "true")
     }
 
+    func testSortChildren() throws {
+        let map = MindMap(root: Topic(text: "R"))
+        let r = map.root!
+        _ = r.addChild(text: "banana"); _ = r.addChild(text: "Apple"); _ = r.addChild(text: "cherry")
+        _ = try run("mindo.sort(mindo.root())", map: map)
+        XCTAssertEqual(r.children.map(\.text), ["Apple", "banana", "cherry"])
+        _ = try run("mindo.sort(mindo.root(), false)", map: map)   // descending
+        XCTAssertEqual(r.children.map(\.text), ["cherry", "banana", "Apple"])
+    }
+
     func testReadDoc() throws {
         let files = [URL(fileURLWithPath: "/ws/Notes.md")]
         let corpus: [(url: URL, text: String)] = [(files[0], "# Notes\nbody here")]

@@ -37,7 +37,7 @@ final class AgentToolsMindmapEditTests: XCTestCase {
 
     func testDescriptorsAreValidJSONSchema() {
         let names = MindoAgentTools.mindmapEditDescriptors.map { $0.name }
-        XCTAssertEqual(Set(names), ["add_sibling_topic", "move_topic", "build_subtree"])
+        XCTAssertEqual(Set(names), ["add_sibling_topic", "move_topic", "build_subtree", "sort_children"])
         for d in MindoAgentTools.mindmapEditDescriptors {
             let obj = try? JSONSerialization.jsonObject(with: Data(d.parametersJSON.utf8)) as? [String: Any]
             XCTAssertNotNil(obj, "params for \(d.name) must be valid JSON")
@@ -49,6 +49,22 @@ final class AgentToolsMindmapEditTests: XCTestCase {
     func testUnknownToolReturnsNil() {
         let (tools, _, _) = makeTools()
         XCTAssertNil(tools.handleMindmapEdit("nope", ToolArgs([:])))
+    }
+
+    func testSortChildren() {
+        let (tools, map, effects) = makeTools()
+        // Root's children are A, B → already sorted; reverse first to test.
+        _ = call(tools, "sort_children", ["query": "Root", "descending": true])
+        XCTAssertEqual(map.root?.children.map(\.text), ["B", "A"])
+        XCTAssertTrue(effects.mapMutated)
+        _ = call(tools, "sort_children", ["path": ""])   // root by path, ascending
+        XCTAssertEqual(map.root?.children.map(\.text), ["A", "B"])
+    }
+
+    func testSortChildrenNothingToSort() {
+        let (tools, _, _) = makeTools()
+        // "B" is a leaf → nothing to sort.
+        XCTAssertTrue(call(tools, "sort_children", ["query": "B"]).contains("nothing to sort"))
     }
 
     // MARK: - add_sibling_topic

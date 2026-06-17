@@ -139,6 +139,12 @@ public final class MindoLuaAPI {
             return .nil
         }
         engine.register("__mindo_path") { [self] a in .string(Self.outlinePath(of: try topic(a))) }
+        engine.register("__mindo_sort") { [self] a in
+            let t = try topic(a)
+            let ascending = a.count > 1 ? (a[1].boolValue ?? true) : true
+            t.sortChildren(ascending: ascending)
+            return .nil
+        }
         // Knowledge base
         engine.register("__mindo_resolve") { [self] a in
             let target = try string(a, 0)
@@ -208,6 +214,7 @@ public final class MindoLuaAPI {
       setNote = __mindo_setNote,
       setCollapsed = __mindo_setCollapsed,
       path = __mindo_path,
+      sort = __mindo_sort,
       resolve = __mindo_resolve,
       backlinks = __mindo_backlinks,
       docs = __mindo_docs,

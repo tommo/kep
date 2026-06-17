@@ -10,6 +10,8 @@ extension MindoAgentTools {
          #"{"type":"object","properties":{"query":{"type":"string"},"path":{"type":"string"},"to_parent":{"type":"string"},"to_parent_path":{"type":"string"},"index":{"type":"integer"}},"required":[]}"#),
         ("build_subtree", "Build a nested tree of topics from an indented `outline` (2 spaces or one tab per level) under a parent (targeted by `parent_path` or `parent` substring; defaults to the root). Blank lines are skipped.",
          #"{"type":"object","properties":{"parent":{"type":"string"},"parent_path":{"type":"string"},"outline":{"type":"string"}},"required":["outline"]}"#),
+        ("sort_children", "Sort a topic's immediate children alphabetically (targeted by `path` or `query`). `descending` true sorts Z→A.",
+         #"{"type":"object","properties":{"query":{"type":"string"},"path":{"type":"string"},"descending":{"type":"boolean"}}}"#),
     ]
 
     func handleMindmapEdit(_ name: String, _ a: ToolArgs) -> String? {
@@ -68,6 +70,13 @@ extension MindoAgentTools {
             let added = Self.buildSubtree(under: parent, from: outline)
             if added > 0 { effects.mapMutated = true }
             return "added \(added) topics under \"\(parent.text)\""
+
+        case "sort_children":
+            guard let t = resolveTopic(a) else { return "error: no topic matches the given path/query" }
+            guard t.children.count > 1 else { return "nothing to sort (\(t.children.count) child)" }
+            t.sortChildren(ascending: !(a.bool("descending") ?? false))
+            effects.mapMutated = true
+            return "sorted \(t.children.count) children of \"\(t.text)\""
 
         default:
             return nil

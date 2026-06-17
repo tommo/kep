@@ -18,6 +18,23 @@ public final class PlantUMLTextView: NSTextView {
         super.init(coder: coder)
     }
 
+    /// Autocomplete PlantUML keywords / skinparam names (⌥Esc, or the standard
+    /// completion key). Falls back to the system list when we have nothing.
+    public override func completions(forPartialWordRange charRange: NSRange,
+                                     indexOfSelectedItem index: UnsafeMutablePointer<Int>?) -> [String]? {
+        let ns = string as NSString
+        guard charRange.location != NSNotFound,
+              NSMaxRange(charRange) <= ns.length else { return nil }
+        let partial = ns.substring(with: charRange)
+        // The text from the line start up to the partial word, for context
+        // (e.g. detecting a `skinparam ` line).
+        let lineStart = ns.lineRange(for: NSRange(location: charRange.location, length: 0)).location
+        let lineUpToCaret = ns.substring(with: NSRange(location: lineStart,
+                                                       length: charRange.location - lineStart))
+        let matches = PlantUMLCompletion.completions(forPartialWord: partial, lineUpToCaret: lineUpToCaret)
+        return matches.isEmpty ? nil : matches
+    }
+
     public override func insertTab(_ sender: Any?) {
         applyLineTransform(EditorIndent.indent)
     }

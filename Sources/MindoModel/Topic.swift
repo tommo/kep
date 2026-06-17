@@ -78,6 +78,25 @@ public final class Topic {
         children.insert(child, at: i)
     }
 
+    /// Replace the child order with `ordered` (must be a permutation of the
+    /// current children — same elements, any order). No-op otherwise. Used by
+    /// sort + its undo.
+    public func reorderChildren(_ ordered: [Topic]) {
+        guard ordered.count == children.count,
+              Set(ordered.map(ObjectIdentifier.init)) == Set(children.map(ObjectIdentifier.init)) else { return }
+        children = ordered
+    }
+
+    /// Sort immediate children by text (localized, case-insensitive). Set
+    /// `recursive` to sort the whole subtree. Pure model mutation.
+    public func sortChildren(recursive: Bool = false, ascending: Bool = true) {
+        children.sort { a, b in
+            let r = a.text.localizedCaseInsensitiveCompare(b.text)
+            return ascending ? r == .orderedAscending : r == .orderedDescending
+        }
+        if recursive { children.forEach { $0.sortChildren(recursive: true, ascending: ascending) } }
+    }
+
     /// Move `child` (which must already be in `children`) to the given index,
     /// clamped to `[0, count-1]`. No-op if `child` isn't a child or already there.
     public func move(child: Topic, to index: Int) {

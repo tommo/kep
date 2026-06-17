@@ -78,6 +78,11 @@ extension MindMapView {
             menu.addItem(makeContextItem(title: "Fold Subtree", action: #selector(contextFoldSubtree(_:)), payload: element))
             menu.addItem(makeContextItem(title: "Unfold Subtree", action: #selector(contextUnfoldSubtree(_:)), payload: element))
         }
+        // Alphabetical sort of immediate children.
+        if element.topic.children.count > 1 {
+            menu.addItem(makeContextItem(title: "Sort Children A→Z", action: #selector(contextSortChildrenAsc(_:)), payload: element))
+            menu.addItem(makeContextItem(title: "Sort Children Z→A", action: #selector(contextSortChildrenDesc(_:)), payload: element))
+        }
         // Reset a manual ⌥-drag nudge back to the auto-layout position.
         if element.manualOffset != .zero {
             menu.addItem(makeContextItem(title: "Reset Manual Position",
@@ -174,6 +179,16 @@ extension MindMapView {
     @objc func contextUnfoldSubtree(_ sender: NSMenuItem) {
         guard let element = sender.representedObject as? MindMapElement else { return }
         undoableSetSubtreeCollapsed(rootedAt: element.topic, collapsed: false)
+    }
+
+    @objc func contextSortChildrenAsc(_ sender: NSMenuItem) {
+        guard let element = sender.representedObject as? MindMapElement else { return }
+        undoableSortChildren(of: element.topic, ascending: true)
+    }
+
+    @objc func contextSortChildrenDesc(_ sender: NSMenuItem) {
+        guard let element = sender.representedObject as? MindMapElement else { return }
+        undoableSortChildren(of: element.topic, ascending: false)
     }
 
     /// Clear a node's manual ⌥-drag offset, snapping it back to auto-layout.

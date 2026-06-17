@@ -300,6 +300,21 @@ extension MindMapView {
         )
         refreshAndNotify()
     }
+
+    /// Sort `topic`'s immediate children alphabetically (one undoable step).
+    /// Non-recursive so the inverse is a clean single-level reorder.
+    public func undoableSortChildren(of topic: Topic, ascending: Bool = true) {
+        let before = topic.children
+        topic.sortChildren(ascending: ascending)
+        let after = topic.children
+        guard before.map(ObjectIdentifier.init) != after.map(ObjectIdentifier.init) else { return }
+        registerUndo(
+            name: "Sort Children",
+            forward: { topic.reorderChildren(after) },
+            inverse: { topic.reorderChildren(before) }
+        )
+        refreshAndNotify()
+    }
 }
 
 // MARK: - Internal hooks (private to module)

@@ -59,6 +59,14 @@ final class SequenceSVGRendererTests: XCTestCase {
         XCTAssertTrue(s.contains("alt"))
     }
 
+    func testActorBoxesAreClickableSourceLinks() {
+        let s = svg("@startuml\nAlice -> Bob: hi\n@enduml")
+        // Each actor head/foot is wrapped in an <a href="mindo-src:Name">.
+        XCTAssertTrue(s.contains("<a href=\"mindo-src:Alice\""), s)
+        XCTAssertTrue(s.contains("<a href=\"mindo-src:Bob\""))
+        XCTAssertTrue(s.contains("xlink:href=\"mindo-src:Alice\""))
+    }
+
     func testArrowheadsEmitted() {
         // filled (->) → polygon; open (->>) → polyline; cross (->x); circle (->o)
         XCTAssertTrue(svg("@startuml\nA -> B: x\n@enduml").contains("<polygon"))

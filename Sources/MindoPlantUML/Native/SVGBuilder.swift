@@ -128,6 +128,14 @@ public struct SVGBuilder {
         body += s
     }
 
+    /// Wrap subsequent shapes in an SVG hyperlink until `endLink()`. Emits both
+    /// `href` (SVG2) and `xlink:href` (legacy) so WebKit fires a navigation.
+    public mutating func beginLink(href: String) {
+        let h = Self.escape(href)
+        body += "<a href=\"\(h)\" xlink:href=\"\(h)\">"
+    }
+    public mutating func endLink() { body += "</a>" }
+
     public func document() -> String {
         let w = Self.f(width), h = Self.f(height)
         return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"

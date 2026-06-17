@@ -58,8 +58,12 @@ public enum SequenceSVGRenderer {
     private static func emit(_ op: DrawOp, into b: inout SVGBuilder, theme: SVGTheme) {
         switch op {
         case let .actorBox(x, y, w, h, text, _):
+            // Clickable: jump to the actor's first occurrence in the source.
+            let encoded = text.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? text
+            b.beginLink(href: "mindo-src:\(encoded)")
             b.rect(x: x, y: y, w: w, h: h, fill: theme.actorFill, stroke: theme.stroke, rx: 3)
             b.text(text, x: x + w / 2, y: y + h / 2 + 4, anchor: "middle")
+            b.endLink()
 
         case let .lifeline(x, y0, y1):
             b.line(x, y0, x, y1, stroke: theme.lifeline, dashed: true)

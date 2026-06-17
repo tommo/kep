@@ -43,6 +43,7 @@ public struct PlantUMLEditor: NSViewRepresentable {
 
         let web = PlantUMLPreviewWebView()
         web.setValue(false, forKey: "drawsBackground")
+        web.navigationDelegate = context.coordinator
         web.menuItemsProvider = { [weak coordinator = context.coordinator] in
             PreviewContextMenu.plantUML(hasRenderedDiagram: coordinator?.hasRenderedDiagram ?? false)
         }
@@ -187,7 +188,7 @@ public struct PlantUMLEditor: NSViewRepresentable {
 
     public func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
 
-    public final class Coordinator: NSObject, NSTextViewDelegate {
+    public final class Coordinator: NSObject, NSTextViewDelegate, WKNavigationDelegate {
         var parent: PlantUMLEditor
         var textView: NSTextView?
         var webView: WKWebView?
@@ -350,6 +351,31 @@ public struct PlantUMLEditor: NSViewRepresentable {
                     web.loadHTMLString(html, baseURL: nil)
                 }
             }
+        }
+
+        // MARK: - Interactive preview (entity → source)
+
+        /// Intercept `mindo-src:<entity>` link clicks from the rendered diagram
+        /// and jump the source editor to that entity's first occurrence. All
+        /// other navigations (the initial loadHTMLString) are allowed.
+        public func webView(_ webView: WKWebView,
+                            decidePolicyFor navigationAction: WKNavigationAction,
+                            decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+            guard let url = navigationAction.request.url, url.scheme == "mindo-src" else {
+                decisionHandler(.allow); return
+            }
+            decisionHandler(.cancel)
+            let raw = String(url.absoluteString.dropFirst("mindo-src:".count))
+            let entity = raw.removingPercentEncoding ?? raw
+            jumpToEntity(entity)
+        }
+
+        private func jumpToEntity(_ entity: String) {
+            guard let tv = textView,
+                  let range = PlantUMLSource.firstRange(ofEntity: entity, in: tv.string) else { return }
+            tv.scrollRangeToVisible(range)
+            tv.setSelectedRange(range)
+            tv.window?.makeFirstResponder(tv)
         }
 
         // MARK: - Clipboard

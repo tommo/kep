@@ -83,6 +83,52 @@ final class MindoLuaAPITests: XCTestCase {
         XCTAssertEqual(r.children.map(\.text), ["keep"])
     }
 
+    func testAllTraversesWholeTreePreOrder() throws {
+        let map = MindMap(root: Topic(text: "R"))
+        _ = try run("""
+            local r = mindo.root()
+            local a = mindo.addChild(r, "A")
+            mindo.addChild(a, "A1")
+            mindo.addChild(r, "B")
+            """, map: map)
+        // Now count every node via mindo.all() in a fresh run over the same map.
+        let n = try run("return #mindo.all()", map: map)
+        XCTAssertEqual(n.numberValue, 4)   // R, A, A1, B
+    }
+
+    func testBatchEditAcrossWholeTree() throws {
+        let map = MindMap(root: Topic(text: "TODO root"))
+        let r = map.root!
+        let a = r.addChild(text: "branch")
+        _ = a.addChild(text: "TODO deep")        // a grandchild, not a direct child of root
+        _ = try run("""
+            for _, id in ipairs(mindo.all()) do
+              if string.find(mindo.text(id), "TODO") then
+                mindo.setAttr(id, "flag", "1")
+              end
+            end
+            """, map: map)
+        var flagged: [String] = []
+        r.traverse { if $0.attribute("flag") == "1" { flagged.append($0.text) } }
+        XCTAssertEqual(Set(flagged), ["TODO root", "TODO deep"])
+    }
+
+    func testParentAndIsRoot() throws {
+        let map = MindMap(root: Topic(text: "R"))
+        let out = try run("""
+            local r = mindo.root()
+            local a = mindo.addChild(r, "A")
+            return tostring(mindo.isRoot(r)) .. "," .. tostring(mindo.isRoot(a)) .. "," .. (mindo.parent(a) == r and "yes" or "no")
+            """, map: map)
+        XCTAssertEqual(out.stringValue, "true,false,yes")
+    }
+
+    func testParentOfRootIsNil() throws {
+        let map = MindMap(root: Topic(text: "R"))
+        let out = try run("return mindo.parent(mindo.root()) == nil", map: map)
+        XCTAssertEqual(out.boolValue, true)
+    }
+
     // MARK: - Knowledge base
 
     func testKBResolveAndBacklinks() throws {

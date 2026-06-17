@@ -62,6 +62,16 @@ public final class MindoLuaAPI {
     /// Register the host functions and define the `mindo` table in the engine.
     public func install(on engine: LuaScriptEngine) throws {
         engine.register("__mindo_root") { [self] _ in .number(Double(id(for: map.root!))) }
+        engine.register("__mindo_all") { [self] _ in
+            guard let root = map.root else { return .array([]) }
+            var ids: [LuaValue] = []
+            root.traverse { ids.append(.number(Double(id(for: $0)))) }   // pre-order
+            return .array(ids)
+        }
+        engine.register("__mindo_parent") { [self] a in
+            (try topic(a).parent).map { .number(Double(id(for: $0))) } ?? .nil
+        }
+        engine.register("__mindo_isRoot") { [self] a in .bool(try topic(a).isRoot) }
         engine.register("__mindo_text") { [self] a in .string(try topic(a).text) }
         engine.register("__mindo_setText") { [self] a in try topic(a).text = try string(a, 1); return .nil }
         engine.register("__mindo_children") { [self] a in
@@ -111,6 +121,9 @@ public final class MindoLuaAPI {
     static let prelude = """
     mindo = {
       root = __mindo_root,
+      all = __mindo_all,
+      parent = __mindo_parent,
+      isRoot = __mindo_isRoot,
       text = __mindo_text,
       setText = __mindo_setText,
       children = __mindo_children,

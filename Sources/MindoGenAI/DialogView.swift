@@ -12,6 +12,7 @@ public struct DialogView: View {
     private let contextProvider: (() -> String?)?
 
     @FocusState private var inputFocused: Bool
+    @State private var showSettings = false
 
     public init(systemPrompt: String = Conversation.defaultSystemPrompt,
                 contextProvider: (() -> String?)? = nil,
@@ -32,6 +33,9 @@ public struct DialogView: View {
         }
         .frame(minWidth: 220, minHeight: 280)
         .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { inputFocused = true } }
+        .sheet(isPresented: $showSettings, onDismiss: { vm.refreshProviderLabel() }) {
+            AISettingsView()
+        }
     }
 
     private var header: some View {
@@ -57,6 +61,11 @@ public struct DialogView: View {
                 .buttonStyle(.borderless)
                 .help("Clear conversation")
                 .disabled(vm.conversation.turns.isEmpty)
+            Button {
+                showSettings = true
+            } label: { Image(systemName: "gearshape") }
+                .buttonStyle(.borderless)
+                .help("AI provider & model settings")
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
@@ -67,10 +76,19 @@ public struct DialogView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 10) {
                     if vm.conversation.turns.isEmpty {
-                        Text("Ask about the document you're editing — mind maps, notes, PlantUML, CSV.")
-                            .font(.callout).foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .padding(.top, 24)
+                        VStack(spacing: 10) {
+                            if vm.selectedModel.isEmpty {
+                                Text("No AI provider configured.")
+                                    .font(.callout).foregroundStyle(.secondary)
+                                Button("Configure AI provider…") { showSettings = true }
+                                    .buttonStyle(.borderedProminent)
+                            } else {
+                                Text("Ask about the document you're editing — mind maps, notes, PlantUML, CSV.")
+                                    .font(.callout).foregroundStyle(.secondary)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.top, 24)
                     }
                     ForEach(vm.conversation.turns) { turn in
                         bubble(turn)

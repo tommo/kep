@@ -22,6 +22,16 @@ struct ThreePaneSplit<Sidebar: View, Detail: View, Inspector: View>: NSViewContr
         let sidebarHost = NSHostingController(rootView: AnyView(sidebar()))
         let detailHost = NSHostingController(rootView: AnyView(detail()))
         let inspectorHost = NSHostingController(rootView: AnyView(inspector()))
+        // CRITICAL: by default an NSHostingController reports its SwiftUI
+        // content's ideal size as `preferredContentSize`. Inside an
+        // NSSplitViewController that PINS each pane to its content width — so the
+        // sidebars refuse to resize, divider drags don't stick, and only the
+        // flexible detail pane ever changes size (the long-standing resize bug).
+        // Clearing sizingOptions hands frame control entirely to the split view,
+        // which is what makes the dividers actually draggable.
+        for host in [sidebarHost, detailHost, inspectorHost] {
+            host.sizingOptions = []
+        }
         context.coordinator.sidebarHost = sidebarHost
         context.coordinator.detailHost = detailHost
         context.coordinator.inspectorHost = inspectorHost

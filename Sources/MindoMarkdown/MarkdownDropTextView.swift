@@ -209,6 +209,14 @@ public final class MarkdownDropTextView: NSTextView {
     /// route through the delegate (the SwiftUI Coordinator) which already
     /// has @objc handlers wired to MarkdownFormatting.
     public override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        // Only claim ⌘B/I/E/K when WE are the focused editor. performKeyEquivalent
+        // propagates through the whole window view tree, so without this an
+        // inspector note editor would bold/italicise its text even when the
+        // mind-map canvas (not this view) holds focus — ⌘B on a selected node
+        // leaked into its note.
+        guard window?.firstResponder === self else {
+            return super.performKeyEquivalent(with: event)
+        }
         let chars = event.charactersIgnoringModifiers ?? ""
         let onlyCommand = event.modifierFlags
             .intersection([.command, .option, .control, .shift]) == [.command]

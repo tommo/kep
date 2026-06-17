@@ -178,7 +178,8 @@ public struct MindMapCanvas: NSViewRepresentable {
         }
         // Re-grab focus when the canvas is the active document — fixes the
         // "keyboard nav doesn't work until I click a topic" issue when the
-        // sidebar List initially holds first responder.
+        // sidebar List initially holds first responder. (Guarded so it never
+        // steals focus from a text editor — see grabFocus.)
         DispatchQueue.main.async { view.grabFocus() }
     }
 

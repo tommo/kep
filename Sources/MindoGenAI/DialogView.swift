@@ -102,6 +102,15 @@ public struct DialogView: View {
                         bubble(turn)
                             .id(turn.id)
                     }
+                    if vm.isRunning {
+                        HStack(spacing: 7) {
+                            ProgressView().controlSize(.small)
+                            Text(vm.agentMode ? "Working…" : "Thinking…")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .id("busy")
+                    }
                     if let err = vm.errorText {
                         Text(err).font(.caption).foregroundStyle(.red)
                             .frame(maxWidth: .infinity, alignment: .leading)

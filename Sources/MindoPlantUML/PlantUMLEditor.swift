@@ -142,19 +142,19 @@ public struct PlantUMLEditor: NSViewRepresentable {
         titleItem.image = NSImage(systemSymbolName: "plus.rectangle.on.rectangle",
                                   accessibilityDescription: "Insert diagram")
         insertMenu.addItem(titleItem)
-        func insertItem(_ title: String, _ action: Selector) {
-            let it = NSMenuItem(title: title, action: action, keyEquivalent: "")
+        // Full snippet browser — one entry per researched catalog snippet
+        // (every diagram type), not the old hardcoded six. The body rides on
+        // representedObject so a single action inserts the chosen one.
+        for snippet in PlantUMLCatalog.snippets {
+            let it = NSMenuItem(title: snippet.title,
+                                action: #selector(Coordinator.insertCatalogSnippet(_:)),
+                                keyEquivalent: "")
             it.target = coordinator
+            it.representedObject = snippet.body
             insertMenu.addItem(it)
         }
-        insertItem("Sequence", #selector(Coordinator.insertSequence))
-        insertItem("Class",    #selector(Coordinator.insertClass))
-        insertItem("Activity", #selector(Coordinator.insertActivity))
-        insertItem("State",    #selector(Coordinator.insertState))
-        insertItem("Use Case", #selector(Coordinator.insertUseCase))
-        insertItem("Mind Map", #selector(Coordinator.insertMindMap))
         insert.menu = insertMenu
-        insert.toolTip = "Insert diagram skeleton"
+        insert.toolTip = "Insert diagram snippet"
         stack.addArrangedSubview(insert)
 
         stack.addArrangedSubview(divider())
@@ -245,12 +245,11 @@ public struct PlantUMLEditor: NSViewRepresentable {
 
         // MARK: - Toolbar actions
 
-        @objc func insertSequence() { insertSkeleton(PlantUMLSkeletons.sequence) }
-        @objc func insertClass()    { insertSkeleton(PlantUMLSkeletons.classDiagram) }
-        @objc func insertActivity() { insertSkeleton(PlantUMLSkeletons.activity) }
-        @objc func insertState()    { insertSkeleton(PlantUMLSkeletons.state) }
-        @objc func insertUseCase()  { insertSkeleton(PlantUMLSkeletons.useCase) }
-        @objc func insertMindMap()  { insertSkeleton(PlantUMLSkeletons.mindMap) }
+        /// Insert the catalog snippet whose body is carried on the menu item.
+        @objc func insertCatalogSnippet(_ sender: NSMenuItem) {
+            guard let body = sender.representedObject as? String else { return }
+            insertSkeleton(body)
+        }
 
         /// Forward toolbar Comment to the textview so the same code path
         /// that handles ⌘/ runs (one undo entry, selection re-applied).

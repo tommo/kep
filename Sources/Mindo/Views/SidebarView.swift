@@ -69,12 +69,8 @@ struct SidebarView: View {
                 // Arrow keys move the highlight only — flag the source so the
                 // open-on-selection wiring skips them (#21). `.ignored` lets
                 // the List perform its own arrow navigation afterwards.
-                // Up/down only move the highlight — flag the source so select
-                // doesn't auto-open, and let the List perform navigation.
-                .onKeyPress(keys: [.upArrow, .downArrow]) { _ in
-                    onSelectionSource(.keyboardNavigation)
-                    return .ignored
-                }
+                // Up/down are handled natively by the List — moving the
+                // selection browse-opens the file (see ContentView.onChange).
                 // Left collapses / right expands the highlighted folder or
                 // workspace (Finder/Obsidian behaviour).
                 .onKeyPress(keys: [.leftArrow, .rightArrow]) { press in

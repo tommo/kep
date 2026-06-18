@@ -47,7 +47,7 @@ struct ContentView: View {
                 session: $session,
                 selection: $sidebarSelection,
                 onSelectionSource: { selectionSource = $0 },
-                onConfirm: openSelectedFile
+                onConfirm: confirmSelection
             )
             .navigationSplitViewColumnWidth(min: 170, ideal: 220, max: 460)
         } detail: {
@@ -73,17 +73,13 @@ struct ContentView: View {
                 selectionSource = .pointer
                 return
             }
-            // Single-click on a file = browse: open it WITHOUT taking focus off
-            // the sidebar (focusEditor: false), so the List stays first responder
-            // and you can keep clicking / arrowing. Arrow traversal only moves the
-            // highlight (source == keyboardNavigation → skip); Return opens with
-            // focus via onConfirm. Folders / the active file never re-open.
-            if SidebarOpenDecision.shouldOpen(
-                isFile: new?.isFile ?? false,
-                selectedURL: new?.url,
-                activeURL: session.activeDocument?.fileURL,
-                source: selectionSource
-            ), let node = new {
+            // Selecting a file — by click OR arrow — browses it: open it WITHOUT
+            // taking focus off the sidebar (focusEditor: false), so the List
+            // stays first responder and you can keep arrowing through files.
+            // Return commits focus to the document (onConfirm). Folders and the
+            // already-active file never re-open.
+            if let node = new, node.isFile,
+               session.activeDocument?.fileURL?.standardizedFileURL != node.url.standardizedFileURL {
                 session.open(url: node.url, focusEditor: false)
             }
             selectionSource = .pointer
@@ -280,15 +276,15 @@ struct ContentView: View {
 
     /// Open the currently-highlighted sidebar file (Return key, R6). Honours
     /// the same file/folder/active-doc guards as click-to-open.
-    private func openSelectedFile() {
-        guard let node = sidebarSelection,
-              SidebarOpenDecision.shouldOpen(
-                isFile: node.isFile,
-                selectedURL: node.url,
-                activeURL: session.activeDocument?.fileURL,
-                source: .keyboardConfirm
-              ) else { return }
-        session.open(url: node.url)
+    /// Return key in the sidebar: commit focus to the document. The file is
+    /// already open from selection (browse); if somehow not, open it with focus.
+    private func confirmSelection() {
+        guard let node = sidebarSelection, node.isFile else { return }
+        if session.activeDocument?.fileURL?.standardizedFileURL == node.url.standardizedFileURL {
+            session.focusActiveEditor()
+        } else {
+            session.open(url: node.url, focusEditor: true)
+        }
     }
 
     /// Walk every workspace tree looking for the node whose URL matches.

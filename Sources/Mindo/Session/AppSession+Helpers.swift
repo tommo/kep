@@ -42,6 +42,22 @@ extension AppSession {
             .documentView as? MindMapView
     }
 
+    /// Move keyboard focus to the active document's editor (mind-map canvas or
+    /// text view). Used by the sidebar's Return key — the file is already open
+    /// (browsing), Return commits focus to it.
+    @MainActor func focusActiveEditor() {
+        guard let win = NSApp.keyWindow ?? NSApp.mainWindow, let content = win.contentView else { return }
+        if let mv = content.firstSubview(ofType: NSScrollView.self, where: { $0.documentView is MindMapView })?
+            .documentView as? MindMapView {
+            win.makeFirstResponder(mv)
+            return
+        }
+        if let tv = content.firstSubview(ofType: NSScrollView.self, where: { $0.documentView is NSTextView })?
+            .documentView as? NSTextView {
+            win.makeFirstResponder(tv)
+        }
+    }
+
     /// Write the selected node's markdown content (its Note). Empty clears it.
     /// The note BADGE only changes when content appears/disappears, so we only
     /// rebuild the canvas then — typing into existing content just updates the

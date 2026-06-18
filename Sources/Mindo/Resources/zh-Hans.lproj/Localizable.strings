@@ -135,6 +135,7 @@
 "sidebar.workspaces" = "工作区";
 "sidebar.empty.title" = "暂无工作区";
 "sidebar.empty.description" = "点击 + 添加文件夹。";
+"sidebar.tooltip.toggle_workspace" = "折叠 / 展开工作区";
 "sidebar.tooltip.remove_workspace" = "从列表中移除工作区";
 "sidebar.menu.new_file" = "新建文件…";
 "sidebar.menu.new_folder" = "新建文件夹…";

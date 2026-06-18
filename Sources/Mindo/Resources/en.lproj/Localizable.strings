@@ -138,6 +138,7 @@
 "sidebar.workspaces" = "Workspaces";
 "sidebar.empty.title" = "No Workspaces";
 "sidebar.empty.description" = "Click + to add a folder.";
+"sidebar.tooltip.toggle_workspace" = "Fold / unfold workspace";
 "sidebar.tooltip.remove_workspace" = "Remove workspace from list";
 "sidebar.menu.new_file" = "New File…";
 "sidebar.menu.new_folder" = "New Folder…";

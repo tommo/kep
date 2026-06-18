@@ -59,8 +59,24 @@ struct SidebarView: View {
                             NodeRow(node: root, session: $session, selection: $selection)
                         } header: {
                             HStack {
-                                Image(systemName: "folder.badge.gearshape")
-                                Text(root.name).font(.headline)
+                                // Click the name (or chevron) to fold/unfold the
+                                // whole workspace.
+                                Button {
+                                    let cur = session.isFolderExpanded(root.url, isWorkspace: true)
+                                    session.setFolderExpanded(root.url, isWorkspace: true, !cur)
+                                } label: {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: session.isFolderExpanded(root.url, isWorkspace: true)
+                                              ? "chevron.down" : "chevron.right")
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                        Image(systemName: "folder.badge.gearshape")
+                                        Text(root.name).font(.headline)
+                                    }
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                .help(L("sidebar.tooltip.toggle_workspace"))
                                 Spacer()
                                 Button {
                                     session.removeWorkspace(root)
@@ -201,11 +217,13 @@ struct NodeRow: View {
 
     var body: some View {
         if node.isWorkspace {
-            // The Section header already shows the workspace; list its contents
-            // directly (Obsidian-style) rather than repeating the workspace as a
-            // second, collapsible root row.
-            ForEach(filteredChildren(), id: \.self) { child in
-                NodeRow(node: child, session: $session, selection: $selection)
+            // The Section header shows the workspace and toggles its expansion;
+            // list its contents directly (Obsidian-style) when expanded, rather
+            // than repeating the workspace as a second root row.
+            if expansion.wrappedValue {
+                ForEach(filteredChildren(), id: \.self) { child in
+                    NodeRow(node: child, session: $session, selection: $selection)
+                }
             }
         } else if node.isExpandable {
             DisclosureGroup(isExpanded: expansion) {

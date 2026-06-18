@@ -132,12 +132,24 @@ public struct DialogView: View {
     }
 
     @ViewBuilder
+    /// Render a chat message as Markdown — bold/italic/code/links/lists/etc.
+    /// Block syntax is interpreted but whitespace/newlines preserved so the
+    /// reply's paragraph structure survives. Falls back to plain text.
+    static func markdown(_ s: String) -> AttributedString {
+        let opts = AttributedString.MarkdownParsingOptions(
+            allowsExtendedAttributes: true,
+            interpretedSyntax: .full,
+            failurePolicy: .returnPartiallyParsedIfPossible)
+        return (try? AttributedString(markdown: s, options: opts)) ?? AttributedString(s)
+    }
+
     private func bubble(_ turn: Conversation.Turn) -> some View {
         let isUser = turn.role == .user
-        VStack(alignment: isUser ? .trailing : .leading, spacing: 3) {
+        let rendered = Self.markdown(turn.content)
+        return VStack(alignment: isUser ? .trailing : .leading, spacing: 3) {
             HStack(spacing: 0) {
                 if isUser { Spacer(minLength: 16) }
-                Text(turn.content)
+                Text(rendered)
                     .textSelection(.enabled)
                     .padding(.horizontal, 9).padding(.vertical, 6)
                     .background(RoundedRectangle(cornerRadius: 10)

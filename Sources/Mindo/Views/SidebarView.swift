@@ -69,8 +69,25 @@ struct SidebarView: View {
                 // Arrow keys move the highlight only — flag the source so the
                 // open-on-selection wiring skips them (#21). `.ignored` lets
                 // the List perform its own arrow navigation afterwards.
-                .onKeyPress(keys: [.upArrow, .downArrow, .leftArrow, .rightArrow]) { _ in
+                // Up/down only move the highlight — flag the source so select
+                // doesn't auto-open, and let the List perform navigation.
+                .onKeyPress(keys: [.upArrow, .downArrow]) { _ in
                     onSelectionSource(.keyboardNavigation)
+                    return .ignored
+                }
+                // Left collapses / right expands the highlighted folder or
+                // workspace (Finder/Obsidian behaviour).
+                .onKeyPress(keys: [.leftArrow, .rightArrow]) { press in
+                    guard let node = selection, node.isExpandable else { return .ignored }
+                    let expanded = session.isFolderExpanded(node.url, isWorkspace: node.isWorkspace)
+                    if press.key == .leftArrow, expanded {
+                        session.setFolderExpanded(node.url, isWorkspace: node.isWorkspace, false)
+                        return .handled
+                    }
+                    if press.key == .rightArrow, !expanded {
+                        session.setFolderExpanded(node.url, isWorkspace: node.isWorkspace, true)
+                        return .handled
+                    }
                     return .ignored
                 }
                 // Return opens the highlighted file (R6).
@@ -248,19 +265,31 @@ struct NodeRow: View {
         }
     }
 
-    /// A single tree row: [indent][chevron|spacer][icon][name]. The chevron is a
-    /// manual toggle; files get a same-width spacer so their icons line up with
-    /// folder icons at the same depth.
+    /// A single tree row: [indent][chevron|spacer][icon][name]. The whole row is
+    /// a Button — clicking a folder folds/unfolds it, clicking a file opens it
+    /// (Obsidian-style). Files get a same-width spacer so their icons line up
+    /// with folder icons at the same depth. While inline-renaming we drop the
+    /// Button so the text field can take input.
     private var rowView: some View {
+        Group {
+            if session.renamingNodeID == node.id {
+                rowContent
+            } else {
+                Button(action: activateRow) { rowContent }
+                    .buttonStyle(.plain)
+            }
+        }
+        .font(.system(size: 12))
+        .listRowInsets(rowInsets)
+        .tag(node)
+        .contextMenu { menuItems }
+    }
+
+    private var rowContent: some View {
         HStack(spacing: 4) {
             if node.isExpandable {
-                Button { expansion.wrappedValue.toggle() } label: {
-                    Image(systemName: expansion.wrappedValue ? "chevron.down" : "chevron.right")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .frame(width: 10)
-                }
-                .buttonStyle(.plain)
+                Image(systemName: expansion.wrappedValue ? "chevron.down" : "chevron.right")
+                    .font(.caption2).foregroundStyle(.secondary).frame(width: 10)
             } else {
                 Color.clear.frame(width: 10)
             }
@@ -269,10 +298,18 @@ struct NodeRow: View {
             label
             Spacer(minLength: 0)
         }
-        .font(.system(size: 12))
-        .listRowInsets(rowInsets)
-        .tag(node)
-        .contextMenu { menuItems }
+        .contentShape(Rectangle())
+    }
+
+    /// Click behaviour: folders fold/unfold, files open. Also sets the
+    /// selection so the highlight follows the click.
+    private func activateRow() {
+        selection = node
+        if node.isExpandable {
+            expansion.wrappedValue.toggle()
+        } else {
+            session.open(url: node.url)
+        }
     }
 
     /// Either the static row name, or — when this node is the inline-rename

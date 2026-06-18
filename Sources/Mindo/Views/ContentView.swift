@@ -73,20 +73,10 @@ struct ContentView: View {
                 selectionSource = .pointer
                 return
             }
-            // Open on selection (single-click, Obsidian-style) but only when
-            // the rule says so — skips folders, the already-active file (so
-            // the reverse active-doc→selection sync can't loop back into a
-            // redundant re-open), and arrow-key traversal (which only moves
-            // the highlight; Return opens). See SidebarOpenDecision.
-            if SidebarOpenDecision.shouldOpen(
-                isFile: new?.isFile ?? false,
-                selectedURL: new?.url,
-                activeURL: session.activeDocument?.fileURL,
-                source: selectionSource
-            ), let node = new {
-                session.open(url: node.url)
-            }
-            // Next change is a click again unless an arrow key re-flags it.
+            // Single-click open is handled directly by the row button
+            // (NodeRow.activateRow); arrow-navigate + Return opens via onConfirm.
+            // So we don't open here — just clear the source flag.
+            _ = new
             selectionSource = .pointer
         }
         // Reverse direction: when the active doc changes (tab click, ⌃⇥

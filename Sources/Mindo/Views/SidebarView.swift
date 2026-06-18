@@ -95,7 +95,7 @@ struct SidebarView: View {
                 HStack(spacing: 4) {
                     Image(systemName: session.isFolderExpanded(root.url, isWorkspace: true)
                           ? "chevron.down" : "chevron.right")
-                        .font(.caption2).foregroundStyle(.secondary)
+                        .font(.caption2).foregroundStyle(.secondary).frame(width: 10)
                     Image(systemName: "books.vertical.fill").foregroundStyle(Color.accentColor)
                     Text(root.name).font(.headline)
                 }
@@ -227,42 +227,52 @@ struct NodeRow: View {
 
     var body: some View {
         if node.isWorkspace {
-            // The Section header shows the workspace and toggles its expansion;
-            // list its contents directly (Obsidian-style) when expanded, rather
-            // than repeating the workspace as a second root row.
+            // The workspace's own header row is rendered by SidebarView; here we
+            // only emit its contents (one level in) when expanded.
             if expansion.wrappedValue {
                 ForEach(filteredChildren(), id: \.self) { child in
-                    // One level in from the workspace header (depth+1), not 0.
                     NodeRow(node: child, session: $session, selection: $selection, depth: depth + 1)
                 }
             }
-        } else if node.isExpandable {
-            DisclosureGroup(isExpanded: expansion) {
+        } else {
+            // One uniform row + (for expanded folders) its children as sibling
+            // rows. NO DisclosureGroup — its system indent gutter fought the
+            // manual insets and made parents look more indented than children.
+            // Indentation is purely depth · step, consistent for every row.
+            rowView
+            if node.isExpandable, expansion.wrappedValue {
                 ForEach(filteredChildren(), id: \.self) { child in
                     NodeRow(node: child, session: $session, selection: $selection, depth: depth + 1)
                 }
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "folder").foregroundStyle(.secondary)
-                    label
-                }
-                .font(.system(size: 12))
-                .tag(node)
-                .listRowInsets(rowInsets)
-                .contextMenu { menuItems }
             }
-        } else {
-            HStack(spacing: 4) {
-                Image(systemName: icon(for: node))
-                    .foregroundStyle(.secondary)
-                label
-                Spacer(minLength: 0)
-            }
-            .font(.system(size: 12))
-            .listRowInsets(rowInsets)
-            .tag(node)
-            .contextMenu { menuItems }
         }
+    }
+
+    /// A single tree row: [indent][chevron|spacer][icon][name]. The chevron is a
+    /// manual toggle; files get a same-width spacer so their icons line up with
+    /// folder icons at the same depth.
+    private var rowView: some View {
+        HStack(spacing: 4) {
+            if node.isExpandable {
+                Button { expansion.wrappedValue.toggle() } label: {
+                    Image(systemName: expansion.wrappedValue ? "chevron.down" : "chevron.right")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 10)
+                }
+                .buttonStyle(.plain)
+            } else {
+                Color.clear.frame(width: 10)
+            }
+            Image(systemName: node.isExpandable ? "folder" : icon(for: node))
+                .foregroundStyle(.secondary)
+            label
+            Spacer(minLength: 0)
+        }
+        .font(.system(size: 12))
+        .listRowInsets(rowInsets)
+        .tag(node)
+        .contextMenu { menuItems }
     }
 
     /// Either the static row name, or — when this node is the inline-rename

@@ -298,13 +298,13 @@ struct MindoApp: App {
                     session.outlineOpen = true
                     session.inspectorTab = .agent
                 }
-                .keyboardShortcut("0", modifiers: [.command])
+                .keyboardShortcut("a", modifiers: [.command, .control])
                 Divider()
                 Button(L("menu.ai.generate")) { session.openAIGenerate(intent: .input) }
                     .keyboardShortcut("g", modifiers: [.command, .shift])
                     .disabled(session.activeDocument == nil)
                 Button(L("menu.ai.summarize")) { session.openAIGenerate(intent: .summarize) }
-                    .keyboardShortcut("s", modifiers: [.command, .control])
+                    .keyboardShortcut("u", modifiers: [.command, .control])
                     .disabled(session.activeDocument == nil)
                 Button(L("menu.ai.reframe")) { session.openAIGenerate(intent: .reframe) }
                     .keyboardShortcut("r", modifiers: [.command, .control])

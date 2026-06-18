@@ -1,4 +1,5 @@
 import Foundation
+import MindoModel
 
 // G2 — Document editing (disk writes). All writes go through writeDocument(...)
 // so effects (changed/created files) are recorded.
@@ -28,7 +29,13 @@ extension MindoAgentTools {
             guard let url = resolveOrCreateURL(name: docName, ext: ext) else {
                 return "error: no workspace folder to create in"
             }
-            return writeDocument(url, a.str("content") ?? "", created: true)
+            // A .mmd is a structured mind-map format, not free text — writing
+            // arbitrary content yields an unparseable file. Seed valid .mmd: a
+            // root named after the doc, with any content lines as child topics.
+            let body = ext == "mmd"
+                ? Self.seedMindMap(name: docName, content: a.str("content"))
+                : (a.str("content") ?? "")
+            return writeDocument(url, body, created: true)
 
         case "overwrite_document":
             guard let docName = a.str("name") else { return "error: missing 'name'" }
@@ -92,6 +99,19 @@ extension MindoAgentTools {
         case "md", "mmd", "puml", "csv", "txt": return type!.lowercased()
         default: return "md"
         }
+    }
+
+    /// Valid `.mmd` text for a new mind map: root = `name`, content lines (if
+    /// any) become child topics. Avoids writing unparseable free text as .mmd.
+    fileprivate static func seedMindMap(name: String, content: String?) -> String {
+        let map = MindMap()
+        let root = Topic(text: name)
+        for line in (content ?? "").split(separator: "\n") {
+            let t = line.trimmingCharacters(in: .whitespaces)
+            if !t.isEmpty { _ = root.addChild(text: t) }
+        }
+        map.root = root
+        return map.write()
     }
 
     /// Parse an ATX heading line: returns (level, title) or nil for non-headings.

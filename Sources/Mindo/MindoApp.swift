@@ -371,6 +371,10 @@ private struct DocumentCloseCommands: Commands {
 final class AppSession {
     var workspaces: [WorkspaceMeta] = []
     var workspaceRoots: [NodeData] = []   // mirrors `workspaces` 1:1, lazy children
+    /// Bumped whenever a workspace's children are reloaded. NodeData is a
+    /// reference type SwiftUI doesn't observe, so reloading a root in place
+    /// doesn't redraw rows; the sidebar `.id`s its list on this token to rebuild.
+    var sidebarReloadToken = 0
     var openDocuments: [OpenDocument] = []
     var activeDocumentID: OpenDocument.ID? {
         didSet {

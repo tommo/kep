@@ -111,6 +111,18 @@ final class AgentToolsDocEditTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: tempDir.appendingPathComponent("data.csv.md").path))
     }
 
+    func testCreateMindMapWritesValidMmd() throws {
+        let (tools, _) = makeTools()
+        let r = tools.handle(name: "create_document",
+                             argumentsJSON: json(["name": "Plan", "type": "mmd", "content": "Phase 1\nPhase 2"]))
+        XCTAssertTrue(r.hasPrefix("created"), r)
+        let text = try read("Plan.mmd")
+        // Must parse as a real mind map (regression: agent wrote raw text → open failed).
+        let map = try MindMap(text: text)
+        XCTAssertEqual(map.root?.text, "Plan")
+        XCTAssertEqual(map.root?.children.map(\.text), ["Phase 1", "Phase 2"])
+    }
+
     // MARK: - create_document
 
     func testCreateDocumentHappyPath() throws {

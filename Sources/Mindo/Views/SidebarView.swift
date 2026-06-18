@@ -91,6 +91,10 @@ struct SidebarView: View {
                     onConfirm()
                     return .handled
                 }
+                // NodeData is a reference type SwiftUI doesn't observe; rebuild
+                // the tree when a reload bumps this token (new files appearing,
+                // e.g. the agent creating documents).
+                .id(session.sidebarReloadToken)
             }
         }
     }

@@ -302,6 +302,7 @@ extension AppSession {
         root.reloadChildren()
         // Trigger @Observable to re-emit by reassigning the array.
         workspaceRoots = workspaceRoots
+        sidebarReloadToken &+= 1
     }
 
     /// Reload every workspace root with the current preferences (e.g.
@@ -312,6 +313,7 @@ extension AppSession {
         let cfg = WorkspaceConfig.fromPreferences()
         for root in workspaceRoots { root.reloadChildren(config: cfg) }
         workspaceRoots = workspaceRoots
+        sidebarReloadToken &+= 1
     }
 
     /// Single-line text prompt — same shape as the markdown editor's

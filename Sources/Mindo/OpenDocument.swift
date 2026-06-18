@@ -39,7 +39,23 @@ struct OpenDocument: Identifiable, Hashable {
         switch type {
         case .mindMap:
             let text = try String(contentsOf: url, encoding: .utf8)
-            let map = try MindMap(text: text)
+            let map: MindMap
+            if let parsed = try? MindMap(text: text) {
+                map = parsed
+            } else {
+                // Empty or non-.mmd content (e.g. an agent-created stub written
+                // as plain text): open a usable map instead of failing to open.
+                // Seed the root from the filename and keep any text as children
+                // so nothing is lost.
+                let m = MindMap()
+                let root = Topic(text: url.deletingPathExtension().lastPathComponent)
+                for line in text.split(separator: "\n") {
+                    let t = line.trimmingCharacters(in: .whitespaces)
+                    if !t.isEmpty { _ = root.addChild(text: t) }
+                }
+                m.root = root
+                map = m
+            }
             return OpenDocument(kind: .mindMap(map), fileURL: url, title: title)
         case .markdown, .plantUML, .csv, .plainText:
             let text = try String(contentsOf: url, encoding: .utf8)

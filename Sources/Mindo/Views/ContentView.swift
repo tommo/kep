@@ -73,10 +73,19 @@ struct ContentView: View {
                 selectionSource = .pointer
                 return
             }
-            // Single-click open is handled directly by the row button
-            // (NodeRow.activateRow); arrow-navigate + Return opens via onConfirm.
-            // So we don't open here — just clear the source flag.
-            _ = new
+            // Single-click on a file = browse: open it WITHOUT taking focus off
+            // the sidebar (focusEditor: false), so the List stays first responder
+            // and you can keep clicking / arrowing. Arrow traversal only moves the
+            // highlight (source == keyboardNavigation → skip); Return opens with
+            // focus via onConfirm. Folders / the active file never re-open.
+            if SidebarOpenDecision.shouldOpen(
+                isFile: new?.isFile ?? false,
+                selectedURL: new?.url,
+                activeURL: session.activeDocument?.fileURL,
+                source: selectionSource
+            ), let node = new {
+                session.open(url: node.url, focusEditor: false)
+            }
             selectionSource = .pointer
         }
         // Reverse direction: when the active doc changes (tab click, ⌃⇥

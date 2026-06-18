@@ -265,31 +265,20 @@ struct NodeRow: View {
         }
     }
 
-    /// A single tree row: [indent][chevron|spacer][icon][name]. The whole row is
-    /// a Button — clicking a folder folds/unfolds it, clicking a file opens it
-    /// (Obsidian-style). Files get a same-width spacer so their icons line up
-    /// with folder icons at the same depth. While inline-renaming we drop the
-    /// Button so the text field can take input.
+    /// A single tree row: [indent][chevron|spacer][icon][name]. It is a NATIVE
+    /// List row (tagged, not wrapped in a Button) so clicking it selects the row
+    /// AND makes the List first responder — that's what lets arrow keys work and
+    /// keeps focus in the sidebar. Opening the file happens from the selection
+    /// change (ContentView), as a browse. Only the chevron is a button, so
+    /// clicking it folds/unfolds without needing to consume the row's click.
     private var rowView: some View {
-        Group {
-            if session.renamingNodeID == node.id {
-                rowContent
-            } else {
-                Button(action: activateRow) { rowContent }
-                    .buttonStyle(.plain)
-            }
-        }
-        .font(.system(size: 12))
-        .listRowInsets(rowInsets)
-        .tag(node)
-        .contextMenu { menuItems }
-    }
-
-    private var rowContent: some View {
         HStack(spacing: 4) {
             if node.isExpandable {
-                Image(systemName: expansion.wrappedValue ? "chevron.down" : "chevron.right")
-                    .font(.caption2).foregroundStyle(.secondary).frame(width: 10)
+                Button { expansion.wrappedValue.toggle() } label: {
+                    Image(systemName: expansion.wrappedValue ? "chevron.down" : "chevron.right")
+                        .font(.caption2).foregroundStyle(.secondary).frame(width: 10)
+                }
+                .buttonStyle(.plain)
             } else {
                 Color.clear.frame(width: 10)
             }
@@ -298,21 +287,10 @@ struct NodeRow: View {
             label
             Spacer(minLength: 0)
         }
-        .contentShape(Rectangle())
-    }
-
-    /// Click behaviour: folders fold/unfold, files open. Also sets the
-    /// selection so the highlight follows the click.
-    private func activateRow() {
-        selection = node
-        if node.isExpandable {
-            expansion.wrappedValue.toggle()
-        } else {
-            // Single-click is browsing: show the file but keep focus in the
-            // sidebar so the user can keep clicking / arrowing. Return (onConfirm)
-            // opens with focus.
-            session.open(url: node.url, focusEditor: false)
-        }
+        .font(.system(size: 12))
+        .listRowInsets(rowInsets)
+        .tag(node)
+        .contextMenu { menuItems }
     }
 
     /// Either the static row name, or — when this node is the inline-rename

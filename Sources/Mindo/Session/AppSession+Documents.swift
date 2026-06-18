@@ -56,18 +56,29 @@ extension AppSession {
     func newMindMap() {
         let map = MindMap()
         map.root = Topic(text: "New Mind Map")
-        let doc = OpenDocument(kind: .mindMap(map), fileURL: nil, title: "Untitled.mmd")
-        openDocuments.append(doc)
-        activeDocumentID = doc.id
+        // Obsidian-style: write a real file straight into the workspace and
+        // inline-rename it — no save panel. Only fall back to an in-memory,
+        // save-later doc when there's no workspace folder to put it in.
+        if let folder = defaultCreationFolder() {
+            createDocumentOnDisk(extension: "mmd", in: folder, starter: Data(map.write().utf8))
+        } else {
+            let doc = OpenDocument(kind: .mindMap(map), fileURL: nil, title: "Untitled.mmd")
+            openDocuments.append(doc)
+            activeDocumentID = doc.id
+        }
     }
 
     /// Open a fresh, untitled text-backed document (markdown / csv / plantuml /
     /// plain text). Save (⌘S) prompts for a path since fileURL is nil.
     func newTextDocument(_ type: SupportedFileType) {
-        let doc = OpenDocument(kind: .text("", fileType: type), fileURL: nil,
-                               title: "Untitled.\(type.rawValue)")
-        openDocuments.append(doc)
-        activeDocumentID = doc.id
+        if let folder = defaultCreationFolder() {
+            createDocumentOnDisk(extension: type.rawValue, in: folder)
+        } else {
+            let doc = OpenDocument(kind: .text("", fileType: type), fileURL: nil,
+                                   title: "Untitled.\(type.rawValue)")
+            openDocuments.append(doc)
+            activeDocumentID = doc.id
+        }
     }
 
     func newMarkdown() { newTextDocument(.markdown) }

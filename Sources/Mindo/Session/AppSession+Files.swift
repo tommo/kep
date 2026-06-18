@@ -210,19 +210,70 @@ extension AppSession {
     @MainActor
     func createFile(in node: NodeData, extension ext: String = "md") {
         guard node.isExpandable else { return }
-        guard let name = promptString(
-            title: L("sidebar.new_file.title"),
-            message: L("sidebar.new_file.message"),
-            initial: "Untitled.\(ext)"
-        ), !name.isEmpty else { return }
-        let url = node.url.appendingPathComponent(name)
+        createDocumentOnDisk(extension: ext, in: node)
+    }
+
+    /// Obsidian-style new document: write a real file to `folder` with a unique
+    /// default name (no save panel, no name dialog), reveal it, open it, and
+    /// start an inline rename so the user can name it in place.
+    @discardableResult
+    func createDocumentOnDisk(extension ext: String, in folder: NodeData, starter: Data = Data()) -> URL? {
+        let url = Self.uniqueFileURL(in: folder.url, base: "Untitled", ext: ext)
         do {
-            try Data().write(to: url, options: .withoutOverwriting)
-            reloadWorkspace(containing: node)
-            open(url: url)
+            try starter.write(to: url, options: .withoutOverwriting)
         } catch {
             lastError = String(format: L("error.create_failed"), error.localizedDescription)
+            return nil
         }
+        setFolderExpanded(folder.url, isWorkspace: folder.isWorkspace, true)
+        reloadWorkspace(containing: folder)
+        open(url: url)
+        // Start an inline rename on the freshly-created node once the tree shows it.
+        DispatchQueue.main.async { [weak self] in
+            if let node = self?.nodeForURL(url) { self?.renamingNodeID = node.id }
+        }
+        return url
+    }
+
+    /// `Untitled.ext`, or `Untitled 1.ext`, `Untitled 2.ext`, … if taken.
+    static func uniqueFileURL(in dir: URL, base: String, ext: String) -> URL {
+        let fm = FileManager.default
+        var candidate = dir.appendingPathComponent("\(base).\(ext)")
+        var n = 1
+        while fm.fileExists(atPath: candidate.path) {
+            candidate = dir.appendingPathComponent("\(base) \(n).\(ext)")
+            n += 1
+        }
+        return candidate
+    }
+
+    /// The folder a new document should land in: the active document's folder,
+    /// else the first workspace root. nil when no workspace is open.
+    func defaultCreationFolder() -> NodeData? {
+        if let activeURL = activeDocument?.fileURL,
+           let node = nodeForURL(activeURL.deletingLastPathComponent()) {
+            return node
+        }
+        return workspaceRoots.first
+    }
+
+    /// Find the loaded sidebar node for a URL, descending only along its path.
+    func nodeForURL(_ url: URL) -> NodeData? {
+        let target = url.standardizedFileURL
+        for root in workspaceRoots {
+            if let n = Self.descend(root, to: target) { return n }
+        }
+        return nil
+    }
+
+    private static func descend(_ node: NodeData, to target: URL) -> NodeData? {
+        let here = node.url.standardizedFileURL
+        if here == target { return node }
+        guard target.path.hasPrefix(here.path + "/") else { return nil }
+        for child in node.children() {
+            if let found = descend(child, to: target) { return found }
+        }
+        return nil
     }
 
     /// Prompt for a folder name and create it inside `node`'s folder.

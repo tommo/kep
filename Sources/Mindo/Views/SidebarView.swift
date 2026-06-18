@@ -70,7 +70,10 @@ struct SidebarView: View {
                                               ? "chevron.down" : "chevron.right")
                                             .font(.caption2)
                                             .foregroundStyle(.secondary)
-                                        Image(systemName: "folder.badge.gearshape")
+                                        // Distinct vault glyph + accent tint so a
+                                        // workspace never reads as a plain folder.
+                                        Image(systemName: "books.vertical.fill")
+                                            .foregroundStyle(Color.accentColor)
                                         Text(root.name).font(.headline)
                                     }
                                     .contentShape(Rectangle())
@@ -95,7 +98,7 @@ struct SidebarView: View {
                     }
                 }
                 .listStyle(.sidebar)
-                .environment(\.defaultMinListRowHeight, 18)
+                .environment(\.defaultMinListRowHeight, 15)
                 .controlSize(.small)
                 // Arrow keys move the highlight only — flag the source so the
                 // open-on-selection wiring skips them (#21). `.ignored` lets
@@ -204,8 +207,15 @@ struct NodeRow: View {
     let node: NodeData
     @Binding var session: AppSession
     @Binding var selection: NodeData?
+    /// Tree depth (0 = a workspace's top-level child) → drives indentation.
+    var depth: Int = 0
     @AppStorage(PrefKeys.hideFileExtensions) private var hideFileExtensions: Bool = false
     @AppStorage(PrefKeys.sidebarSortMode) private var sortModeRaw = SidebarSortMode.name.rawValue
+
+    /// Per-level indent. Leading inset = base + depth · step.
+    private var rowInsets: EdgeInsets {
+        EdgeInsets(top: 0, leading: 4 + CGFloat(depth) * 14, bottom: 0, trailing: 4)
+    }
 
     /// Persisted expansion binding so the tree reopens the way it was left.
     private var expansion: Binding<Bool> {
@@ -222,22 +232,22 @@ struct NodeRow: View {
             // than repeating the workspace as a second root row.
             if expansion.wrappedValue {
                 ForEach(filteredChildren(), id: \.self) { child in
-                    NodeRow(node: child, session: $session, selection: $selection)
+                    NodeRow(node: child, session: $session, selection: $selection, depth: 0)
                 }
             }
         } else if node.isExpandable {
             DisclosureGroup(isExpanded: expansion) {
                 ForEach(filteredChildren(), id: \.self) { child in
-                    NodeRow(node: child, session: $session, selection: $selection)
+                    NodeRow(node: child, session: $session, selection: $selection, depth: depth + 1)
                 }
             } label: {
                 HStack(spacing: 4) {
-                    Image(systemName: node.isWorkspace ? "shippingbox" : "folder")
+                    Image(systemName: "folder").foregroundStyle(.secondary)
                     label
                 }
                 .font(.system(size: 12))
                 .tag(node)
-                .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 4))
+                .listRowInsets(rowInsets)
                 .contextMenu { menuItems }
             }
         } else {
@@ -248,7 +258,7 @@ struct NodeRow: View {
                 Spacer(minLength: 0)
             }
             .font(.system(size: 12))
-            .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 4))
+            .listRowInsets(rowInsets)
             .tag(node)
             .contextMenu { menuItems }
         }

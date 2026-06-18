@@ -110,7 +110,7 @@ struct SidebarView: View {
             .buttonStyle(.plain)
             .help(L("sidebar.tooltip.remove_workspace"))
         }
-        .listRowInsets(EdgeInsets(top: 2, leading: 4, bottom: 2, trailing: 6))
+        .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 2, trailing: 6))
         .onDrag { NSItemProvider(object: root.url.path as NSString) }
         .onDrop(of: [.text], delegate: WorkspaceDropDelegate(target: root.url.path, session: $session))
     }
@@ -211,10 +211,10 @@ struct NodeRow: View {
     @AppStorage(PrefKeys.hideFileExtensions) private var hideFileExtensions: Bool = false
     @AppStorage(PrefKeys.sidebarSortMode) private var sortModeRaw = SidebarSortMode.name.rawValue
 
-    /// Per-level indent. Leading inset = base + depth · step (step halved from
-    /// the earlier 14pt — the workspace→child indent was wasteful).
+    /// Per-level indent. The workspace header sits flush-left (depth 0 ⇒ no
+    /// indent); its children start one clear step in, so the hierarchy reads.
     private var rowInsets: EdgeInsets {
-        EdgeInsets(top: 0, leading: 4 + CGFloat(depth) * 10, bottom: 0, trailing: 4)
+        EdgeInsets(top: 0, leading: CGFloat(depth) * 16, bottom: 0, trailing: 4)
     }
 
     /// Persisted expansion binding so the tree reopens the way it was left.

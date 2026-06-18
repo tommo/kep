@@ -308,7 +308,10 @@ struct NodeRow: View {
         if node.isExpandable {
             expansion.wrappedValue.toggle()
         } else {
-            session.open(url: node.url)
+            // Single-click is browsing: show the file but keep focus in the
+            // sidebar so the user can keep clicking / arrowing. Return (onConfirm)
+            // opens with focus.
+            session.open(url: node.url, focusEditor: false)
         }
     }
 

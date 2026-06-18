@@ -422,6 +422,11 @@ final class AppSession {
     /// `nil` means no row is being renamed. Cleared on commit/cancel.
     var renamingNodeID: UUID?
 
+    /// One-shot: whether the next-opened editor may grab keyboard focus. A
+    /// browse-open (sidebar single-click) sets this false so focus stays in the
+    /// sidebar; `consumeFocusOnOpen()` reads and resets it to true.
+    var pendingEditorFocus = true
+
     /// Per-document outline navigation request. Editor views observe this and
     /// scroll/center on change. Reset to nil after a brief debounce so the
     /// same target can fire again.

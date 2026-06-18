@@ -11,6 +11,9 @@ public struct MindMapCanvas: NSViewRepresentable {
     public var onExtraFileTap: ((URL) -> Void)?
     /// Open a `[[wiki link]]` embedded in a topic's text (target name + heading).
     public var onOpenWikiLink: ((String, String?) -> Void)?
+    /// Whether the canvas may take keyboard focus when it appears. False for a
+    /// browse-open (sidebar single-click) so focus stays in the sidebar.
+    public var shouldAutoFocus: () -> Bool = { true }
     /// External nav target — when this changes, navigate the canvas.
     public var navigationTarget: String?
     /// Substring to highlight on every topic whose text contains it
@@ -33,6 +36,7 @@ public struct MindMapCanvas: NSViewRepresentable {
         navigationTarget: String? = nil,
         searchHighlight: String? = nil,
         onSelectionPath: ((String?) -> Void)? = nil,
+        shouldAutoFocus: @escaping () -> Bool = { true },
         loadViewState: (() -> CanvasViewState?)? = nil,
         saveViewState: ((CanvasViewState) -> Void)? = nil
     ) {
@@ -44,6 +48,7 @@ public struct MindMapCanvas: NSViewRepresentable {
         self.navigationTarget = navigationTarget
         self.searchHighlight = searchHighlight
         self.onSelectionPath = onSelectionPath
+        self.shouldAutoFocus = shouldAutoFocus
         self.loadViewState = loadViewState
         self.saveViewState = saveViewState
     }
@@ -185,8 +190,11 @@ public struct MindMapCanvas: NSViewRepresentable {
         // Re-grab focus when the canvas is the active document — fixes the
         // "keyboard nav doesn't work until I click a topic" issue when the
         // sidebar List initially holds first responder. (Guarded so it never
-        // steals focus from a text editor — see grabFocus.)
-        DispatchQueue.main.async { view.grabFocus() }
+        // steals focus from a text editor — see grabFocus.) Suppressed for a
+        // browse-open (single-click in the sidebar) so the user keeps browsing.
+        if shouldAutoFocus() {
+            DispatchQueue.main.async { view.grabFocus() }
+        }
     }
 
     public func makeCoordinator() -> Coordinator { Coordinator() }

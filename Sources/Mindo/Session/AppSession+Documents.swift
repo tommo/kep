@@ -23,7 +23,16 @@ extension AppSession {
     /// new tabs are explicit (`inNewTab: true`, e.g. the sidebar's "Open in New
     /// Tab"). A file already open just gets activated; the active tab is never
     /// replaced when it has unsaved changes (its work is preserved in a tab).
-    func open(url: URL, inNewTab: Bool = false) {
+    /// One-shot read of `pendingEditorFocus`; resets it to true. Editors call
+    /// this when they appear to decide whether to grab keyboard focus.
+    func consumeFocusOnOpen() -> Bool {
+        let v = pendingEditorFocus
+        pendingEditorFocus = true
+        return v
+    }
+
+    func open(url: URL, inNewTab: Bool = false, focusEditor: Bool = true) {
+        pendingEditorFocus = focusEditor
         if let existing = openDocuments.first(where: { $0.fileURL == url }) {
             activeDocumentID = existing.id
             persistOpenTabs()

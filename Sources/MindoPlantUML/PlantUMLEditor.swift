@@ -157,30 +157,12 @@ public struct PlantUMLEditor: NSViewRepresentable {
             return d
         }
 
-        // Six diagram-skeleton buttons collapse into one pull-down — names read
-        // clearer in a menu than as cryptic icons, and it's a single slot wide.
-        let insert = NSPopUpButton(title: "", target: nil, action: nil)
-        insert.pullsDown = true
-        insert.bezelStyle = .accessoryBarAction
-        let insertMenu = NSMenu()
-        let titleItem = NSMenuItem()
-        titleItem.image = NSImage(systemSymbolName: "plus.rectangle.on.rectangle",
-                                  accessibilityDescription: "Insert diagram")
-        insertMenu.addItem(titleItem)
-        // Full snippet browser — one entry per researched catalog snippet
-        // (every diagram type), not the old hardcoded six. The body rides on
-        // representedObject so a single action inserts the chosen one.
-        for snippet in PlantUMLCatalog.snippets {
-            let it = NSMenuItem(title: snippet.title,
-                                action: #selector(Coordinator.insertCatalogSnippet(_:)),
-                                keyEquivalent: "")
-            it.target = coordinator
-            it.representedObject = snippet.body
-            insertMenu.addItem(it)
-        }
-        insert.menu = insertMenu
-        insert.toolTip = "Insert diagram snippet"
-        stack.addArrangedSubview(insert)
+        // Insert-snippet menu, shown from a plain icon button. (A pull-down
+        // NSPopUpButton rendered its empty title row as the literal
+        // "NSMenuItem" — using a button + popUp(...) avoids that entirely.)
+        stack.addArrangedSubview(iconButton("plus.rectangle.on.rectangle",
+                                            tooltip: "Insert diagram snippet",
+                                            action: #selector(Coordinator.showInsertMenu(_:))))
 
         stack.addArrangedSubview(divider())
         stack.addArrangedSubview(iconButton("text.bubble", tooltip: "Toggle line comment (⌘/)", action: #selector(Coordinator.toggleLineComment)))
@@ -317,6 +299,20 @@ public struct PlantUMLEditor: NSViewRepresentable {
         @objc func insertCatalogSnippet(_ sender: NSMenuItem) {
             guard let body = sender.representedObject as? String else { return }
             insertSkeleton(body)
+        }
+
+        /// Pop up the snippet menu (one entry per catalog diagram type) beneath
+        /// the toolbar's insert button.
+        @objc func showInsertMenu(_ sender: NSButton) {
+            let menu = NSMenu()
+            for snippet in PlantUMLCatalog.snippets {
+                let it = NSMenuItem(title: snippet.title,
+                                    action: #selector(insertCatalogSnippet(_:)), keyEquivalent: "")
+                it.target = self
+                it.representedObject = snippet.body
+                menu.addItem(it)
+            }
+            menu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.maxY + 2), in: sender)
         }
 
         /// Forward toolbar Comment to the textview so the same code path

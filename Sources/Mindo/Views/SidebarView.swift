@@ -54,47 +54,13 @@ struct SidebarView: View {
                 .frame(maxHeight: .infinity)
             } else {
                 List(selection: $selection) {
+                    // No Section wrapper — the `.sidebar` style indents Section
+                    // content by a large fixed amount (the "wasteful" gap). A
+                    // plain header row + the children gives us full control of
+                    // the workspace→child indent (see NodeRow.rowInsets).
                     ForEach(session.workspaceRoots, id: \.self) { root in
-                        Section {
-                            NodeRow(node: root, session: $session, selection: $selection)
-                        } header: {
-                            HStack {
-                                // Click the name (or chevron) to fold/unfold the
-                                // whole workspace.
-                                Button {
-                                    let cur = session.isFolderExpanded(root.url, isWorkspace: true)
-                                    session.setFolderExpanded(root.url, isWorkspace: true, !cur)
-                                } label: {
-                                    HStack(spacing: 4) {
-                                        Image(systemName: session.isFolderExpanded(root.url, isWorkspace: true)
-                                              ? "chevron.down" : "chevron.right")
-                                            .font(.caption2)
-                                            .foregroundStyle(.secondary)
-                                        // Distinct vault glyph + accent tint so a
-                                        // workspace never reads as a plain folder.
-                                        Image(systemName: "books.vertical.fill")
-                                            .foregroundStyle(Color.accentColor)
-                                        Text(root.name).font(.headline)
-                                    }
-                                    .contentShape(Rectangle())
-                                }
-                                .buttonStyle(.plain)
-                                .help(L("sidebar.tooltip.toggle_workspace"))
-                                Spacer()
-                                Button {
-                                    session.removeWorkspace(root)
-                                } label: {
-                                    Image(systemName: "minus.circle")
-                                }
-                                .buttonStyle(.plain)
-                                .help(L("sidebar.tooltip.remove_workspace"))
-                            }
-                            .onDrag { NSItemProvider(object: root.url.path as NSString) }
-                            .onDrop(of: [.text], delegate: WorkspaceDropDelegate(
-                                target: root.url.path,
-                                session: $session
-                            ))
-                        }
+                        workspaceHeaderRow(root)
+                        NodeRow(node: root, session: $session, selection: $selection, depth: 0)
                     }
                 }
                 .listStyle(.sidebar)
@@ -114,6 +80,39 @@ struct SidebarView: View {
                 }
             }
         }
+    }
+
+    /// One workspace's header row: a fold toggle (chevron + tinted vault icon +
+    /// name) and a remove button. A plain List row (not a Section header), so
+    /// the contents below aren't pushed right by the sidebar's section indent.
+    @ViewBuilder
+    private func workspaceHeaderRow(_ root: NodeData) -> some View {
+        HStack {
+            Button {
+                let cur = session.isFolderExpanded(root.url, isWorkspace: true)
+                session.setFolderExpanded(root.url, isWorkspace: true, !cur)
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: session.isFolderExpanded(root.url, isWorkspace: true)
+                          ? "chevron.down" : "chevron.right")
+                        .font(.caption2).foregroundStyle(.secondary)
+                    Image(systemName: "books.vertical.fill").foregroundStyle(Color.accentColor)
+                    Text(root.name).font(.headline)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(L("sidebar.tooltip.toggle_workspace"))
+            Spacer()
+            Button { session.removeWorkspace(root) } label: {
+                Image(systemName: "minus.circle")
+            }
+            .buttonStyle(.plain)
+            .help(L("sidebar.tooltip.remove_workspace"))
+        }
+        .listRowInsets(EdgeInsets(top: 2, leading: 4, bottom: 2, trailing: 6))
+        .onDrag { NSItemProvider(object: root.url.path as NSString) }
+        .onDrop(of: [.text], delegate: WorkspaceDropDelegate(target: root.url.path, session: $session))
     }
 }
 
@@ -212,9 +211,10 @@ struct NodeRow: View {
     @AppStorage(PrefKeys.hideFileExtensions) private var hideFileExtensions: Bool = false
     @AppStorage(PrefKeys.sidebarSortMode) private var sortModeRaw = SidebarSortMode.name.rawValue
 
-    /// Per-level indent. Leading inset = base + depth · step.
+    /// Per-level indent. Leading inset = base + depth · step (step halved from
+    /// the earlier 14pt — the workspace→child indent was wasteful).
     private var rowInsets: EdgeInsets {
-        EdgeInsets(top: 0, leading: 4 + CGFloat(depth) * 14, bottom: 0, trailing: 4)
+        EdgeInsets(top: 0, leading: 4 + CGFloat(depth) * 10, bottom: 0, trailing: 4)
     }
 
     /// Persisted expansion binding so the tree reopens the way it was left.
@@ -232,7 +232,8 @@ struct NodeRow: View {
             // than repeating the workspace as a second root row.
             if expansion.wrappedValue {
                 ForEach(filteredChildren(), id: \.self) { child in
-                    NodeRow(node: child, session: $session, selection: $selection, depth: 0)
+                    // One level in from the workspace header (depth+1), not 0.
+                    NodeRow(node: child, session: $session, selection: $selection, depth: depth + 1)
                 }
             }
         } else if node.isExpandable {

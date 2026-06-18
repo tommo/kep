@@ -63,10 +63,16 @@ public struct PlantUMLEditor: NSViewRepresentable {
         footer.alignment = .right
         footer.translatesAutoresizingMaskIntoConstraints = false
 
+        // Preview layout switch: none / side-by-side / stacked.
+        let modeControl = Self.makePreviewModeControl(target: context.coordinator,
+                                                       action: #selector(Coordinator.previewModeChanged(_:)))
+        context.coordinator.modeControl = modeControl
+
         toolbar.translatesAutoresizingMaskIntoConstraints = false
         split.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(toolbar)
         container.addSubview(split)
+        container.addSubview(modeControl)
         container.addSubview(footer)
         NSLayoutConstraint.activate([
             toolbar.topAnchor.constraint(equalTo: container.topAnchor),
@@ -76,17 +82,19 @@ public struct PlantUMLEditor: NSViewRepresentable {
             split.topAnchor.constraint(equalTo: toolbar.bottomAnchor),
             split.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             split.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            split.bottomAnchor.constraint(equalTo: footer.topAnchor),
-            footer.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 8),
+            split.bottomAnchor.constraint(equalTo: modeControl.topAnchor, constant: -2),
+            modeControl.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 6),
+            modeControl.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -3),
+            footer.centerYAnchor.constraint(equalTo: modeControl.centerYAnchor),
             footer.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -8),
-            footer.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -2),
-            footer.heightAnchor.constraint(equalToConstant: 16),
+            footer.leadingAnchor.constraint(greaterThanOrEqualTo: modeControl.trailingAnchor, constant: 8),
         ])
 
         context.coordinator.textView = textView
         context.coordinator.webView = web
         context.coordinator.splitView = split
         context.coordinator.statusFooter = footer
+        context.coordinator.syncModeControl()
         context.coordinator.applyHighlighting()
         context.coordinator.refreshStatusFooter()
         context.coordinator.scheduleRender(immediate: true)
@@ -97,6 +105,21 @@ public struct PlantUMLEditor: NSViewRepresentable {
     /// diagram types. Mirrors mindolph's PlantUmlToolbar at the
     /// "click → drop a skeleton at the cursor" level; the full snippet
     /// browser stays a future enhancement.
+    /// Footer control to switch preview layout: none / side-by-side / stacked.
+    static func makePreviewModeControl(target: AnyObject, action: Selector) -> NSSegmentedControl {
+        func img(_ name: String) -> NSImage { NSImage(systemSymbolName: name, accessibilityDescription: nil) ?? NSImage() }
+        let c = NSSegmentedControl(
+            images: [img("doc.plaintext"), img("rectangle.split.2x1"), img("rectangle.split.1x2")],
+            trackingMode: .selectOne, target: target, action: action)
+        c.segmentStyle = .texturedRounded
+        c.controlSize = .small
+        c.translatesAutoresizingMaskIntoConstraints = false
+        c.setToolTip("No preview", forSegment: 0)
+        c.setToolTip("Preview side-by-side", forSegment: 1)
+        c.setToolTip("Preview stacked", forSegment: 2)
+        return c
+    }
+
     private func makeToolbar(coordinator: Coordinator) -> NSStackView {
         let stack = NSStackView()
         stack.orientation = .horizontal
@@ -196,18 +219,47 @@ public struct PlantUMLEditor: NSViewRepresentable {
         var webView: WKWebView?
         weak var splitView: NSSplitView?
         weak var statusFooter: NSTextField?
+        weak var modeControl: NSSegmentedControl?
         private var didPlaceDivider = false
+        private var previewHidden = false
         let highlighter = PlantUMLHighlighter()
 
         /// Place the source/preview divider at 50% once the split has a real
         /// size — an NSSplitView with two arranged subviews and no explicit
         /// position can otherwise leave the preview collapsed to zero width.
         func placeDividerIfNeeded() {
-            guard !didPlaceDivider, let split = splitView else { return }
+            guard !didPlaceDivider, !previewHidden, let split = splitView else { return }
             let dim = split.isVertical ? split.bounds.width : split.bounds.height
             guard dim > 1 else { return }
             didPlaceDivider = true
             split.setPosition(dim * 0.5, ofDividerAt: 0)
+        }
+
+        /// Footer preview-layout switch: 0 none (hide preview), 1 side-by-side, 2 stacked.
+        @objc func previewModeChanged(_ sender: NSSegmentedControl) {
+            switch sender.selectedSegment {
+            case 0:
+                previewHidden = true
+                webView?.isHidden = true
+                splitView?.adjustSubviews()
+            case 1:
+                previewHidden = false; webView?.isHidden = false
+                splitView?.isVertical = true
+                UserDefaults.standard.set(true, forKey: PrefKeys.plantumlSplitVertical)
+                didPlaceDivider = false
+            case 2:
+                previewHidden = false; webView?.isHidden = false
+                splitView?.isVertical = false
+                UserDefaults.standard.set(false, forKey: PrefKeys.plantumlSplitVertical)
+                didPlaceDivider = false
+            default: break
+            }
+            placeDividerIfNeeded()
+        }
+
+        func syncModeControl() {
+            modeControl?.selectedSegment = previewHidden
+                ? 0 : ((splitView?.isVertical ?? true) ? 1 : 2)
         }
         private let renderDebouncer = Debouncer()
         private let statsDebouncer = Debouncer()

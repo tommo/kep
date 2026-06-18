@@ -52,8 +52,14 @@ public struct MarkdownEditor: NSViewRepresentable {
         footer.alignment = .right
         footer.translatesAutoresizingMaskIntoConstraints = false
 
+        // Preview layout switch: none (editor only) / side-by-side / stacked.
+        let modeControl = Self.makePreviewModeControl(target: context.coordinator,
+                                                       action: #selector(Coordinator.previewModeChanged(_:)))
+        context.coordinator.modeControl = modeControl
+
         split.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(split)
+        container.addSubview(modeControl)
         container.addSubview(footer)
         // No format toolbar — it was visual clutter; bold/italic/code/link stay
         // on ⌘B / ⌘I / ⌘E / ⌘K. The editor fills from the top.
@@ -61,11 +67,12 @@ public struct MarkdownEditor: NSViewRepresentable {
             split.topAnchor.constraint(equalTo: container.topAnchor),
             split.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             split.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            split.bottomAnchor.constraint(equalTo: footer.topAnchor),
-            footer.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 8),
+            split.bottomAnchor.constraint(equalTo: modeControl.topAnchor, constant: -2),
+            modeControl.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 6),
+            modeControl.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -3),
+            footer.centerYAnchor.constraint(equalTo: modeControl.centerYAnchor),
             footer.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -8),
-            footer.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -2),
-            footer.heightAnchor.constraint(equalToConstant: 16),
+            footer.leadingAnchor.constraint(greaterThanOrEqualTo: modeControl.trailingAnchor, constant: 8),
         ])
         context.coordinator.statusFooter = footer
 
@@ -119,6 +126,22 @@ public struct MarkdownEditor: NSViewRepresentable {
         context.coordinator.refreshPreview()
         context.coordinator.applyViewMode(context.coordinator.viewMode, persist: false)
         return container
+    }
+
+    /// Footer control to switch preview layout: none (editor only) /
+    /// side-by-side / stacked.
+    static func makePreviewModeControl(target: AnyObject, action: Selector) -> NSSegmentedControl {
+        func img(_ name: String) -> NSImage { NSImage(systemSymbolName: name, accessibilityDescription: nil) ?? NSImage() }
+        let c = NSSegmentedControl(
+            images: [img("doc.plaintext"), img("rectangle.split.2x1"), img("rectangle.split.1x2")],
+            trackingMode: .selectOne, target: target, action: action)
+        c.segmentStyle = .texturedRounded
+        c.controlSize = .small
+        c.translatesAutoresizingMaskIntoConstraints = false
+        c.setToolTip("No preview", forSegment: 0)
+        c.setToolTip("Preview side-by-side", forSegment: 1)
+        c.setToolTip("Preview stacked", forSegment: 2)
+        return c
     }
 
     private func makeVerticalDivider() -> NSView {
@@ -229,6 +252,28 @@ public struct MarkdownEditor: NSViewRepresentable {
         private var ignoreTextScroll = false
         private var ignorePreviewScroll = false
         private var didPlaceDivider = false
+        weak var modeControl: NSSegmentedControl?
+
+        /// Footer preview-layout switch: 0 none, 1 side-by-side, 2 stacked.
+        @objc func previewModeChanged(_ sender: NSSegmentedControl) {
+            switch sender.selectedSegment {
+            case 0: applyViewMode(.editor)
+            case 1: setSplitVertical(true);  applyViewMode(.split)
+            case 2: setSplitVertical(false); applyViewMode(.split)
+            default: break
+            }
+        }
+
+        private func setSplitVertical(_ vertical: Bool) {
+            splitView?.isVertical = vertical
+            UserDefaults.standard.set(vertical, forKey: PrefKeys.markdownSplitVertical)
+            didPlaceDivider = false   // re-center for the new orientation
+        }
+
+        func syncModeControl() {
+            modeControl?.selectedSegment = (viewMode != .split)
+                ? 0 : ((splitView?.isVertical ?? true) ? 1 : 2)
+        }
 
         /// An NSSplitView with two arranged subviews and no explicit position
         /// can leave the preview pane collapsed to zero width (→ "no preview").
@@ -360,6 +405,7 @@ public struct MarkdownEditor: NSViewRepresentable {
             }
             if mode.showsPreview { refreshPreview() }
             placeDividerIfNeeded()
+            syncModeControl()
             if persist {
                 UserDefaults.standard.set(mode.rawValue, forKey: PrefKeys.markdownViewMode)
             }

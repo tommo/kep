@@ -71,7 +71,7 @@ public struct FindInFilesPanel: View {
             } else {
                 List {
                     ForEach(results) { file in
-                        Section(file.url.lastPathComponent) {
+                        Section {
                             ForEach(file.hits, id: \.self) { hit in
                                 Button {
                                     onOpen(file.url, hit)
@@ -81,13 +81,18 @@ public struct FindInFilesPanel: View {
                                             .font(.caption.monospaced())
                                             .foregroundStyle(.secondary)
                                             .frame(width: 32, alignment: .trailing)
-                                        Text(hit.line.trimmingCharacters(in: .whitespaces))
+                                        Text(Self.highlighted(hit))
                                             .lineLimit(2)
                                             .truncationMode(.tail)
                                     }
                                 }
                                 .buttonStyle(.plain)
                             }
+                        } header: {
+                            // Workspace-relative path, so same-named files in
+                            // different folders are distinguishable.
+                            Label(relativeLabel(for: file.url), systemImage: "doc.text")
+                                .font(.caption).foregroundStyle(.secondary)
                         }
                     }
                 }
@@ -95,6 +100,30 @@ public struct FindInFilesPanel: View {
             }
         }
         .onDisappear { searchTask?.cancel(); debouncer.cancel() }
+    }
+
+    /// Path shown in a result section header — relative to the owning
+    /// workspace (so "Notes/a.md" vs "Archive/a.md" are distinguishable),
+    /// falling back to the bare filename.
+    private func relativeLabel(for url: URL) -> String {
+        let path = url.standardizedFileURL.path
+        for root in workspaceRoots {
+            let base = root.deletingLastPathComponent().standardizedFileURL.path
+            if path.hasPrefix(base + "/") { return String(path.dropFirst(base.count + 1)) }
+        }
+        return url.lastPathComponent
+    }
+
+    /// The matched line with the matched substring emphasised, so it's obvious
+    /// what matched within the line.
+    private static func highlighted(_ hit: SearchHit) -> AttributedString {
+        var attr = AttributedString(hit.line)
+        if let strRange = Range(hit.matchRange, in: hit.line),
+           let attrRange = Range(strRange, in: attr) {
+            attr[attrRange].inlinePresentationIntent = .stronglyEmphasized
+            attr[attrRange].foregroundColor = .accentColor
+        }
+        return attr
     }
 
     private func scheduleSearch() {
@@ -115,8 +144,9 @@ public struct FindInFilesPanel: View {
                 if Task.isCancelled { return }
                 combined.append(contentsOf: svc.search(in: root, query: q, options: opts))
             }
+            let found = combined   // immutable hand-off into the main-actor closure
             await MainActor.run {
-                self.results = combined
+                self.results = found
                 self.isSearching = false
             }
         }

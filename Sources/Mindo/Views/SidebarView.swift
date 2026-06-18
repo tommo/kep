@@ -200,7 +200,14 @@ struct NodeRow: View {
     }
 
     var body: some View {
-        if node.isExpandable {
+        if node.isWorkspace {
+            // The Section header already shows the workspace; list its contents
+            // directly (Obsidian-style) rather than repeating the workspace as a
+            // second, collapsible root row.
+            ForEach(filteredChildren(), id: \.self) { child in
+                NodeRow(node: child, session: $session, selection: $selection)
+            }
+        } else if node.isExpandable {
             DisclosureGroup(isExpanded: expansion) {
                 ForEach(filteredChildren(), id: \.self) { child in
                     NodeRow(node: child, session: $session, selection: $selection)

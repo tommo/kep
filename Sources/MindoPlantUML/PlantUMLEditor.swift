@@ -85,6 +85,7 @@ public struct PlantUMLEditor: NSViewRepresentable {
 
         context.coordinator.textView = textView
         context.coordinator.webView = web
+        context.coordinator.splitView = split
         context.coordinator.statusFooter = footer
         context.coordinator.applyHighlighting()
         context.coordinator.refreshStatusFooter()
@@ -184,6 +185,7 @@ public struct PlantUMLEditor: NSViewRepresentable {
         if PlantUMLPreviewState.shouldRerender(textChanged: textChanged, darkModeChanged: darkChanged) {
             context.coordinator.scheduleRender(immediate: true)
         }
+        context.coordinator.placeDividerIfNeeded()
     }
 
     public func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
@@ -192,8 +194,21 @@ public struct PlantUMLEditor: NSViewRepresentable {
         var parent: PlantUMLEditor
         var textView: NSTextView?
         var webView: WKWebView?
+        weak var splitView: NSSplitView?
         weak var statusFooter: NSTextField?
+        private var didPlaceDivider = false
         let highlighter = PlantUMLHighlighter()
+
+        /// Place the source/preview divider at 50% once the split has a real
+        /// size — an NSSplitView with two arranged subviews and no explicit
+        /// position can otherwise leave the preview collapsed to zero width.
+        func placeDividerIfNeeded() {
+            guard !didPlaceDivider, let split = splitView else { return }
+            let dim = split.isVertical ? split.bounds.width : split.bounds.height
+            guard dim > 1 else { return }
+            didPlaceDivider = true
+            split.setPosition(dim * 0.5, ofDividerAt: 0)
+        }
         private let renderDebouncer = Debouncer()
         private let statsDebouncer = Debouncer()
         /// Most recent successful SVG render. Cached so the toolbar's Copy

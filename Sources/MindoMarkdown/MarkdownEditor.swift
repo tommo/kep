@@ -204,6 +204,7 @@ public struct MarkdownEditor: NSViewRepresentable {
             context.coordinator.lastNavigated = target
             DispatchQueue.main.async { context.coordinator.scroll(toByteOffsetString: target) }
         }
+        context.coordinator.placeDividerIfNeeded()
     }
 
     public func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
@@ -227,6 +228,18 @@ public struct MarkdownEditor: NSViewRepresentable {
         /// driving one side. Counted both ways to avoid feedback loops.
         private var ignoreTextScroll = false
         private var ignorePreviewScroll = false
+        private var didPlaceDivider = false
+
+        /// An NSSplitView with two arranged subviews and no explicit position
+        /// can leave the preview pane collapsed to zero width (→ "no preview").
+        /// Place the divider at 50% once, after the split has a real size.
+        func placeDividerIfNeeded() {
+            guard !didPlaceDivider, viewMode == .split, let split = splitView else { return }
+            let dim = split.isVertical ? split.bounds.width : split.bounds.height
+            guard dim > 1 else { return }
+            didPlaceDivider = true
+            split.setPosition(dim * 0.5, ofDividerAt: 0)
+        }
 
         // MARK: - Toolbar actions
 
@@ -346,6 +359,7 @@ public struct MarkdownEditor: NSViewRepresentable {
                 seg.selectedSegment = idx
             }
             if mode.showsPreview { refreshPreview() }
+            placeDividerIfNeeded()
             if persist {
                 UserDefaults.standard.set(mode.rawValue, forKey: PrefKeys.markdownViewMode)
             }

@@ -535,7 +535,20 @@ public struct MarkdownEditor: NSViewRepresentable {
         func applyHighlighting() {
             guard let storage = textView?.textStorage else { return }
             highlighter.theme = parent.isDarkMode ? .dark : .light
-            highlighter.highlight(storage)
+            highlighter.highlight(storage, activeRange: textView?.selectedRange())
+        }
+
+        private var lastActiveParagraph: NSRange?
+
+        /// Re-reveal/hide markup when the caret moves to a different paragraph
+        /// (Obsidian shows the raw markup only on the line you're editing).
+        public func textViewDidChangeSelection(_ notification: Notification) {
+            guard let tv = textView else { return }
+            let para = (tv.string as NSString).paragraphRange(for: tv.selectedRange())
+            if para != lastActiveParagraph {
+                lastActiveParagraph = para
+                applyHighlighting()
+            }
         }
 
         /// Route a preview right-click action. Refresh re-renders; Focus

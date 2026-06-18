@@ -38,10 +38,12 @@ final class MarkdownViewModeTests: XCTestCase {
         }
     }
 
-    func testFromUnknownOrNilFallsBackToSplit() {
-        XCTAssertEqual(MarkdownViewMode.from(rawValue: nil), .split)
-        XCTAssertEqual(MarkdownViewMode.from(rawValue: ""), .split)
-        XCTAssertEqual(MarkdownViewMode.from(rawValue: "bogus"), .split)
+    func testFromUnknownOrNilFallsBackToEditor() {
+        // The single live-styled pane is the modern default; the HTML preview
+        // is opt-in via the footer switch.
+        XCTAssertEqual(MarkdownViewMode.from(rawValue: nil), .editor)
+        XCTAssertEqual(MarkdownViewMode.from(rawValue: ""), .editor)
+        XCTAssertEqual(MarkdownViewMode.from(rawValue: "bogus"), .editor)
     }
 
     func testEveryModeHasDistinctSymbolAndTooltip() {

@@ -43,10 +43,11 @@ public enum MarkdownViewMode: String, CaseIterable, Sendable {
         return all[(idx + 1) % all.count]
     }
 
-    /// Parse a persisted raw value, falling back to `.split` for unknown /
-    /// missing values (the historical default — source + preview).
+    /// Parse a persisted raw value, falling back to `.editor` for unknown /
+    /// missing values — the single live-styled pane is the modern default
+    /// (the HTML side-by-side preview is opt-in via the footer switch).
     public static func from(rawValue raw: String?) -> MarkdownViewMode {
-        guard let raw, let mode = MarkdownViewMode(rawValue: raw) else { return .split }
+        guard let raw, let mode = MarkdownViewMode(rawValue: raw) else { return .editor }
         return mode
     }
 }

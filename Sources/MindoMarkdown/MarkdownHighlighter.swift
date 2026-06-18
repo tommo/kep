@@ -1,9 +1,11 @@
 import AppKit
 import Foundation
 
-/// Regex-based syntax highlighter for the Markdown code-area pane.
-/// Patterns mirror `MarkdownConstants` from `mindolph-base` (HEADING / BOLD /
-/// ITALIC / CODE / CODE_BLOCK / LIST / URL / QUOTE / HORIZONTAL_RULE).
+/// Live-styling Markdown renderer for the single-pane editor (Obsidian "Live
+/// Preview" flavour, on TextKit): headings are sized by level, emphasis is
+/// rendered with real bold/italic/mono fonts, and the markup characters
+/// (`#`, `**`, `` ` ``, `>`, …) are de-emphasised — fully revealed only on the
+/// paragraph the cursor is in, dimmed everywhere else so the prose stands out.
 public final class MarkdownHighlighter {
     public struct Style {
         public let color: NSColor
@@ -26,6 +28,7 @@ public final class MarkdownHighlighter {
         public var list: Style
         public var horizontalRule: Style
         public var defaultStyle: Style
+        public var marker: NSColor   // dimmed markup punctuation
 
         public static let light = Theme(
             heading: Style(color: NSColor(red: 0.10, green: 0.36, blue: 0.66, alpha: 1), bold: true),
@@ -37,7 +40,8 @@ public final class MarkdownHighlighter {
             url: Style(color: NSColor(red: 0.05, green: 0.42, blue: 0.85, alpha: 1)),
             list: Style(color: NSColor(red: 0.20, green: 0.50, blue: 0.20, alpha: 1), bold: true),
             horizontalRule: Style(color: NSColor(white: 0.50, alpha: 1)),
-            defaultStyle: Style(color: NSColor(white: 0.10, alpha: 1))
+            defaultStyle: Style(color: NSColor(white: 0.10, alpha: 1)),
+            marker: NSColor(white: 0.66, alpha: 1)
         )
 
         public static let dark = Theme(
@@ -50,9 +54,13 @@ public final class MarkdownHighlighter {
             url: Style(color: NSColor(red: 0.42, green: 0.78, blue: 1.00, alpha: 1)),
             list: Style(color: NSColor(red: 0.55, green: 0.85, blue: 0.55, alpha: 1), bold: true),
             horizontalRule: Style(color: NSColor(white: 0.55, alpha: 1)),
-            defaultStyle: Style(color: NSColor(white: 0.92, alpha: 1))
+            defaultStyle: Style(color: NSColor(white: 0.92, alpha: 1)),
+            marker: NSColor(white: 0.45, alpha: 1)
         )
     }
+
+    /// Heading point-size multipliers, H1…H6.
+    private static let headingScale: [CGFloat] = [1.7, 1.45, 1.28, 1.15, 1.07, 1.0]
 
     public var theme: Theme
     public var baseFont: NSFont
@@ -62,77 +70,105 @@ public final class MarkdownHighlighter {
         self.baseFont = baseFont
     }
 
-    /// Patterns (compiled lazily) — order matters: outer matches (code blocks,
-    /// headings) win over inline (`code`, `*bold*`).
-    private static let codeBlock = MarkdownHighlighter.regex(#"(?m)^[ ]{0,3}`{3}[\s\S]*?`{3}"#)
-    private static let heading   = MarkdownHighlighter.regex(#"(?m)^#{1,6}[ ]+.*$"#)
-    private static let quote     = MarkdownHighlighter.regex(#"(?m)^[ ]{0,3}>.*$"#)
-    private static let list      = MarkdownHighlighter.regex(#"(?m)^[ ]*((\*|\+|-)[ ]+|\d+\.[ ]+)"#)
-    private static let hr        = MarkdownHighlighter.regex(#"(?m)^([-*_])[ ]*(\1[ ]*){2,}$"#)
-    private static let bold      = MarkdownHighlighter.regex(#"(\*\*|__)(?=\S)([^*_]+?)(?<=\S)\1"#)
-    private static let italic    = MarkdownHighlighter.regex(#"(?<![*_])(\*|_)(?=\S)([^*_]+?)(?<=\S)\1(?![*_])"#)
-    private static let code      = MarkdownHighlighter.regex(#"`[^`\n]+`"#)
-    private static let url       = MarkdownHighlighter.regex(#"!?\[[^\]\n]*\](\([^)\n]*\))?"#)
+    private static func regex(_ p: String) -> NSRegularExpression { try! NSRegularExpression(pattern: p, options: []) }
 
-    private static func regex(_ p: String) -> NSRegularExpression {
-        return try! NSRegularExpression(pattern: p, options: [])
-    }
+    // Capturing groups split markup punctuation from content so the punctuation
+    // can be dimmed independently.
+    private static let codeBlock = regex(#"(?m)^[ ]{0,3}`{3}[\s\S]*?`{3}"#)
+    private static let heading   = regex(#"(?m)^(#{1,6})([ ]+)(.*)$"#)        // 1=#s 2=space 3=text
+    private static let quote     = regex(#"(?m)^([ ]{0,3}>[ ]?)(.*)$"#)       // 1=marker 2=text
+    private static let list      = regex(#"(?m)^([ ]*)((?:\*|\+|-)[ ]+|\d+\.[ ]+)"#)  // 2=bullet
+    private static let hr        = regex(#"(?m)^([-*_])[ ]*(\1[ ]*){2,}$"#)
+    private static let bold      = regex(#"(\*\*|__)(?=\S)([^*_]+?)(?<=\S)\1"#)        // 1=marker 2=content
+    private static let italic    = regex(#"(?<![*_])(\*|_)(?=\S)([^*_]+?)(?<=\S)\1(?![*_])"#)
+    private static let code      = regex(#"(`)([^`\n]+)(`)"#)
+    private static let url       = regex(#"!?\[[^\]\n]*\](\([^)\n]*\))?"#)
 
-    /// Apply highlighting to `storage` for the given range. Removes existing color
-    /// attributes first, then layers in span attributes.
-    public func highlight(_ storage: NSTextStorage, range: NSRange? = nil) {
+    /// Apply live styling to the whole `storage`. `activeRange` is the editor's
+    /// current selection — markup on the paragraph(s) it touches is shown in
+    /// full; elsewhere the punctuation is dimmed.
+    public func highlight(_ storage: NSTextStorage, activeRange: NSRange? = nil) {
         let full = NSRange(location: 0, length: storage.length)
-        let r = range ?? full
-        guard r.length > 0 else { return }
+        guard full.length > 0 else { return }
+        let text = storage.string as NSString
+        let activePara = activeRange.map { text.paragraphRange(for: $0) }
 
         storage.beginEditing()
-        // Reset to default style.
-        storage.setAttributes([
-            .font: baseFont,
-            .foregroundColor: theme.defaultStyle.color,
-        ], range: r)
+        storage.setAttributes([.font: baseFont, .foregroundColor: theme.defaultStyle.color], range: full)
 
-        let text = storage.string
-
-        apply(Self.codeBlock, in: text, range: r, storage: storage, style: theme.codeBlock)
-        apply(Self.heading,   in: text, range: r, storage: storage, style: theme.heading)
-        apply(Self.quote,     in: text, range: r, storage: storage, style: theme.quote)
-        apply(Self.hr,        in: text, range: r, storage: storage, style: theme.horizontalRule)
-        apply(Self.list,      in: text, range: r, storage: storage, style: theme.list)
-        apply(Self.bold,      in: text, range: r, storage: storage, style: theme.bold)
-        apply(Self.italic,    in: text, range: r, storage: storage, style: theme.italic)
-        apply(Self.code,      in: text, range: r, storage: storage, style: theme.code)
-        apply(Self.url,       in: text, range: r, storage: storage, style: theme.url)
-
+        // Block elements first.
+        enumerate(Self.codeBlock, text) { m in
+            storage.addAttributes([.font: mono(baseFont.pointSize), .foregroundColor: theme.codeBlock.color], range: m.range)
+        }
+        enumerate(Self.heading, text) { m in
+            let level = max(1, min(6, m.range(at: 1).length))
+            let size = baseFont.pointSize * Self.headingScale[level - 1]
+            let hFont = NSFontManager.shared.convert(.systemFont(ofSize: size, weight: .bold), toHaveTrait: .boldFontMask)
+            storage.addAttributes([.font: hFont, .foregroundColor: theme.heading.color], range: m.range(at: 3))
+            markup(m.range(at: 1), m.range(at: 2), in: storage, activePara: activePara, sizedTo: size)
+        }
+        enumerate(Self.quote, text) { m in
+            storage.addAttributes([.font: font(theme.quote), .foregroundColor: theme.quote.color], range: m.range(at: 2))
+            markup(m.range(at: 1), in: storage, activePara: activePara)
+        }
+        enumerate(Self.hr, text) { m in
+            storage.addAttributes([.foregroundColor: theme.horizontalRule.color], range: m.range)
+        }
+        enumerate(Self.list, text) { m in
+            storage.addAttributes([.foregroundColor: theme.list.color, .font: font(theme.list)], range: m.range(at: 2))
+        }
+        // Inline spans.
+        enumerate(Self.bold, text) { m in styleSpan(m, content: 2, in: storage, style: theme.bold, activePara: activePara) }
+        enumerate(Self.italic, text) { m in styleSpan(m, content: 2, in: storage, style: theme.italic, activePara: activePara) }
+        enumerate(Self.code, text) { m in
+            storage.addAttributes([.font: mono(baseFont.pointSize), .foregroundColor: theme.code.color], range: m.range(at: 2))
+            markup(m.range(at: 1), m.range(at: 3), in: storage, activePara: activePara)
+        }
+        enumerate(Self.url, text) { m in
+            storage.addAttributes([.foregroundColor: theme.url.color], range: m.range)
+        }
         storage.endEditing()
     }
 
-    private func apply(
-        _ regex: NSRegularExpression,
-        in text: String,
-        range: NSRange,
-        storage: NSTextStorage,
-        style: Style
-    ) {
-        regex.enumerateMatches(in: text, range: range) { match, _, _ in
-            guard let r = match?.range else { return }
-            var attrs: [NSAttributedString.Key: Any] = [.foregroundColor: style.color]
-            attrs[.font] = font(for: style)
-            storage.addAttributes(attrs, range: r)
+    // MARK: - Helpers
+
+    private func enumerate(_ re: NSRegularExpression, _ text: NSString, _ body: (NSTextCheckingResult) -> Void) {
+        re.enumerateMatches(in: text as String, range: NSRange(location: 0, length: text.length)) { m, _, _ in
+            if let m { body(m) }
         }
     }
 
-    private func font(for style: Style) -> NSFont {
-        let pt = baseFont.pointSize
-        if style.monospace {
-            return NSFont.monospacedSystemFont(ofSize: pt, weight: .regular)
+    /// Style an emphasis span: its content gets the style; the leading marker
+    /// (group 1) and the equal-length trailing marker are dimmed off the active
+    /// paragraph.
+    private func styleSpan(_ m: NSTextCheckingResult, content: Int, in storage: NSTextStorage,
+                           style: Style, activePara: NSRange?) {
+        storage.addAttributes([.font: font(style), .foregroundColor: style.color], range: m.range(at: content))
+        let open = m.range(at: 1)
+        let close = NSRange(location: m.range.location + m.range.length - open.length, length: open.length)
+        markup(open, close, in: storage, activePara: activePara)
+    }
+
+    /// Dim one or two markup ranges, unless they're on the active paragraph.
+    private func markup(_ ranges: NSRange..., in storage: NSTextStorage, activePara: NSRange?, sizedTo: CGFloat? = nil) {
+        for r in ranges where r.length > 0 {
+            let onActive = activePara.map { NSIntersectionRange($0, r).length > 0 } ?? false
+            if onActive {
+                // Revealed: keep it readable (match heading size if given).
+                if let sz = sizedTo { storage.addAttributes([.font: NSFont.systemFont(ofSize: sz, weight: .bold)], range: r) }
+            } else {
+                storage.addAttributes([.foregroundColor: theme.marker], range: r)
+            }
         }
+    }
+
+    private func mono(_ pt: CGFloat) -> NSFont { NSFont.monospacedSystemFont(ofSize: pt, weight: .regular) }
+
+    private func font(_ style: Style) -> NSFont {
+        if style.monospace { return mono(baseFont.pointSize) }
         var traits: NSFontTraitMask = []
         if style.bold { traits.insert(.boldFontMask) }
         if style.italic { traits.insert(.italicFontMask) }
-        if !traits.isEmpty {
-            return NSFontManager.shared.convert(baseFont, toHaveTrait: traits)
-        }
-        return baseFont
+        return traits.isEmpty ? baseFont : NSFontManager.shared.convert(baseFont, toHaveTrait: traits)
     }
 }

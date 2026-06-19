@@ -367,12 +367,11 @@ public final class MindMapView: NSView {
         // unchanged. Returning the event passes it on; nil swallows it.
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
             guard let self, let win = self.window, event.window === win else { return event }
-            // Skip if a text editor (in-place edit, TextField, etc.) is the
-            // current responder — those should keep their typing behavior.
-            if let responder = win.firstResponder,
-               responder is NSText || responder is NSTextField || responder is NSTextView {
-                return event
-            }
+            // Only drive the canvas while it ACTUALLY holds keyboard focus. When
+            // the sidebar tree (an NSTableView, not a text view) or anything else
+            // is focused, let the event flow through — otherwise the canvas
+            // hijacks arrow keys from the sidebar while you're browsing.
+            guard win.firstResponder === self else { return event }
             let chars = event.charactersIgnoringModifiers ?? ""
             // ⌘+arrow is a structural MOVE (reorder / reparent / flip root
             // side), dispatched via performKeyEquivalent — but this monitor runs
@@ -381,17 +380,12 @@ public final class MindMapView: NSView {
             if event.type == .keyDown,
                event.modifierFlags.contains(.command),
                !event.modifierFlags.contains(.option),
-               let direction = Self.arrowKeyDirections[chars],
-               self.window?.contentView?.subviewIsVisible(self) ?? false {
+               let direction = Self.arrowKeyDirections[chars] {
                 self.moveSelected(direction)
                 return nil
             }
             let driven: Set<String> = ["\t", "\r", "-", "=", "+", " ", "\u{7F}", "\u{08}"]
             guard driven.contains(chars) || Self.arrowKeyChars.contains(chars) else { return event }
-            // Make sure this canvas is actually visible in the window before
-            // claiming the key — otherwise we'd silently swallow events for
-            // closed tabs (the AppSession recreates MindMapViews per doc).
-            guard self.window?.contentView?.subviewIsVisible(self) ?? false else { return event }
             if event.type == .keyDown {
                 self.keyDown(with: event)
             } else {

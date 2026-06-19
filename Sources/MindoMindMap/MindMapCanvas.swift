@@ -75,6 +75,7 @@ public struct MindMapCanvas: NSViewRepresentable {
         scroll.borderType = .noBorder
 
         let view = MindMapView(frame: .zero)
+        view.autoFocusCheck = shouldAutoFocus
         view.theme = theme
         view.onChange = { newMap in
             onChange(newMap)
@@ -170,6 +171,7 @@ public struct MindMapCanvas: NSViewRepresentable {
     public func updateNSView(_ container: NSView, context: Context) {
         guard let view = context.coordinator.view else { return }
         view.theme = theme
+        view.autoFocusCheck = shouldAutoFocus
         view.onExtraFileTap = onExtraFileTap
         view.onOpenWikiLink = onOpenWikiLink
         view.loadViewState = loadViewState

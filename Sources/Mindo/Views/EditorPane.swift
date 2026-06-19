@@ -48,7 +48,7 @@ struct EditorPane: View {
                     navigationTarget: session.sanitizedNavigationTarget,
                     searchHighlight: session.lastSearchMatch,
                     onSelectionPath: { path in session.selectedOutlineTarget = path },
-                    shouldAutoFocus: { session.consumeFocusOnOpen() },
+                    shouldAutoFocus: { session.pendingEditorFocus },
                     // Persist zoom / pan / selection per saved file (skipped for
                     // untitled docs, which have no path to key on).
                     loadViewState: {

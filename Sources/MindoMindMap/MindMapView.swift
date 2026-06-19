@@ -289,7 +289,14 @@ public final class MindMapView: NSView {
 
     /// Called by the SwiftUI bridge whenever the canvas is shown / re-shown.
     /// Idempotent.
+    /// Gate for the automatic focus-grab paths (appear / map-switch / bridge).
+    /// Returns false during a browse-open so focus stays in the sidebar. Set by
+    /// the SwiftUI bridge. `focusActiveEditor` bypasses this (direct
+    /// makeFirstResponder) so Return still commits focus.
+    public var autoFocusCheck: () -> Bool = { true }
+
     public func grabFocus() {
+        guard autoFocusCheck() else { return }
         // Never steal first responder from an open inline editor. Enter/Tab/F2
         // create a node and immediately begin editing it; the model change then
         // triggers a SwiftUI re-render whose updateNSView calls grabFocus on the

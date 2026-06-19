@@ -754,6 +754,11 @@ extension MindMapView {
             scroll.setMagnification(target, centeredAt: center)
             return
         }
+        // No momentum/inertial panning. After the fingers lift, a trackpad keeps
+        // emitting scrollWheel events with a non-empty momentumPhase — applying
+        // those is what gives the "flung canvas" feel. Drop them; pan only while
+        // the user is actively scrolling.
+        if !event.momentumPhase.isEmpty { return }
         // Pan — for BOTH a trackpad (precise pixel deltas) and a mouse wheel
         // (line deltas, amplified). Shift + vertical wheel pans horizontally.
         // Just translate the clip origin by the delta; the CanvasClipView's

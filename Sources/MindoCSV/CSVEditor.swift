@@ -40,38 +40,16 @@ public struct CSVEditor: NSViewRepresentable {
         // horizontal scroller covers overflow.
         scroll.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         scroll.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        let table = CSVTableView()
-        table.usesAlternatingRowBackgroundColors = true
-        table.style = .inset
-        table.allowsColumnResizing = true
-        table.allowsColumnReordering = false
-        table.allowsMultipleSelection = true
-        // Without this, NSTableView ignores every selectColumnIndexes call,
-        // so selectedColumnIndexes stays permanently empty — which silently
-        // killed Delete-to-clear, Delete Column, and the insert-at-selection
-        // column ops (they all read selectedColumnIndexes). Clicking a column
-        // header now selects the column so those actions have something to
-        // act on. (mindolph parity: csv column ops operate on a selection.)
-        table.allowsColumnSelection = true
-        table.dataSource = context.coordinator
-        table.delegate = context.coordinator
-        table.target = context.coordinator
-        // Delete / Backspace clears the cells under selection — mindolph
-        // parity for csv.menu.delete.cell. Closure rather than delegate
-        // protocol so the subclass stays self-contained.
-        table.onClearSelectedCells = { [weak coordinator = context.coordinator] in
-            coordinator?.clearSelectedCells()
-        }
-        table.onCopy  = { [weak coordinator = context.coordinator] in coordinator?.copyCells() }
-        table.onCut   = { [weak coordinator = context.coordinator] in coordinator?.cutCells() }
-        table.onPaste = { [weak coordinator = context.coordinator] in coordinator?.pasteCells() }
-        // Right-click context menu — mirrors mindolph csv.menu's row +
-        // cell entries. Items dispatch to the same coordinator selectors
-        // the toolbar buttons already use; NSTableView updates the
-        // selection on right-click before the menu shows so the actions
-        // read the right rows / columns.
-        let menu = NSMenu()
+        let grid = CSVGridView()
         let coord = context.coordinator
+        grid.onCommitEdit     = { [weak coord] ref, val in coord?.commitGridEdit(ref, val) }
+        grid.onSelectionChange = { [weak coord] sel in coord?.gridSelectionChanged(sel) }
+        grid.onClearRange     = { [weak coord] cells in coord?.clearGridRange(cells) }
+        grid.onCopy  = { [weak coord] in coord?.copyCells() }
+        grid.onCut   = { [weak coord] in coord?.cutCells() }
+        grid.onPaste = { [weak coord] in coord?.pasteCells() }
+        // Right-click context menu — same coordinator selectors as the toolbar.
+        let menu = NSMenu()
         func item(_ title: String, _ action: Selector) -> NSMenuItem {
             let i = NSMenuItem(title: title, action: action, keyEquivalent: "")
             i.target = coord
@@ -90,8 +68,8 @@ public struct CSVEditor: NSViewRepresentable {
         menu.addItem(item("Paste", #selector(Coordinator.pasteCells)))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(item("Clear Selected Cells", #selector(Coordinator.contextClearCells)))
-        table.menu = menu
-        scroll.documentView = table
+        grid.menu = menu
+        scroll.documentView = grid
 
         // Status footer — rows × cols, mirrors the markdown / plantuml /
         // mindmap editor footers.
@@ -151,11 +129,10 @@ public struct CSVEditor: NSViewRepresentable {
             footer.heightAnchor.constraint(equalToConstant: 16),
         ])
 
-        context.coordinator.tableView = table
+        context.coordinator.grid = grid
         context.coordinator.parent = self
         context.coordinator.statusFooter = footer
         context.coordinator.loadFromText()
-        context.coordinator.rebuildColumns()
         context.coordinator.refreshStatusFooter()
         return container
     }
@@ -163,9 +140,7 @@ public struct CSVEditor: NSViewRepresentable {
     public func updateNSView(_ nsView: NSView, context: Context) {
         context.coordinator.parent = self
         if context.coordinator.serialize() != text {
-            context.coordinator.loadFromText()
-            context.coordinator.rebuildColumns()
-            context.coordinator.tableView?.reloadData()
+            context.coordinator.loadFromText()   // rebuilds + reloads the grid
         }
         context.coordinator.setFindBarVisible(findBarVisible)
     }
@@ -290,7 +265,10 @@ public struct CSVEditor: NSViewRepresentable {
 
     public final class Coordinator: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSTextFieldDelegate {
         var parent: CSVEditor?
-        var tableView: NSTableView?
+        var tableView: NSTableView?            // legacy; unused since the grid swap
+        var grid: CSVGridView?
+        /// Mirror of the grid's selection, used by the toolbar/clipboard ops.
+        var selection = CSVSelectionModel()
         var headerCheckbox: NSButton?
         weak var statusFooter: NSTextField?
 
@@ -314,9 +292,46 @@ public struct CSVEditor: NSViewRepresentable {
         func loadFromText() {
             // Load the plain CSV (baked values) plus the sidecar (formulas +
             // styles), then re-bake the formula cells.
-            sheet = CSVSheet.load(csv: parent?.text ?? "", sidecar: readSidecar())
+            // The spreadsheet grid has no "header row" concept (A/B/C label the
+            // columns, 1/2/3 the rows), so every row is data — load with
+            // hasHeader=false so grid rows == document rows == find/replace rows.
+            sheet = CSVSheet.load(csv: parent?.text ?? "", sidecar: readSidecar(), hasHeader: false)
             sheet.recompute()
-            headerCheckbox?.state = doc.hasHeader ? .on : .off
+            headerCheckbox?.state = .off
+            grid?.sheet = sheet
+            grid?.reload()
+        }
+
+        // MARK: - Grid callbacks
+
+        /// Commit an in-cell edit: route "=…" to the extended layer + recompute,
+        /// literals to the CSV — all in one undo step — then reload + persist.
+        func commitGridEdit(_ ref: CSVCellRef, _ text: String) {
+            let current = sheet.formula(at: ref) ?? value(at: ref)
+            guard current != text else { return }
+            performUndoable(actionName: "Edit Cell") { sheet.setCell(ref, to: text) }
+        }
+
+        func gridSelectionChanged(_ sel: CSVSelectionModel) {
+            selection = sel
+            refreshStatusFooter()
+        }
+
+        /// Delete over the selection — clear values + any formulas, one undo step.
+        func clearGridRange(_ cells: [CSVCellRef]) {
+            guard !cells.isEmpty else { return }
+            performUndoable(actionName: cells.count > 1 ? "Clear Cells" : "Clear Cell") {
+                for c in cells {
+                    sheet.document.clearCell(row: c.row, column: c.col)
+                    sheet.extras.setFormula(nil, at: c.a1)
+                }
+            }
+        }
+
+        private func value(at ref: CSVCellRef) -> String {
+            let rows = doc.rows
+            guard ref.row >= 0, ref.row < rows.count, ref.col >= 0, ref.col < rows[ref.row].count else { return "" }
+            return rows[ref.row][ref.col]
         }
 
         func serialize() -> String { sheet.bakedCSV() }
@@ -388,8 +403,8 @@ public struct CSVEditor: NSViewRepresentable {
         /// echo the doc back to the binding. Every editing action funnels
         /// through here so the table view + binding stay in sync.
         private func applyChange(rebuildColumns rebuild: Bool = false) {
-            if rebuild { rebuildColumns() }
-            tableView?.reloadData()
+            grid?.sheet = sheet
+            grid?.reload()
             notifyChange()
             refreshStatusFooter()
         }
@@ -520,53 +535,34 @@ public struct CSVEditor: NSViewRepresentable {
         /// selection, falls back to appending at the end so the button
         /// is never a dead-end.
         @objc func insertRowBefore() {
-            let selected = tableView?.selectedRowIndexes.first
-            performUndoable(actionName: "Insert Row Before") {
-                if let i = selected {
-                    let docIndex = doc.hasHeader ? i + 1 : i
-                    doc.insertRow(at: docIndex)
-                } else {
-                    doc.appendRow()
-                }
-            }
+            let at = selection.top
+            performUndoable(actionName: "Insert Row Before") { doc.insertRow(at: at) }
         }
 
         @objc func insertRowAfter() {
-            let selected = tableView?.selectedRowIndexes.last
-            performUndoable(actionName: "Insert Row After") {
-                if let i = selected {
-                    let docIndex = doc.hasHeader ? i + 2 : i + 1
-                    doc.insertRow(at: docIndex)
-                } else {
-                    doc.appendRow()
-                }
-            }
+            let at = selection.bottom + 1
+            performUndoable(actionName: "Insert Row After") { doc.insertRow(at: at) }
         }
 
         @objc func insertColumnBefore() {
-            let selected = tableView?.selectedColumnIndexes.first
+            let at = selection.left
             performUndoable(actionName: "Insert Column Before", rebuildColumns: true) {
-                doc.insertColumn(at: selected ?? doc.columnCount)
-                columnWidths.removeAll()   // indices shifted — stale widths
+                doc.insertColumn(at: at)
             }
         }
 
         @objc func insertColumnAfter() {
-            let selected = tableView?.selectedColumnIndexes.last
+            let at = selection.right + 1
             performUndoable(actionName: "Insert Column After", rebuildColumns: true) {
-                doc.insertColumn(at: (selected ?? doc.columnCount - 1) + 1)
-                columnWidths.removeAll()
+                doc.insertColumn(at: at)
             }
         }
 
         @objc func removeRow() {
-            // Walk the multi-selection in descending order so removal indices
-            // stay valid as rows shift up.
-            guard let selected = tableView?.selectedRowIndexes, !selected.isEmpty else { return }
-            performUndoable(actionName: selected.count > 1 ? "Delete Rows" : "Delete Row") {
-                for i in selected.reversed() {
-                    doc.removeRow(at: doc.hasHeader ? i + 1 : i)
-                }
+            // Descending so removal indices stay valid as rows shift up.
+            let rows = Array((selection.top...selection.bottom)).reversed()
+            performUndoable(actionName: rows.count > 1 ? "Delete Rows" : "Delete Row") {
+                for i in rows { doc.removeRow(at: i) }
             }
         }
 
@@ -577,12 +573,9 @@ public struct CSVEditor: NSViewRepresentable {
         }
 
         @objc func removeColumn() {
-            guard let selected = tableView?.selectedColumnIndexes, !selected.isEmpty else { return }
-            performUndoable(actionName: selected.count > 1 ? "Delete Columns" : "Delete Column", rebuildColumns: true) {
-                for i in selected.reversed() {
-                    doc.removeColumn(at: i)
-                }
-                columnWidths.removeAll()   // indices shifted — stale widths
+            let cols = Array((selection.left...selection.right)).reversed()
+            performUndoable(actionName: cols.count > 1 ? "Delete Columns" : "Delete Column", rebuildColumns: true) {
+                for i in cols { doc.removeColumn(at: i) }
             }
         }
 
@@ -590,22 +583,7 @@ public struct CSVEditor: NSViewRepresentable {
         /// current selection. Skips already-empty cells so an
         /// empty-on-empty Delete doesn't burn an undo entry.
         func clearSelectedCells() {
-            guard let table = tableView else { return }
-            // NSTableView row/column selection is mutually exclusive, so
-            // CSVCellSelection treats whichever is active as the target:
-            // selected columns clear top-to-bottom, selected rows clear
-            // left-to-right. Pure resolver → header strip is never touched.
-            let cells = CSVCellSelection.cellsToClear(
-                selectedViewRows: table.selectedRowIndexes,
-                selectedColumns: table.selectedColumnIndexes,
-                bodyRowCount: doc.bodyRows.count,
-                columnCount: doc.columnCount,
-                hasHeader: doc.hasHeader
-            )
-            guard !cells.isEmpty else { return }
-            performUndoable(actionName: cells.count > 1 ? "Clear Cells" : "Clear Cell") {
-                _ = doc.clearCells(cells)
-            }
+            clearGridRange(selection.cells)
         }
 
         /// `@objc` shim so the right-click menu can target the same
@@ -617,14 +595,7 @@ public struct CSVEditor: NSViewRepresentable {
         /// Cells under the current selection, as document coordinates — the
         /// same resolver Delete uses, reused so copy/cut/clear all agree.
         private func selectedCells() -> [(row: Int, column: Int)] {
-            guard let table = tableView else { return [] }
-            return CSVCellSelection.cellsToClear(
-                selectedViewRows: table.selectedRowIndexes,
-                selectedColumns: table.selectedColumnIndexes,
-                bodyRowCount: doc.bodyRows.count,
-                columnCount: doc.columnCount,
-                hasHeader: doc.hasHeader
-            )
+            selection.cells.map { (row: $0.row, column: $0.col) }
         }
 
         /// Copy the selected block to the pasteboard as TSV. No-op (and no
@@ -656,10 +627,8 @@ public struct CSVEditor: NSViewRepresentable {
             guard let raw = NSPasteboard.general.string(forType: .string) else { return }
             let block = CSVClipboard.parse(raw)
             guard !block.isEmpty else { return }
-            let table = tableView
-            let viewRow = table?.selectedRowIndexes.first ?? 0
-            let anchorRow = doc.hasHeader ? viewRow + 1 : viewRow
-            let anchorCol = table?.selectedColumnIndexes.first ?? 0
+            let anchorRow = selection.active.row
+            let anchorCol = selection.active.col
             let plan = CSVPaste.plan(
                 block: block, anchorRow: anchorRow, anchorColumn: anchorCol,
                 currentRowCount: doc.rows.count, currentColumnCount: doc.columnCount)
@@ -729,9 +698,9 @@ public struct CSVEditor: NSViewRepresentable {
         /// (the closest we can get to a single-cell highlight) and scroll it
         /// into view.
         private func selectMatch(_ match: CSVMatch) {
-            guard let table = tableView else { return }
-            table.selectRowIndexes(IndexSet(integer: match.row), byExtendingSelection: false)
-            table.scrollRowToVisible(match.row)
+            let sel = CSVSelectionModel(CSVCellRef(row: match.row, col: match.column))
+            selection = sel
+            grid?.setSelection(sel)
         }
 
         private func refreshFindCount(_ matches: [CSVMatch]? = nil) {
@@ -809,7 +778,7 @@ public struct CSVEditor: NSViewRepresentable {
         }
 
         private func registerUndo(actionName: String, snapshotRows: [[String]], hadHeader: Bool, rebuildColumns rebuild: Bool) {
-            guard let undo = tableView?.window?.undoManager else { return }
+            guard let undo = grid?.window?.undoManager else { return }
             let coordinator = self
             undo.setActionName(actionName)
             undo.registerUndo(withTarget: self) { _ in

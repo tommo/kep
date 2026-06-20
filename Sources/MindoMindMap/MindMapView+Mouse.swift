@@ -417,7 +417,7 @@ extension MindMapView {
             // Skip the source's own parent (case 1 handles reorder there) and
             // any parent inside the source's own subtree (can't drop into self).
             if el.topic === source.topic.parent { return }
-            if isInSubtree(el.topic, of: source.topic) { return }
+            if el.topic.isDescendant(of: source.topic) { return }
             let side: Bool? = el.level == 0 ? (p.x < el.frame.midX) : nil
             if let r = insertionGap(in: el, under: p, source: source, sideFilter: side) {
                 let dist = abs(r.lineY - p.y)
@@ -427,15 +427,6 @@ extension MindMapView {
         return best?.result
     }
 
-    /// True when `node` is `ancestor` or lies within `ancestor`'s subtree.
-    private func isInSubtree(_ node: Topic, of ancestor: Topic) -> Bool {
-        var t: Topic? = node
-        while let cur = t {
-            if cur === ancestor { return true }
-            t = cur.parent
-        }
-        return false
-    }
 
     /// Gap-insertion target among `parentEl`'s children (excluding `source`).
     /// `sideFilter` limits to one side (for root, whose children split L/R);

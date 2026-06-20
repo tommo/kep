@@ -169,7 +169,7 @@ public struct MindoAgentTools {
         case "get_subtree":
             guard let t = resolveTopic(a) else { return "error: no topic matches the given path/query" }
             var out = ""
-            Self.outline(t, path: Self.outlinePath(of: t), depth: 0, into: &out, maxDepth: a.int("depth"))
+            Self.outline(t, path: t.outlinePath, depth: 0, into: &out, maxDepth: a.int("depth"))
             return out
 
         case "find_topics":
@@ -179,7 +179,7 @@ public struct MindoAgentTools {
             var hits: [String] = []
             forEachTopic { t in
                 if t.text.lowercased().contains(needle) {
-                    hits.append("[\(Self.outlinePath(of: t))] \(t.text)")
+                    hits.append("[\(t.outlinePath)] \(t.text)")
                 }
             }
             return hits.isEmpty ? "(none)" : hits.joined(separator: "\n")
@@ -198,7 +198,7 @@ public struct MindoAgentTools {
             let child = parent.addChild(text: text)
             if let idx = a.int("index") { parent.move(child: child, to: idx) }
             effects.mapMutated = true
-            return "added \"\(text)\" under \"\(parent.text)\" at [\(Self.outlinePath(of: child))]"
+            return "added \"\(text)\" under \"\(parent.text)\" at [\(child.outlinePath)]"
 
         case "rename_topic":
             guard let text = a.str("text") else { return "error: missing 'text'" }
@@ -249,19 +249,6 @@ public struct MindoAgentTools {
             let childPath = path.isEmpty ? "\(i)" : "\(path)/\(i)"
             outline(child, path: childPath, depth: depth + 1, into: &out, maxDepth: maxDepth)
         }
-    }
-
-    /// Outline path of a topic ("" for root, "0/2" for the 3rd child of the
-    /// 1st child of root), computed by walking up to the root.
-    static func outlinePath(of topic: Topic) -> String {
-        var comps: [String] = []
-        var node = topic
-        while let parent = node.parent {
-            guard let idx = parent.children.firstIndex(where: { $0 === node }) else { break }
-            comps.append(String(idx))
-            node = parent
-        }
-        return comps.reversed().joined(separator: "/")
     }
 
     /// Resolve a topic from args: `path` (stable outline path) wins, else a

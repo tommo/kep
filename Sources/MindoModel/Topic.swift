@@ -136,6 +136,27 @@ public final class Topic {
         return d
     }
 
+    /// Stable outline path: "" for root, "0/2" for the 3rd child of the 1st
+    /// child of root. Walks up to the root collecting child indices.
+    public var outlinePath: String {
+        var comps: [String] = []
+        var node = self
+        while let parent = node.parent {
+            guard let idx = parent.children.firstIndex(where: { $0 === node }) else { break }
+            comps.append(String(idx))
+            node = parent
+        }
+        return comps.reversed().joined(separator: "/")
+    }
+
+    /// True if `self` is `ancestor` itself or anywhere in its subtree (i.e.
+    /// `ancestor` is on the path from `self` up to the root).
+    public func isDescendant(of ancestor: Topic) -> Bool {
+        var node: Topic? = self
+        while let n = node { if n === ancestor { return true }; node = n.parent }
+        return false
+    }
+
     // MARK: - Attributes / extras / snippets
 
     public func setAttribute(_ key: String, _ value: String?) {

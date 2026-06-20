@@ -24,12 +24,12 @@ extension MindoAgentTools {
             guard let refIdx = parent.children.firstIndex(where: { $0 === ref }) else {
                 // Should not happen, but never crash.
                 effects.mapMutated = true
-                return "added sibling \"\(text)\" at [\(Self.outlinePath(of: sibling))]"
+                return "added sibling \"\(text)\" at [\(sibling.outlinePath)]"
             }
             let target = a.bool("before") == true ? refIdx : refIdx + 1
             parent.move(child: sibling, to: target)
             effects.mapMutated = true
-            return "added sibling \"\(text)\" at [\(Self.outlinePath(of: sibling))]"
+            return "added sibling \"\(text)\" at [\(sibling.outlinePath)]"
 
         case "move_topic":
             guard let topic = resolveTopic(a) else { return "error: no topic matches the given path/query" }
@@ -45,7 +45,7 @@ extension MindoAgentTools {
                 return "error: missing 'to_parent' or 'to_parent_path'"
             }
             if newParent === topic { return "error: can't move a topic under itself" }
-            if Self.isDescendant(newParent, of: topic) { return "error: can't move a topic under its own descendant" }
+            if newParent.isDescendant(of: topic) { return "error: can't move a topic under its own descendant" }
             oldParent.removeChild(topic)
             if let idx = a.int("index") {
                 newParent.insert(topic, at: idx)
@@ -53,7 +53,7 @@ extension MindoAgentTools {
                 newParent.append(topic)
             }
             effects.mapMutated = true
-            return "moved \"\(topic.text)\" to [\(Self.outlinePath(of: topic))]"
+            return "moved \"\(topic.text)\" to [\(topic.outlinePath)]"
 
         case "build_subtree":
             guard let outline = a.str("outline") else { return "error: missing 'outline'" }
@@ -84,16 +84,6 @@ extension MindoAgentTools {
     }
 
     // MARK: - File-scoped helpers
-
-    /// True if `candidate` is `ancestor` itself or anywhere in its subtree.
-    private static func isDescendant(_ candidate: Topic, of ancestor: Topic) -> Bool {
-        var node: Topic? = candidate
-        while let n = node {
-            if n === ancestor { return true }
-            node = n.parent
-        }
-        return false
-    }
 
     /// Parse an indented `outline` and attach the nested topics under `parent`.
     /// Indentation: every 2 leading spaces OR one tab counts as one level; ragged

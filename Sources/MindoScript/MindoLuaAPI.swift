@@ -110,7 +110,7 @@ public final class MindoLuaAPI {
             let t = try topic(a)
             let newParent = try topic(a, 1)
             guard t.parent != nil else { throw MindoScriptError(message: "mindo.move: can't move the root") }
-            if newParent === t || Self.isDescendant(newParent, of: t) {
+            if newParent === t || newParent.isDescendant(of: t) {
                 throw MindoScriptError(message: "mindo.move: can't move a topic under itself or its descendant")
             }
             t.parent?.removeChild(t)
@@ -138,7 +138,7 @@ public final class MindoLuaAPI {
             t.setAttribute("collapsed", on ? "true" : nil)
             return .nil
         }
-        engine.register("__mindo_path") { [self] a in .string(Self.outlinePath(of: try topic(a))) }
+        engine.register("__mindo_path") { [self] a in .string(try topic(a).outlinePath) }
         engine.register("__mindo_sort") { [self] a in
             let t = try topic(a)
             let ascending = a.count > 1 ? (a[1].boolValue ?? true) : true
@@ -170,25 +170,6 @@ public final class MindoLuaAPI {
         }
 
         try engine.run(Self.prelude)
-    }
-
-    /// Outline path of a topic ("" for root, "0/2" for the 3rd child of the 1st
-    /// child of root), by walking up to the root.
-    static func outlinePath(of topic: Topic) -> String {
-        var comps: [String] = []
-        var node = topic
-        while let parent = node.parent {
-            guard let idx = parent.children.firstIndex(where: { $0 === node }) else { break }
-            comps.append(String(idx)); node = parent
-        }
-        return comps.reversed().joined(separator: "/")
-    }
-
-    /// True if `candidate` is `ancestor` itself or anywhere in its subtree.
-    static func isDescendant(_ candidate: Topic, of ancestor: Topic) -> Bool {
-        var node: Topic? = candidate
-        while let n = node { if n === ancestor { return true }; node = n.parent }
-        return false
     }
 
     /// Lua prelude wiring the registered globals into the `mindo` namespace.

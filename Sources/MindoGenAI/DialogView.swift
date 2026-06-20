@@ -133,12 +133,15 @@ public struct DialogView: View {
 
     @ViewBuilder
     /// Render a chat message as Markdown — bold/italic/code/links/lists/etc.
-    /// Block syntax is interpreted but whitespace/newlines preserved so the
-    /// reply's paragraph structure survives. Falls back to plain text.
+    /// Render inline markdown (bold/italic/code/links) while PRESERVING the
+    /// reply's newlines. `.full` collapses single newlines into spaces (markdown
+    /// soft-break rule), which is what dropped the line breaks in agent replies;
+    /// `.inlineOnlyPreservingWhitespace` keeps every newline + inline emphasis.
+    /// Falls back to plain text.
     static func markdown(_ s: String) -> AttributedString {
         let opts = AttributedString.MarkdownParsingOptions(
             allowsExtendedAttributes: true,
-            interpretedSyntax: .full,
+            interpretedSyntax: .inlineOnlyPreservingWhitespace,
             failurePolicy: .returnPartiallyParsedIfPossible)
         return (try? AttributedString(markdown: s, options: opts)) ?? AttributedString(s)
     }

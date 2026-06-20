@@ -8,10 +8,16 @@ public struct CSVEditor: NSViewRepresentable {
     @Binding public var text: String
     /// Native find/replace bar visibility, driven by ⌘F via the session.
     @Binding public var findBarVisible: Bool
+    /// The document's on-disk URL, used to load + persist the extended layer
+    /// (formulas + styling) in the `<name>.csv.sheet.json` sidecar. nil for an
+    /// unsaved scratch document → no sidecar (the plain text still works).
+    public var documentURL: URL?
 
-    public init(text: Binding<String>, findBarVisible: Binding<Bool> = .constant(false)) {
+    public init(text: Binding<String>, findBarVisible: Binding<Bool> = .constant(false),
+                documentURL: URL? = nil) {
         self._text = text
         self._findBarVisible = findBarVisible
+        self.documentURL = documentURL
     }
 
     public func makeNSView(context: Context) -> NSView {
@@ -282,7 +288,7 @@ public struct CSVEditor: NSViewRepresentable {
         return stack
     }
 
-    public final class Coordinator: NSObject, NSTableViewDataSource, NSTableViewDelegate {
+    public final class Coordinator: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSTextFieldDelegate {
         var parent: CSVEditor?
         var tableView: NSTableView?
         var headerCheckbox: NSButton?
@@ -297,16 +303,43 @@ public struct CSVEditor: NSViewRepresentable {
         private var caseSensitiveFind = false
         private var currentMatch: CSVMatch?
         private var findBarShown = false
-        private var doc = CSVDocument()
+        /// The document + its extended layer (formulas + styling). `doc` is a
+        /// read-only alias so the many `doc.xxx` edit/sort/paste call sites stay
+        /// unchanged — they mutate the same CSVDocument instance the sheet holds.
+        private var sheet = CSVSheet(document: CSVDocument())
+        private var doc: CSVDocument { sheet.document }
 
         // MARK: - Wiring
 
         func loadFromText() {
-            doc = CSVDocument.parse(parent?.text ?? "")
+            // Load the plain CSV (baked values) plus the sidecar (formulas +
+            // styles), then re-bake the formula cells.
+            sheet = CSVSheet.load(csv: parent?.text ?? "", sidecar: readSidecar())
+            sheet.recompute()
             headerCheckbox?.state = doc.hasHeader ? .on : .off
         }
 
-        func serialize() -> String { doc.serialize() }
+        func serialize() -> String { sheet.bakedCSV() }
+
+        // MARK: - Extended-layer sidecar I/O
+
+        /// Read the `<name>.csv.sheet.json` sidecar next to the document, if any.
+        private func readSidecar() -> String? {
+            guard let url = parent?.documentURL else { return nil }
+            return try? String(contentsOf: CSVSheetExtras.sidecarURL(for: url), encoding: .utf8)
+        }
+
+        /// Write (or remove) the sidecar to match the current extended layer.
+        /// No-op for unsaved scratch documents (no URL to anchor the sidecar).
+        private func writeSidecar() {
+            guard let url = parent?.documentURL else { return }
+            let sidecar = CSVSheetExtras.sidecarURL(for: url)
+            if let json = sheet.sidecarJSON() {
+                try? json.write(to: sidecar, atomically: true, encoding: .utf8)
+            } else if FileManager.default.fileExists(atPath: sidecar.path) {
+                try? FileManager.default.removeItem(at: sidecar)   // last extra cleared → drop the sidecar
+            }
+        }
 
         func rebuildColumns() {
             guard let table = tableView else { return }
@@ -347,7 +380,8 @@ public struct CSVEditor: NSViewRepresentable {
         }
 
         private func notifyChange() {
-            parent?.text = doc.serialize()
+            parent?.text = sheet.bakedCSV()
+            writeSidecar()
         }
 
         /// Reload the table (optionally rebuilding the columns first) and
@@ -393,6 +427,7 @@ public struct CSVEditor: NSViewRepresentable {
                 tf.drawsBackground = false
                 tf.target = self
                 tf.action = #selector(cellEdited(_:))
+                tf.delegate = self   // controlTextDidBeginEditing → reveal formula source
                 cell.addSubview(tf)
                 cell.textField = tf
                 tf.translatesAutoresizingMaskIntoConstraints = false
@@ -404,7 +439,54 @@ public struct CSVEditor: NSViewRepresentable {
             }
             cell.textField?.stringValue = value
             cell.textField?.tag = (rowIndex << 16) | colIndex
+            applyStyle(cell.textField, sheet.style(at: CSVCellRef(row: rowIndex, col: colIndex)))
             return cell
+        }
+
+        /// Apply (or reset, for reused cells) the extended-layer styling to a
+        /// cell's text field: bold/italic font, text + background color, align.
+        private func applyStyle(_ tf: NSTextField?, _ style: CSVCellStyle?) {
+            guard let tf else { return }
+            let size = NSFont.systemFontSize
+            var font = NSFont.systemFont(ofSize: size)
+            if let s = style, s.bold || s.italic {
+                var traits: NSFontTraitMask = []
+                if s.bold { traits.insert(.boldFontMask) }
+                if s.italic { traits.insert(.italicFontMask) }
+                font = NSFontManager.shared.convert(font, toHaveTrait: traits)
+            }
+            tf.font = font
+            tf.textColor = style?.textColor.flatMap(Self.color(hex:)) ?? .labelColor
+            if let bg = style?.background.flatMap(Self.color(hex:)) {
+                tf.drawsBackground = true
+                tf.backgroundColor = bg
+            } else {
+                tf.drawsBackground = false
+            }
+            switch style?.align {
+            case "center": tf.alignment = .center
+            case "right":  tf.alignment = .right
+            default:       tf.alignment = .left
+            }
+        }
+
+        /// Parse `#RRGGBB` → NSColor (nil for anything else).
+        private static func color(hex: String) -> NSColor? {
+            var s = hex
+            if s.hasPrefix("#") { s.removeFirst() }
+            guard s.count == 6, let v = Int(s, radix: 16) else { return nil }
+            return NSColor(srgbRed: CGFloat((v >> 16) & 0xFF) / 255,
+                           green: CGFloat((v >> 8) & 0xFF) / 255,
+                           blue: CGFloat(v & 0xFF) / 255, alpha: 1)
+        }
+
+        /// When editing begins on a formula cell, swap the baked value the field
+        /// shows for the formula SOURCE so the user edits the formula, not the
+        /// computed result. cellEdited reads back whatever they leave.
+        public func controlTextDidBeginEditing(_ obj: Notification) {
+            guard let tf = obj.object as? NSTextField else { return }
+            let ref = CSVCellRef(row: tf.tag >> 16, col: tf.tag & 0xFFFF)
+            if let formula = sheet.formula(at: ref) { tf.stringValue = formula }
         }
 
         // MARK: - Actions
@@ -413,13 +495,17 @@ public struct CSVEditor: NSViewRepresentable {
             let packed = sender.tag
             let rowIndex = packed >> 16
             let colIndex = packed & 0xFFFF
-            // Skip the snapshot if the value didn't actually change — typing
-            // in and tabbing out of an unchanged cell shouldn't pollute the
-            // undo stack.
-            let oldValue = doc.rows[safe: rowIndex]?[safe: colIndex] ?? ""
-            guard oldValue != sender.stringValue else { return }
+            let ref = CSVCellRef(row: rowIndex, col: colIndex)
+            let typed = sender.stringValue
+            // The "current" content is the formula source if the cell has one,
+            // else the baked value — so re-confirming an unchanged formula cell
+            // (we pre-fill its source on edit) doesn't burn an undo entry.
+            let current = sheet.formula(at: ref) ?? (doc.rows[safe: rowIndex]?[safe: colIndex] ?? "")
+            guard current != typed else { return }
             performUndoable(actionName: "Edit Cell") {
-                doc.setCell(row: rowIndex, column: colIndex, to: sender.stringValue)
+                // Routes "=…" into the extended layer + recomputes; a literal
+                // clears any prior formula and re-bakes dependents.
+                sheet.setCell(ref, to: typed)
             }
         }
 

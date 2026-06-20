@@ -65,6 +65,46 @@ final class CanvasViewStateTests: XCTestCase {
         XCTAssertEqual(after.selectedPath, "0", "selection restored")
     }
 
+    /// End-to-end open path: a canvas with a host-provided saved view state
+    /// must reveal already at that zoom + selection (the persisted-restore
+    /// feature). Guards the open-reveal wiring; the no-visible-jump ordering
+    /// itself is enforced by revealWhenLaidOut marking revealed before applying.
+    func testOpenRevealsAtSavedState() {
+        let size = NSSize(width: 400, height: 300)
+        let window = NSWindow(contentRect: NSRect(origin: .zero, size: size),
+                              styleMask: [.titled], backing: .buffered, defer: false)
+        let scroll = NSScrollView(frame: NSRect(origin: .zero, size: size))
+        scroll.contentView = CanvasClipView()
+        scroll.allowsMagnification = true
+        scroll.minMagnification = 0.25
+        scroll.maxMagnification = 3.0
+        let view = MindMapView(frame: NSRect(origin: .zero, size: size))
+        scroll.documentView = view
+        window.contentView = scroll
+        window.makeKeyAndOrderFront(nil)
+        scroll.layoutSubtreeIfNeeded()
+
+        let map = MindMap()
+        let root = Topic(text: "Root"); map.root = root
+        _ = root.addChild(text: "A")
+        _ = root.addChild(text: "B")
+
+        // Host provides a saved state to restore on reveal.
+        let saved = CanvasViewState(zoom: 1.5, originX: 0, originY: 0, selectedPath: "0")
+        view.loadViewState = { saved }
+        view.display(map: map)
+
+        // Let the async reveal (+ any reentrant magnification resize) settle.
+        let exp = expectation(description: "reveal")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { exp.fulfill() }
+        wait(for: [exp], timeout: 1.0)
+
+        XCTAssertEqual(view.alphaValue, 1, accuracy: 0.001, "canvas revealed")
+        let after = view.captureViewState()!
+        XCTAssertEqual(after.zoom, 1.5, accuracy: 0.01, "revealed at the saved zoom")
+        XCTAssertEqual(after.selectedPath, "0", "revealed with the saved selection")
+    }
+
     func testCaptureWithNoSelection() {
         let (_, _, view, _, _, _) = makeHosted()
         view.selectElement(nil)

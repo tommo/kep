@@ -226,15 +226,20 @@ public final class MindMapView: NSView {
         guard !didInitialReveal, let scroll = enclosingScrollView else { return }
         let vp = scroll.documentVisibleRect.size
         guard vp.width > 0, vp.height > 0 else { return }
-        // Restore the saved zoom/pan/selection if the host has one for this
-        // document; otherwise centre the root. Restoring the exact origin also
-        // avoids the open-time jump (no centre-then-resize shuffle).
+        // Mark revealed FIRST. applyViewState sets scroll.magnification, which
+        // synchronously re-posts the clip's frameDidChange → clipViewDidResize →
+        // revealWhenLaidOut. If we flipped the flag last, that re-entry would
+        // reveal the canvas (alpha = 1) *before* the outer call finished
+        // scrolling to the saved origin — and that final scroll is exactly the
+        // jump the user sees. Setting it first makes the re-entry a no-op, so
+        // the canvas is positioned to its final zoom/pan/selection entirely
+        // while hidden and the first painted frame is already correct.
+        didInitialReveal = true
         if let saved = loadViewState?() {
             applyViewState(saved)
         } else {
             centerOnRoot()
         }
-        didInitialReveal = true
         alphaValue = 1
     }
 

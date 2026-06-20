@@ -94,8 +94,14 @@ public struct MindMapCanvas: NSViewRepresentable {
         }
         view.loadViewState = loadViewState
         view.saveViewState = saveViewState
-        view.display(map: map)
+        // Host the view in the scroll view BEFORE display(map:). display() hides
+        // the canvas (alpha 0) until it's laid out at the real size — but only
+        // when it can see an enclosing scroll view. If we display() first (while
+        // documentView is still nil) that guard fails, the canvas stays visible,
+        // and the size-0 layout is painted and then repositioned on reveal — the
+        // open-time flash. Setting documentView first lets display() hide it.
         scroll.documentView = view
+        view.display(map: map)
 
         // Status footer below the scroll view — topic count + zoom percent.
         let footer = NSTextField(labelWithString: "")

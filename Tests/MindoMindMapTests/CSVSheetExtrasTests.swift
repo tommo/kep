@@ -50,7 +50,8 @@ final class CSVSheetExtrasTests: XCTestCase {
 
     func testSidecarPath() {
         let csv = URL(fileURLWithPath: "/ws/notes.csv")
-        XCTAssertEqual(CSVSheetExtras.sidecarURL(for: csv).lastPathComponent, "notes.csv.sheet.json")
+        // Hidden dotfile so the extended layer doesn't clutter the workspace.
+        XCTAssertEqual(CSVSheetExtras.sidecarURL(for: csv).lastPathComponent, ".notes.csv.sheet.json")
     }
 
     func testStyleDropsEmpty() {

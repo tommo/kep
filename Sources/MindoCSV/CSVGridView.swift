@@ -44,6 +44,22 @@ public final class CSVGridView: NSView, NSTextFieldDelegate {
     public override var acceptsFirstResponder: Bool { true }
     public override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
+    public override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        guard let clip = enclosingScrollView?.contentView else { return }
+        // The frozen header + gutter are drawn at the viewport edges every
+        // frame. With the default copy-on-scroll, AppKit only invalidates the
+        // newly-exposed strip on scroll, so those pinned bands get clipped out
+        // and render stale (e.g. header highlight not tracking). Forcing a full
+        // redraw on scroll keeps them correct.
+        clip.copiesOnScroll = false
+        clip.postsBoundsChangedNotifications = true
+        NotificationCenter.default.addObserver(self, selector: #selector(clipBoundsChanged),
+                                                name: NSView.boundsDidChangeNotification, object: clip)
+    }
+
+    @objc private func clipBoundsChanged() { needsDisplay = true }
+
     // MARK: - Reload
 
     /// Rebuild geometry from the sheet and resize the document view. Call after
@@ -163,8 +179,13 @@ public final class CSVGridView: NSView, NSTextFieldDelegate {
         guard firstCol <= lastCol else { return }
         for col in firstCol...min(lastCol, colCount - 1) {
             let r = CGRect(x: geometry.columnX(col), y: y, width: columnWidths[col], height: headerHeight)
-            NSBezierPath(rect: r).stroke()
             let inSel = col >= selection.left && col <= selection.right
+            if inSel {
+                NSColor.controlAccentColor.withAlphaComponent(col == selection.active.col ? 0.35 : 0.18).setFill()
+                r.fill()
+            }
+            NSColor.gridColor.setStroke()
+            NSBezierPath(rect: r).stroke()
             drawHeaderLabel(CSVCellRef.columnLabel(col), in: r, highlighted: inSel)
         }
     }
@@ -179,8 +200,13 @@ public final class CSVGridView: NSView, NSTextFieldDelegate {
         guard firstRow <= lastRow else { return }
         for row in firstRow...min(lastRow, rowCount - 1) {
             let r = CGRect(x: x, y: geometry.rowY(row), width: gutterWidth, height: rowHeight)
-            NSBezierPath(rect: r).stroke()
             let inSel = row >= selection.top && row <= selection.bottom
+            if inSel {
+                NSColor.controlAccentColor.withAlphaComponent(row == selection.active.row ? 0.35 : 0.18).setFill()
+                r.fill()
+            }
+            NSColor.gridColor.setStroke()
+            NSBezierPath(rect: r).stroke()
             drawHeaderLabel("\(row + 1)", in: r, highlighted: inSel)
         }
     }

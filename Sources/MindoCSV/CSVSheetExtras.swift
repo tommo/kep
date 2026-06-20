@@ -75,11 +75,12 @@ public struct CSVSheetExtras: Equatable, Codable, Sendable {
 
     // MARK: - Sidecar location
 
-    /// The sidecar path for a CSV document: `notes.csv` → `notes.csv.sheet.json`.
-    /// Keeping the full `.csv` name means the sidecar sorts next to its data file
-    /// and there's no ambiguity about which CSV it belongs to.
+    /// The sidecar path for a CSV document: `notes.csv` → `.notes.csv.sheet.json`
+    /// — a hidden dotfile so the extended layer doesn't clutter the workspace /
+    /// Finder, while still sitting next to its data file and unambiguous about
+    /// which CSV it belongs to.
     public static func sidecarURL(for csvURL: URL) -> URL {
         csvURL.deletingLastPathComponent()
-            .appendingPathComponent(csvURL.lastPathComponent + ".sheet.json")
+            .appendingPathComponent("." + csvURL.lastPathComponent + ".sheet.json")
     }
 }

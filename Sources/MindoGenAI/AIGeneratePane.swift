@@ -46,6 +46,10 @@ public struct AIGeneratePane: View {
     /// other call sites that read activeSelection().
     @State private var selectedModel: String = ""
     @State private var availableModels: [String] = []
+    /// Sampling temperature preset (javamind parity). Sent to the provider.
+    @State private var temperature: AITemperature = .default
+    /// Output-language id ("" = Auto). Non-Auto appends a directive to the prompt.
+    @State private var languageID: String = AIOutputLanguage.auto.id
     @FocusState private var promptFocused: Bool
 
     public init(
@@ -137,12 +141,45 @@ public struct AIGeneratePane: View {
                 .padding(4)
                 .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.secondary.opacity(0.3)))
                 .focused($promptFocused)
+            optionsRow
             if !context.selectedText.isEmpty {
                 Text("Context (selected): \(context.selectedText.prefix(160))…")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
         .padding()
+    }
+
+    /// Per-request generation controls — temperature preset + output language.
+    private var optionsRow: some View {
+        HStack(spacing: 16) {
+            HStack(spacing: 6) {
+                Image(systemName: "thermometer.medium").foregroundStyle(.secondary)
+                Picker("Temperature", selection: $temperature) {
+                    ForEach(AITemperature.allCases) { t in
+                        Text(t.label).tag(t)
+                    }
+                }
+                .labelsHidden()
+                .frame(maxWidth: 140)
+            }
+            .help("Sampling temperature — lower is more deterministic, higher more creative")
+
+            HStack(spacing: 6) {
+                Image(systemName: "globe").foregroundStyle(.secondary)
+                Picker("Language", selection: $languageID) {
+                    ForEach(AIOutputLanguage.all) { lang in
+                        Text(lang.name).tag(lang.id)
+                    }
+                }
+                .labelsHidden()
+                .frame(maxWidth: 180)
+            }
+            .help("Ask the model to respond in a specific language")
+
+            Spacer()
+        }
+        .disabled(isRunning)
     }
 
     private var outputSection: some View {
@@ -245,14 +282,20 @@ public struct AIGeneratePane: View {
             return
         }
         let modelMeta = LLMConfigStore.shared.modelMeta(for: provider, name: selectedModel)
-        let combined = context.selectedText.isEmpty
+        let language = AIOutputLanguage.by(id: languageID)
+        let withContext = context.selectedText.isEmpty
             ? promptText
             : "\(promptText)\n\nContext:\n\(context.selectedText)"
+        // Providers don't read LLMInput.outputLanguage, so the directive must
+        // live in the prompt; we still set the field for downstream/telemetry.
+        let combined = language.applied(to: withContext)
         let input = LLMInput(
             providerID: provider.rawValue,
             model: modelMeta.name,
             text: combined,
+            temperature: temperature.value,
             maxTokens: modelMeta.maxTokens,
+            outputLanguage: language.isAuto ? nil : language.id,
             isStreaming: true
         )
 

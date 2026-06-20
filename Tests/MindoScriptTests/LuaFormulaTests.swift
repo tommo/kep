@@ -106,6 +106,30 @@ final class LuaFormulaTests: XCTestCase {
         XCTAssertEqual(LuaFormula.display(.error("#CIRCULAR")), "#CIRCULAR")
     }
 
+    func testMathFunctions() throws {
+        let f = try make(["A1": "17", "B1": "5", "C1": "-2.4"])
+        num(f, "=POWER(2,8)", 256)
+        num(f, "=MOD(A1,B1)", 2)
+        num(f, "=INT(3.9)", 3)
+        num(f, "=CEILING(3.1)", 4)
+        num(f, "=FLOOR(3.9)", 3)
+        num(f, "=ROUNDUP(3.14159,2)", 3.15)
+        num(f, "=ROUNDDOWN(3.14159,2)", 3.14)
+        num(f, "=ABS(C1)", 2.4)
+    }
+
+    func testStringFunctions() throws {
+        let f = try make(["A1": "Hello"])
+        XCTAssertEqual(f.evaluate("=UPPER(A1)"), .text("HELLO"))
+        XCTAssertEqual(f.evaluate("=LOWER(A1)"), .text("hello"))
+        XCTAssertEqual(f.evaluate("=LEFT(A1,3)"), .text("Hel"))
+        XCTAssertEqual(f.evaluate("=RIGHT(A1,2)"), .text("lo"))
+        XCTAssertEqual(f.evaluate("=MID(A1,2,3)"), .text("ell"))
+        num(f, "=LEN(A1)", 5)
+        XCTAssertEqual(f.evaluate("=TRIM(\"  hi  \")"), .text("hi"))
+        XCTAssertEqual(f.evaluate("=CONCATENATE(A1,\"!\")"), .text("Hello!"))
+    }
+
     func testTranspile() {
         let t = LuaFormula.transpile("SUM(A1:B2)+C3*2")
         XCTAssertTrue(t.lua.contains("__range(\"A1\",\"B2\")"))

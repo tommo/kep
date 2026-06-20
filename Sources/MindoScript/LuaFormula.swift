@@ -286,5 +286,21 @@ public final class LuaFormula {
     function OR(...) for _,v in ipairs({...}) do if v then return true end end return false end
     function NOT(x) return not x end
     function CONCAT(...) local s='' for _,v in ipairs(flat({...})) do s=s..tostring(v) end return s end
+    CONCATENATE = CONCAT
+    function POWER(x,y) return x^y end
+    function MOD(a,b) return a % b end
+    function INT(x) return math.floor(x) end
+    function CEILING(x) return math.ceil(x) end
+    function FLOOR(x) return math.floor(x) end
+    function ROUNDUP(x,n) n=n or 0 local p=10^n if x<0 then return math.floor(x*p)/p else return math.ceil(x*p)/p end end
+    function ROUNDDOWN(x,n) n=n or 0 local p=10^n if x<0 then return math.ceil(x*p)/p else return math.floor(x*p)/p end end
+    local function slen(s) s=tostring(s) if utf8 then return utf8.len(s) or #s end return #s end
+    function LEN(s) return slen(s) end
+    function UPPER(s) return string.upper(tostring(s)) end
+    function LOWER(s) return string.lower(tostring(s)) end
+    function TRIM(s) return (tostring(s):gsub('^%s+',''):gsub('%s+$','')) end
+    function LEFT(s,n) n=n or 1 return string.sub(tostring(s),1,math.max(0,n)) end
+    function RIGHT(s,n) n=n or 1 s=tostring(s) return string.sub(s, #s-math.max(0,n)+1) end
+    function MID(s,start,n) s=tostring(s) return string.sub(s, start, start+math.max(0,n)-1) end
     """
 }

@@ -29,13 +29,6 @@ public final class MindMapView: NSView {
     /// callers that want a per-document undo stack.
     public var injectedUndoManager: UndoManager?
 
-    /// Host-provided per-document view-state persistence. `loadViewState` is
-    /// consulted on first reveal (restore zoom/pan/selection instead of
-    /// centering); `saveViewState` is called when the canvas leaves its window
-    /// (tab switch / close). Both nil → default centering, no persistence.
-    public var loadViewState: (() -> CanvasViewState?)?
-    public var saveViewState: ((CanvasViewState) -> Void)?
-
     /// Hover-preview popover for a node's note + the element it's anchored to,
     /// so we don't rebuild it every mouseMoved. Managed in MindMapView+Mouse.
     var notePopover: NSPopover?
@@ -243,48 +236,19 @@ public final class MindMapView: NSView {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: work)
     }
 
-    /// Commit the one-time reveal once the size has settled: lay out + restore
-    /// the saved view state (or centre the root) at the final size, then show.
+    /// Commit the one-time reveal once the size has settled: lay out + centre
+    /// the root at the final size, then show. Opening a map just centres it —
+    /// no persisted pan/zoom restore, which was repositioning the scroll on
+    /// every open (the visible "jump").
     private func finishInitialReveal() {
         guard !didInitialReveal, let scroll = enclosingScrollView else { return }
         let vp = scroll.documentVisibleRect.size
         guard vp.width > 0, vp.height > 0 else { return }
-        didInitialReveal = true   // set first so a magnification-driven resize
-                                  // (from applyViewState) takes the post-reveal path
+        didInitialReveal = true
         anchoredRootCenter = nil
         relayout()
-        if let saved = loadViewState?() {
-            applyViewState(saved)
-        } else {
-            centerOnRoot()
-        }
+        centerOnRoot()
         alphaValue = 1
-    }
-
-    /// Snapshot the current zoom, clip origin, and selected node's path.
-    /// nil without a scroll view (headless / export).
-    public func captureViewState() -> CanvasViewState? {
-        guard let scroll = enclosingScrollView else { return nil }
-        let origin = scroll.contentView.bounds.origin
-        return CanvasViewState(zoom: Double(scroll.magnification),
-                               originX: Double(origin.x), originY: Double(origin.y),
-                               selectedPath: selectedOutlinePath)
-    }
-
-    /// Restore a previously-captured view state: zoom first (it changes the
-    /// clip's bounds size), then the selection, then the clip origin last so
-    /// the saved pan wins over any scroll the selection triggered.
-    public func applyViewState(_ state: CanvasViewState) {
-        guard let scroll = enclosingScrollView else { return }
-        scroll.magnification = CGFloat(state.zoom)
-        if let path = state.selectedPath, let map = mindMap,
-           let topic = map.topic(atOutlinePath: path), let el = element(forTopic: topic) {
-            selectElement(el)
-        }
-        let clip = scroll.contentView
-        let origin = CGPoint(x: state.originX, y: state.originY)
-        clip.scroll(to: clip.constrainBoundsRect(NSRect(origin: origin, size: clip.bounds.size)).origin)
-        scroll.reflectScrolledClipView(clip)
     }
 
     /// Scroll so the root topic sits in the middle of the viewport. Clamped by
@@ -379,11 +343,6 @@ public final class MindMapView: NSView {
         super.viewWillMove(toWindow: newWindow)
         if newWindow == nil {
             removeKeyMonitor()
-            // Leaving the window (tab switch / close) — persist where we were.
-            // Guard on didInitialReveal so we never save a pre-centre state.
-            if didInitialReveal, let state = captureViewState() {
-                saveViewState?(state)
-            }
         }
     }
 

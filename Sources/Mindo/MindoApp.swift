@@ -67,7 +67,6 @@ struct MindoApp: App {
                 // Persist tab state on app quit as a safety net for
                 // anything the inline persistOpenTabs() calls miss.
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
-                    session.captureActiveCanvasViewState()
                     session.persistOpenTabs()
                 }
                 .sheet(isPresented: $session.aiGenerateOpen) {

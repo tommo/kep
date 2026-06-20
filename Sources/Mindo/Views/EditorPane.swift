@@ -48,17 +48,7 @@ struct EditorPane: View {
                     navigationTarget: session.sanitizedNavigationTarget,
                     searchHighlight: session.lastSearchMatch,
                     onSelectionPath: { path in session.selectedOutlineTarget = path },
-                    shouldAutoFocus: { session.pendingEditorFocus },
-                    // Persist zoom / pan / selection per saved file (skipped for
-                    // untitled docs, which have no path to key on).
-                    loadViewState: {
-                        guard let path = documentPath() else { return nil }
-                        return session.canvasViewState(forPath: path)
-                    },
-                    saveViewState: { state in
-                        guard let path = documentPath() else { return }
-                        session.setCanvasViewState(state, forPath: path)
-                    }
+                    shouldAutoFocus: { session.pendingEditorFocus }
                 )
             }
             .onChange(of: session.zoomCommandTick) { _, _ in
@@ -139,12 +129,6 @@ struct EditorPane: View {
                 }
             }
         )
-    }
-
-    /// On-disk path of the active document, used to key its persisted canvas
-    /// view state. nil for untitled (unsaved) documents.
-    private func documentPath() -> String? {
-        session.openDocuments.first(where: { $0.id == documentID })?.fileURL?.path
     }
 
     private func markDirty(_ id: OpenDocument.ID) {

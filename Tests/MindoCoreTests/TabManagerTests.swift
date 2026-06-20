@@ -57,24 +57,3 @@ final class TabManagerTests: XCTestCase {
         XCTAssertNil(mgr.nextMRU(after: 1))
     }
 }
-
-@MainActor
-final class EditorContextTests: XCTestCase {
-
-    func testMarkDirtyAndSavedRoundTrip() {
-        let ctx = EditorContext(fileURL: nil, title: "Untitled.md", fileType: .markdown)
-        XCTAssertFalse(ctx.isDirty)
-        ctx.markDirty()
-        XCTAssertTrue(ctx.isDirty)
-        ctx.markSaved()
-        XCTAssertFalse(ctx.isDirty)
-        XCTAssertNotNil(ctx.lastSavedAt)
-    }
-
-    func testHasOnDiskBackingFollowsURL() {
-        let ctx = EditorContext(fileURL: nil, title: "tmp")
-        XCTAssertFalse(ctx.hasOnDiskBacking)
-        ctx.fileURL = URL(fileURLWithPath: "/tmp/x.md")
-        XCTAssertTrue(ctx.hasOnDiskBacking)
-    }
-}

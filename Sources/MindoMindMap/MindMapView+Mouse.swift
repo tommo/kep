@@ -809,28 +809,4 @@ extension MindMapView {
         return 1 + step
     }
 
-    /// Translate a scroll event's deltas into a clip-origin pan offset, for
-    /// both input kinds:
-    ///   • trackpad — `precise` pixel deltas pass through 1:1 for a smooth grab;
-    ///   • mouse wheel — line deltas are amplified so a notch moves usefully.
-    /// `shiftHeld` turns a vertical-only wheel into a horizontal pan (the
-    /// standard Shift+scroll convention) — skipped when the platform already
-    /// reported a horizontal delta, so we never double-swap. Pure → testable.
-    static func panOffset(
-        scrollingDeltaX: CGFloat, scrollingDeltaY: CGFloat,
-        precise: Bool, shiftHeld: Bool
-    ) -> (dx: CGFloat, dy: CGFloat) {
-        let scale: CGFloat = precise ? 1 : 12
-        var dx = scrollingDeltaX * scale
-        var dy = scrollingDeltaY * scale
-        // Defensive fallback: AppKit already swaps the axes for Shift+scroll on
-        // most setups (so dx is already non-zero here), but for input devices /
-        // drivers that don't, move a vertical-only wheel onto the X axis. The
-        // dx==0 guard makes this a no-op when the platform already swapped.
-        if shiftHeld, dx == 0 {
-            dx = dy
-            dy = 0
-        }
-        return (dx, dy)
-    }
 }

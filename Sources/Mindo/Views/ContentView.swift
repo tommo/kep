@@ -237,10 +237,6 @@ struct ContentView: View {
             }
             .frame(minHeight: 100, idealHeight: 260)
 
-            // Node-properties strip removed — it wasn't useful.
-            // NodePropertyView(properties: session.selectedNodeProperties)
-            //     .frame(minHeight: 90)
-
             // Node content editor — the SAME markdown widget the .md document
             // view uses, bound to the selected node's content (its Note).
             if session.selectedNodeProperties != nil {

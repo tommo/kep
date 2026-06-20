@@ -98,46 +98,6 @@ final class ZoomMathTests: XCTestCase {
         XCTAssertEqual(current, 0.25, accuracy: 1e-9)
     }
 
-    // MARK: - Scroll-to-pan offset
-
-    func testTrackpadPanPassesDeltasThrough() {
-        let (dx, dy) = MindMapView.panOffset(
-            scrollingDeltaX: 8, scrollingDeltaY: -5, precise: true, shiftHeld: false)
-        XCTAssertEqual(dx, 8, accuracy: 1e-9)
-        XCTAssertEqual(dy, -5, accuracy: 1e-9)
-    }
-
-    func testMouseWheelPanAmplifiesLineDeltas() {
-        // A coarse wheel notch (delta 1) should move a useful distance, not 1px.
-        let (_, dy) = MindMapView.panOffset(
-            scrollingDeltaX: 0, scrollingDeltaY: 1, precise: false, shiftHeld: false)
-        XCTAssertEqual(dy, 12, accuracy: 1e-9)
-    }
-
-    func testShiftWheelPansHorizontally() {
-        // Mouse wheel + Shift: the (vertical) wheel delta becomes a horizontal
-        // pan. Amplified like any wheel notch.
-        let (dx, dy) = MindMapView.panOffset(
-            scrollingDeltaX: 0, scrollingDeltaY: 2, precise: false, shiftHeld: true)
-        XCTAssertEqual(dx, 24, accuracy: 1e-9, "wheel delta moved to the X axis")
-        XCTAssertEqual(dy, 0, accuracy: 1e-9)
-    }
-
-    func testShiftDoesNotDoubleSwapWhenPlatformAlreadyHorizontal() {
-        // If the platform already put the delta on X, Shift must not move it back.
-        let (dx, dy) = MindMapView.panOffset(
-            scrollingDeltaX: 5, scrollingDeltaY: 0, precise: true, shiftHeld: true)
-        XCTAssertEqual(dx, 5, accuracy: 1e-9)
-        XCTAssertEqual(dy, 0, accuracy: 1e-9)
-    }
-
-    func testZeroDeltaPansNothing() {
-        let (dx, dy) = MindMapView.panOffset(
-            scrollingDeltaX: 0, scrollingDeltaY: 0, precise: true, shiftHeld: false)
-        XCTAssertEqual(dx, 0)
-        XCTAssertEqual(dy, 0)
-    }
-
     // MARK: - Free-canvas pan bounds (CanvasClipView.constrainBoundsRect)
 
     /// Hard-panning toward the corner must keep most of the content visible

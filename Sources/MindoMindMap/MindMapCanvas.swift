@@ -22,6 +22,10 @@ public struct MindMapCanvas: NSViewRepresentable {
     /// Fires with the selected topic's outline index-path whenever the canvas
     /// selection changes — lets the outline panel highlight the matching row.
     public var onSelectionPath: ((String?) -> Void)?
+    /// Per-document view-state persistence (zoom / pan / selection): restored on
+    /// first reveal, saved when the canvas leaves its window.
+    public var loadViewState: (() -> CanvasViewState?)?
+    public var saveViewState: ((CanvasViewState) -> Void)?
 
     public init(
         map: MindMap,
@@ -32,7 +36,9 @@ public struct MindMapCanvas: NSViewRepresentable {
         navigationTarget: String? = nil,
         searchHighlight: String? = nil,
         onSelectionPath: ((String?) -> Void)? = nil,
-        shouldAutoFocus: @escaping () -> Bool = { true }
+        shouldAutoFocus: @escaping () -> Bool = { true },
+        loadViewState: (() -> CanvasViewState?)? = nil,
+        saveViewState: ((CanvasViewState) -> Void)? = nil
     ) {
         self.map = map
         self.theme = theme
@@ -43,6 +49,8 @@ public struct MindMapCanvas: NSViewRepresentable {
         self.searchHighlight = searchHighlight
         self.onSelectionPath = onSelectionPath
         self.shouldAutoFocus = shouldAutoFocus
+        self.loadViewState = loadViewState
+        self.saveViewState = saveViewState
     }
 
     public func makeNSView(context: Context) -> NSView {
@@ -84,6 +92,8 @@ public struct MindMapCanvas: NSViewRepresentable {
             let path = view?.selectedOutlinePath
             DispatchQueue.main.async { reportSelection?(path) }
         }
+        view.loadViewState = loadViewState
+        view.saveViewState = saveViewState
         view.display(map: map)
         scroll.documentView = view
 
@@ -164,6 +174,8 @@ public struct MindMapCanvas: NSViewRepresentable {
         view.autoFocusCheck = shouldAutoFocus
         view.onExtraFileTap = onExtraFileTap
         view.onOpenWikiLink = onOpenWikiLink
+        view.loadViewState = loadViewState
+        view.saveViewState = saveViewState
         if view.searchHighlight != searchHighlight {
             view.searchHighlight = searchHighlight
             view.needsDisplay = true

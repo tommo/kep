@@ -347,14 +347,41 @@ public final class MindMapView: NSView {
     private func installClipResizeWatcher() {
         guard let scroll = enclosingScrollView else { return }
         scroll.contentView.postsFrameChangedNotifications = true
+        scroll.contentView.postsBoundsChangedNotifications = true
         NotificationCenter.default.addObserver(
             self, selector: #selector(clipViewDidResize(_:)),
             name: NSView.frameDidChangeNotification, object: scroll.contentView
+        )
+        // Persist zoom/pan after the user scrolls/pans/zooms — saving only on
+        // teardown was unreliable (tab reuse loses the doc path; quit may find
+        // no live view), so the remembered position wasn't preserved.
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(clipBoundsDidChange(_:)),
+            name: NSView.boundsDidChangeNotification, object: scroll.contentView
         )
     }
 
     private func removeClipResizeWatcher() {
         NotificationCenter.default.removeObserver(self, name: NSView.frameDidChangeNotification, object: nil)
+        NotificationCenter.default.removeObserver(self, name: NSView.boundsDidChangeNotification, object: nil)
+    }
+
+    private var persistDebounce: DispatchWorkItem?
+
+    /// Scroll/pan/zoom changed the clip bounds — debounce-save the view state so
+    /// it's persisted while the document is still active (path resolves), rather
+    /// than relying on the fragile teardown/quit save.
+    @objc private func clipBoundsDidChange(_ note: Notification) {
+        guard didInitialReveal else { return }   // ignore the initial centre/restore churn
+        persistDebounce?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.persistViewState() }
+        persistDebounce = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: work)
+    }
+
+    private func persistViewState() {
+        guard didInitialReveal, let state = captureViewState() else { return }
+        saveViewState?(state)
     }
 
     public override func viewWillMove(toWindow newWindow: NSWindow?) {

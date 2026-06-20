@@ -48,6 +48,38 @@ final class CanvasClipView: NSClipView {
     /// on each axis — you can pan ~40% off for the grab-feel, never lose it.
     static let keepFraction: CGFloat = 0.6
 
+    // Grab-to-pan on the clip's OWN area — the margin around/beyond the document
+    // view that the MindMapView doesn't cover. Those pixels belong to the clip
+    // (the doc view sits on top), so the canvas's own drag-pan never sees them;
+    // without this you "can't drag the non-canvas area".
+    private var panStartWindow: NSPoint?
+    private var panStartOrigin: NSPoint?
+
+    override func mouseDown(with event: NSEvent) {
+        panStartWindow = event.locationInWindow
+        panStartOrigin = bounds.origin
+        NSCursor.closedHand.push()
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let startWindow = panStartWindow, let startOrigin = panStartOrigin else {
+            return super.mouseDragged(with: event)
+        }
+        let dx = event.locationInWindow.x - startWindow.x
+        let dy = event.locationInWindow.y - startWindow.y
+        // Flipped clip (follows the doc view): drag right → content right →
+        // origin.x decreases; matches MindMapView's own drag-pan convention.
+        let target = NSPoint(x: startOrigin.x - dx, y: startOrigin.y + dy)
+        scroll(to: constrainBoundsRect(NSRect(origin: target, size: bounds.size)).origin)
+        enclosingScrollView?.reflectScrolledClipView(self)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        if panStartWindow != nil { NSCursor.pop() }
+        panStartWindow = nil
+        panStartOrigin = nil
+    }
+
     override func constrainBoundsRect(_ proposedBounds: NSRect) -> NSRect {
         guard let doc = documentView else { return super.constrainBoundsRect(proposedBounds) }
         // Constrain against the actual content extent, not the (padded /

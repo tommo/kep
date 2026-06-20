@@ -40,9 +40,26 @@ final class PlantUMLCatalogTests: XCTestCase {
         XCTAssertTrue(bodies.contains("->"), "arrows decoded")
         XCTAssertTrue(bodies.contains("<|--"), "class inheritance decoded")
         // Every snippet has a non-empty body and the common ones a @start.
-        XCTAssertEqual(PlantUMLCatalog.snippets.count, 15)
+        XCTAssertGreaterThanOrEqual(PlantUMLCatalog.snippets.count, 23)
         XCTAssertTrue(PlantUMLCatalog.snippets.allSatisfy { !$0.body.isEmpty })
+        XCTAssertTrue(PlantUMLCatalog.snippets.allSatisfy { $0.body.hasPrefix("@start") })
         XCTAssertTrue(PlantUMLCatalog.snippets.first { $0.title == "Sequence" }!.body.hasPrefix("@startuml"))
+    }
+
+    func testGroupedSnippetsCoverEveryOneOnce() {
+        let flat = PlantUMLCatalog.groupedSnippets.flatMap(\.snippets)
+        XCTAssertEqual(flat.count, PlantUMLCatalog.snippets.count)
+        // Categories appear once each, in first-seen order, Diagram first.
+        let cats = PlantUMLCatalog.groupedSnippets.map(\.category)
+        XCTAssertEqual(Set(cats).count, cats.count)
+        XCTAssertEqual(cats.first, "Diagram")
+        XCTAssertTrue(cats.contains("Styling"))
+        XCTAssertTrue(cats.contains("Advanced"))
+    }
+
+    func testSnippetTitlesUnique() {
+        let titles = PlantUMLCatalog.snippets.map(\.title)
+        XCTAssertEqual(Set(titles).count, titles.count)
     }
 
     func testHtmlUnescapeDoublyEscaped() {

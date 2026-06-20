@@ -291,12 +291,18 @@ public struct PlantUMLEditor: NSViewRepresentable {
         /// the toolbar's insert button.
         @objc func showInsertMenu(_ sender: NSButton) {
             let menu = NSMenu()
-            for snippet in PlantUMLCatalog.snippets {
-                let it = NSMenuItem(title: snippet.title,
-                                    action: #selector(insertCatalogSnippet(_:)), keyEquivalent: "")
-                it.target = self
-                it.representedObject = snippet.body
-                menu.addItem(it)
+            for group in PlantUMLCatalog.groupedSnippets {
+                let parent = NSMenuItem(title: group.category, action: nil, keyEquivalent: "")
+                let submenu = NSMenu()
+                for snippet in group.snippets {
+                    let it = NSMenuItem(title: snippet.title,
+                                        action: #selector(insertCatalogSnippet(_:)), keyEquivalent: "")
+                    it.target = self
+                    it.representedObject = snippet.body
+                    submenu.addItem(it)
+                }
+                parent.submenu = submenu
+                menu.addItem(parent)
             }
             menu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.maxY + 2), in: sender)
         }

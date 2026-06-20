@@ -50,6 +50,7 @@ public struct CSVEditor: NSViewRepresentable {
         grid.onPaste = { [weak coord] in coord?.pasteCells() }
         grid.onAddColumn = { [weak coord] in coord?.appendColumn() }
         grid.onAddRow    = { [weak coord] in coord?.appendRow() }
+        grid.onDropFile  = { [weak coord] ref, url in coord?.dropFile(ref, url) }
         // Right-click context menu — same coordinator selectors as the toolbar.
         let menu = NSMenu()
         func item(_ title: String, _ action: Selector) -> NSMenuItem {
@@ -318,6 +319,17 @@ public struct CSVEditor: NSViewRepresentable {
         /// "+" tail affordances: append a row / column (one undo step + reload).
         func appendRow()    { performUndoable(actionName: "Add Row") { doc.appendRow() } }
         func appendColumn() { performUndoable(actionName: "Add Column") { doc.appendColumn() } }
+
+        /// A workspace file was dropped onto a cell — store its path relative to
+        /// the CSV file's directory, select the cell, and commit as one undo step.
+        func dropFile(_ ref: CSVCellRef, _ fileURL: URL) {
+            guard let docURL = parent?.documentURL else { return }
+            let link = CSVLink.relativePath(of: fileURL, fromFileAt: docURL)
+            var sel = selection
+            sel.moveActive(to: ref)
+            grid?.setSelection(sel)
+            commitGridEdit(ref, link)
+        }
 
         /// Reflect the active cell in the formula bar: its A1 ref in the name
         /// box and its formula SOURCE (or value) in the formula field — so the

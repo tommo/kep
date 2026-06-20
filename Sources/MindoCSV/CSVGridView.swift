@@ -33,6 +33,8 @@ public final class CSVGridView: NSView, NSTextFieldDelegate {
     /// The "+" affordances at the tail of the header / gutter append a column / row.
     public var onAddColumn: (() -> Void)?
     public var onAddRow: (() -> Void)?
+    /// A workspace file was dropped onto a cell — host turns it into a link.
+    public var onDropFile: ((CSVCellRef, URL) -> Void)?
 
     private var columnWidths: [CGFloat] = []
     private let defaultColumnWidth: CGFloat = 100
@@ -52,6 +54,7 @@ public final class CSVGridView: NSView, NSTextFieldDelegate {
 
     public override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        registerForDraggedTypes([.fileURL])
         guard let clip = enclosingScrollView?.contentView else { return }
         // The frozen header + gutter are drawn at the viewport edges every
         // frame. With the default copy-on-scroll, AppKit only invalidates the
@@ -349,6 +352,30 @@ public final class CSVGridView: NSView, NSTextFieldDelegate {
         onSelectionChange?(selection)
         scrollToActive()
         needsDisplay = true
+    }
+
+    // MARK: - Drag & drop (file → cell link)
+
+    public override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        droppedFileURL(from: sender) != nil ? .copy : []
+    }
+
+    public override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        droppedFileURL(from: sender) != nil ? .copy : []
+    }
+
+    public override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        guard let url = droppedFileURL(from: sender),
+              let cell = clampedCell(at: convert(sender.draggingLocation, from: nil)) else { return false }
+        onDropFile?(cell, url)
+        return true
+    }
+
+    /// The first file URL on the drag pasteboard, or nil for non-file drags.
+    private func droppedFileURL(from sender: NSDraggingInfo) -> URL? {
+        let opts: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
+        let urls = sender.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: opts) as? [URL]
+        return urls?.first
     }
 
     // MARK: - Keyboard

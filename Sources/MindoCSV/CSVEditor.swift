@@ -298,6 +298,12 @@ public struct CSVEditor: NSViewRepresentable {
             sheet = CSVSheet.load(csv: parent?.text ?? "", sidecar: readSidecar(), hasHeader: false)
             sheet.recompute()
             headerCheckbox?.state = .off
+            // One-time migration: if an old visible sidecar exists, rewrite it as
+            // the hidden dotfile and delete the legacy file so it stops showing.
+            if let url = parent?.documentURL,
+               FileManager.default.fileExists(atPath: CSVSheetExtras.legacySidecarURL(for: url).path) {
+                writeSidecar()
+            }
             grid?.sheet = sheet
             grid?.reload()
         }
@@ -338,21 +344,29 @@ public struct CSVEditor: NSViewRepresentable {
 
         // MARK: - Extended-layer sidecar I/O
 
-        /// Read the `<name>.csv.sheet.json` sidecar next to the document, if any.
+        /// Read the hidden `.<name>.csv.sheet.json` sidecar, falling back to the
+        /// legacy non-hidden name for files written before the dotfile change.
         private func readSidecar() -> String? {
             guard let url = parent?.documentURL else { return nil }
-            return try? String(contentsOf: CSVSheetExtras.sidecarURL(for: url), encoding: .utf8)
+            if let s = try? String(contentsOf: CSVSheetExtras.sidecarURL(for: url), encoding: .utf8) { return s }
+            return try? String(contentsOf: CSVSheetExtras.legacySidecarURL(for: url), encoding: .utf8)
         }
 
-        /// Write (or remove) the sidecar to match the current extended layer.
-        /// No-op for unsaved scratch documents (no URL to anchor the sidecar).
+        /// Write (or remove) the hidden sidecar to match the current extended
+        /// layer, and always delete the legacy non-hidden sidecar so old visible
+        /// files migrate away. No-op for unsaved scratch documents.
         private func writeSidecar() {
             guard let url = parent?.documentURL else { return }
+            let fm = FileManager.default
             let sidecar = CSVSheetExtras.sidecarURL(for: url)
+            let legacy = CSVSheetExtras.legacySidecarURL(for: url)
             if let json = sheet.sidecarJSON() {
                 try? json.write(to: sidecar, atomically: true, encoding: .utf8)
-            } else if FileManager.default.fileExists(atPath: sidecar.path) {
-                try? FileManager.default.removeItem(at: sidecar)   // last extra cleared → drop the sidecar
+            } else if fm.fileExists(atPath: sidecar.path) {
+                try? fm.removeItem(at: sidecar)        // last extra cleared → drop it
+            }
+            if fm.fileExists(atPath: legacy.path) {
+                try? fm.removeItem(at: legacy)         // clean up the old visible file
             }
         }
 

@@ -52,6 +52,8 @@ final class CSVSheetExtrasTests: XCTestCase {
         let csv = URL(fileURLWithPath: "/ws/notes.csv")
         // Hidden dotfile so the extended layer doesn't clutter the workspace.
         XCTAssertEqual(CSVSheetExtras.sidecarURL(for: csv).lastPathComponent, ".notes.csv.sheet.json")
+        // Legacy (pre-dotfile) name, kept for read + cleanup migration.
+        XCTAssertEqual(CSVSheetExtras.legacySidecarURL(for: csv).lastPathComponent, "notes.csv.sheet.json")
     }
 
     func testStyleDropsEmpty() {

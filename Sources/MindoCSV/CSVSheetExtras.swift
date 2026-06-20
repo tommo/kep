@@ -83,4 +83,11 @@ public struct CSVSheetExtras: Equatable, Codable, Sendable {
         csvURL.deletingLastPathComponent()
             .appendingPathComponent("." + csvURL.lastPathComponent + ".sheet.json")
     }
+
+    /// The earlier, NON-hidden sidecar name (`notes.csv.sheet.json`). Kept so the
+    /// editor can read + clean up files written before the dotfile change.
+    public static func legacySidecarURL(for csvURL: URL) -> URL {
+        csvURL.deletingLastPathComponent()
+            .appendingPathComponent(csvURL.lastPathComponent + ".sheet.json")
+    }
 }

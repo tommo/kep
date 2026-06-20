@@ -213,16 +213,3 @@ public final class MindMapLayout {
     }
 }
 
-private var subtreeHeightKey: UInt8 = 0
-
-extension MindMapElement {
-    /// Cached subtree height. Set by `MindMapLayout`.
-    var subtreeHeight: CGFloat {
-        get {
-            (objc_getAssociatedObject(self, &subtreeHeightKey) as? CGFloat) ?? 0
-        }
-        set {
-            objc_setAssociatedObject(self, &subtreeHeightKey, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
-        }
-    }
-}

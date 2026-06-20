@@ -25,6 +25,9 @@ public final class MindMapElement {
     /// Bounds of the entire subtree rooted at this element.
     public internal(set) var subtreeBounds: CGRect = .zero
 
+    /// Cached subtree height, set by `MindMapLayout` during placement.
+    var subtreeHeight: CGFloat = 0
+
     /// Manual layout nudge from the `offsetX`/`offsetY` topic attributes,
     /// applied on top of the auto-layout position. `.zero` when unset.
     public var manualOffset: CGPoint {

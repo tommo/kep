@@ -64,8 +64,8 @@ public struct PlantUMLEditor: NSViewRepresentable {
         footer.translatesAutoresizingMaskIntoConstraints = false
 
         // Preview layout switch: none / side-by-side / stacked.
-        let modeControl = Self.makePreviewModeControl(target: context.coordinator,
-                                                       action: #selector(Coordinator.previewModeChanged(_:)))
+        let modeControl = PreviewModeControl.make(target: context.coordinator,
+                                                   action: #selector(Coordinator.previewModeChanged(_:)))
         context.coordinator.modeControl = modeControl
 
         toolbar.translatesAutoresizingMaskIntoConstraints = false
@@ -105,20 +105,6 @@ public struct PlantUMLEditor: NSViewRepresentable {
     /// diagram types. Mirrors mindolph's PlantUmlToolbar at the
     /// "click → drop a skeleton at the cursor" level; the full snippet
     /// browser stays a future enhancement.
-    /// Footer control to switch preview layout: none / side-by-side / stacked.
-    static func makePreviewModeControl(target: AnyObject, action: Selector) -> NSSegmentedControl {
-        func img(_ name: String) -> NSImage { NSImage(systemSymbolName: name, accessibilityDescription: nil) ?? NSImage() }
-        let c = NSSegmentedControl(
-            images: [img("doc.plaintext"), img("rectangle.split.2x1"), img("rectangle.split.1x2")],
-            trackingMode: .selectOne, target: target, action: action)
-        c.segmentStyle = .texturedRounded
-        c.controlSize = .small
-        c.translatesAutoresizingMaskIntoConstraints = false
-        c.setToolTip("No preview", forSegment: 0)
-        c.setToolTip("Preview side-by-side", forSegment: 1)
-        c.setToolTip("Preview stacked", forSegment: 2)
-        return c
-    }
 
     private func makeToolbar(coordinator: Coordinator) -> NSStackView {
         let stack = NSStackView()

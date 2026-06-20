@@ -73,6 +73,13 @@ public struct MindMapCanvas: NSViewRepresentable {
         scroll.minMagnification = 0.25
         scroll.maxMagnification = 3.0
         scroll.borderType = .noBorder
+        // Match the canvas paper color so the area exposed when panning past the
+        // content (free canvas) blends seamlessly instead of showing a different
+        // container background. Both the scroll view and its clip view paint it.
+        scroll.drawsBackground = true
+        scroll.backgroundColor = theme.paperColor
+        scroll.contentView.drawsBackground = true
+        scroll.contentView.backgroundColor = theme.paperColor
 
         let view = MindMapView(frame: .zero)
         view.autoFocusCheck = shouldAutoFocus
@@ -177,6 +184,10 @@ public struct MindMapCanvas: NSViewRepresentable {
     public func updateNSView(_ container: NSView, context: Context) {
         guard let view = context.coordinator.view else { return }
         view.theme = theme
+        if let scroll = context.coordinator.scroll {
+            scroll.backgroundColor = theme.paperColor
+            scroll.contentView.backgroundColor = theme.paperColor
+        }
         view.autoFocusCheck = shouldAutoFocus
         view.onExtraFileTap = onExtraFileTap
         view.onOpenWikiLink = onOpenWikiLink

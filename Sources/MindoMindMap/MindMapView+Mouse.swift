@@ -789,24 +789,14 @@ extension MindMapView {
         // those is what gives the "flung canvas" feel. Drop them; pan only while
         // the user is actively scrolling.
         if !event.momentumPhase.isEmpty { return }
-        // Pan — for BOTH a trackpad (precise pixel deltas) and a mouse wheel
-        // (line deltas, amplified). Shift + vertical wheel pans horizontally.
-        // Just translate the clip origin by the delta; the CanvasClipView's
-        // constrainBoundsRect handles the (free, per-axis) bounding, so this
-        // can't reset the other axis and pans a screenful past the content.
-        let (dx, dy) = Self.panOffset(
-            scrollingDeltaX: event.scrollingDeltaX, scrollingDeltaY: event.scrollingDeltaY,
-            precise: event.hasPreciseScrollingDeltas,
-            shiftHeld: event.modifierFlags.contains(.shift))
-        guard dx != 0 || dy != 0 else { return }
-        let clip = scroll.contentView
-        let o = clip.bounds.origin
-        // IMPORTANT: a direct clip.scroll(to:) bypasses constrainBoundsRect, so
-        // we must apply the constraint ourselves — otherwise the pan is
-        // unbounded and the content can be flung off into empty space.
-        let proposed = NSRect(origin: NSPoint(x: o.x - dx, y: o.y - dy), size: clip.bounds.size)
-        clip.scroll(to: clip.constrainBoundsRect(proposed).origin)
-        scroll.reflectScrolledClipView(clip)
+        // Let NSScrollView do the actual scrolling. The previous hand-rolled
+        // `origin -= delta` got the vertical sign wrong under "natural"
+        // scrolling — scrolling down pinned the view at the top and it couldn't
+        // come back ("locked"). Native scrolling already handles direction,
+        // natural-scroll, precise vs line deltas and 2D/shift correctly, and
+        // CanvasClipView.constrainBoundsRect still supplies the free-pan bounds
+        // (that's the documented extension point). We only kill momentum above.
+        super.scrollWheel(with: event)
     }
 
 

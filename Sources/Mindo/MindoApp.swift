@@ -88,6 +88,11 @@ struct MindoApp: App {
                         session.insertSnippet(snippet)
                     }
                 }
+                .sheet(isPresented: $session.plantUMLTemplatePickerOpen) {
+                    PlantUMLTemplatePicker { template in
+                        session.createPlantUML(from: template)
+                    }
+                }
                 .sheet(isPresented: $session.findInFilesOpen) {
                     NavigationStack {
                         FindInFilesPanel(workspaceRoots: session.workspaceRoots.map(\.url)) { url, hit in
@@ -469,6 +474,7 @@ final class AppSession {
 
     /// Snippet picker sheet flag.
     var snippetPickerOpen: Bool = false
+    var plantUMLTemplatePickerOpen: Bool = false
     /// About-Mindo sheet flag.
     var aboutOpen: Bool = false
 

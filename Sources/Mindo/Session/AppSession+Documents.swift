@@ -2,6 +2,7 @@ import AppKit
 import UniformTypeIdentifiers
 import MindoCore
 import MindoModel
+import MindoPlantUML
 
 extension AppSession {
 
@@ -84,8 +85,24 @@ extension AppSession {
 
     func newMarkdown() { newTextDocument(.markdown) }
     func newCSV()      { newTextDocument(.csv) }
-    func newPlantUML() { newTextDocument(.plantUML) }
     func newTextFile() { newTextDocument(.plainText) }
+
+    /// New PlantUML doc — first present the template picker (javamind parity:
+    /// 19 diagram scaffolds) instead of dropping the user into an empty file.
+    func newPlantUML() { plantUMLTemplatePickerOpen = true }
+
+    /// Create a `.puml` seeded with `template`'s body (called by the picker).
+    func createPlantUML(from template: PlantUMLTemplate) {
+        let starter = Data(template.body.utf8)
+        if let folder = defaultCreationFolder() {
+            createDocumentOnDisk(extension: SupportedFileType.plantUML.rawValue, in: folder, starter: starter)
+        } else {
+            let doc = OpenDocument(kind: .text(template.body, fileType: .plantUML), fileURL: nil,
+                                   title: "Untitled.\(SupportedFileType.plantUML.rawValue)")
+            openDocuments.append(doc)
+            activeDocumentID = doc.id
+        }
+    }
 
     func closeActive() {
         guard let id = activeDocumentID else { return }

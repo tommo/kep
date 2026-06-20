@@ -112,6 +112,10 @@ extension MindMapView {
         exportParent.submenu = exportSub
         menu.addItem(exportParent)
 
+        // Copy just this node's own text (⌘C copies the whole subtree blob;
+        // this is the "I only want the label" path).
+        menu.addItem(makeContextItem(title: "Copy Text", action: #selector(contextCopyText(_:)), payload: element))
+
         // Copy Branch As → submenu (clipboard, text-friendly formats only).
         let copyBranchParent = NSMenuItem(title: "Copy Branch As", action: nil, keyEquivalent: "")
         let copyBranchSub = NSMenu()
@@ -238,6 +242,21 @@ extension MindMapView {
         let pb = NSPasteboard.general
         pb.clearContents()
         pb.setString(body, forType: .string)
+    }
+
+    @objc func contextCopyText(_ sender: NSMenuItem) {
+        guard let element = sender.representedObject as? MindMapElement else { return }
+        Self.copyPlainText(of: element.topic, to: .general)
+    }
+
+    /// Write a topic's own text (NOT its subtree) to `pasteboard`. Split out so
+    /// the "copy only the label" behaviour is unit-testable without ⌘C's
+    /// subtree-blob path. Default pasteboard is the general one.
+    @discardableResult
+    static func copyPlainText(of topic: Topic, to pasteboard: NSPasteboard) -> String {
+        pasteboard.clearContents()
+        pasteboard.setString(topic.text, forType: .string)
+        return topic.text
     }
 
     @objc func contextSetTextAlign(_ sender: NSMenuItem) {

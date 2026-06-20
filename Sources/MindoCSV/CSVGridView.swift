@@ -99,11 +99,7 @@ public final class CSVGridView: NSView, NSTextFieldDelegate {
         needsDisplay = true
     }
 
-    private func value(_ r: CSVCellRef) -> String {
-        let rows = sheet.document.rows
-        guard r.row >= 0, r.row < rows.count, r.col >= 0, r.col < rows[r.row].count else { return "" }
-        return rows[r.row][r.col]
-    }
+    private func value(_ r: CSVCellRef) -> String { sheet.value(at: r) }
 
     private var rowCount: Int { max(sheet.document.rows.count, 1) }
     private var colCount: Int { max(sheet.document.columnCount, 1) }

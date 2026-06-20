@@ -29,18 +29,18 @@ public enum SnippetExpander {
         }
     }
 
+    private static func formatter(_ fmt: String) -> DateFormatter {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = fmt
+        return f
+    }
+    private static let dateFmt = formatter("yyyy-MM-dd")
+    private static let timeFmt = formatter("HH:mm")
+    private static let datetimeFmt = formatter("yyyy-MM-dd HH:mm")
+
     public static func expand(_ template: String, context: Context = Context()) -> String {
         guard template.contains("${") else { return template }
-        let dateFmt = DateFormatter()
-        dateFmt.locale = Locale(identifier: "en_US_POSIX")
-        dateFmt.dateFormat = "yyyy-MM-dd"
-        let timeFmt = DateFormatter()
-        timeFmt.locale = Locale(identifier: "en_US_POSIX")
-        timeFmt.dateFormat = "HH:mm"
-        let datetimeFmt = DateFormatter()
-        datetimeFmt.locale = Locale(identifier: "en_US_POSIX")
-        datetimeFmt.dateFormat = "yyyy-MM-dd HH:mm"
-
         let values: [String: String] = [
             "date":     dateFmt.string(from: context.date),
             "time":     timeFmt.string(from: context.date),

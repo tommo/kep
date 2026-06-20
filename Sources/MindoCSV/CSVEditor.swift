@@ -363,11 +363,7 @@ public struct CSVEditor: NSViewRepresentable {
             }
         }
 
-        private func value(at ref: CSVCellRef) -> String {
-            let rows = doc.rows
-            guard ref.row >= 0, ref.row < rows.count, ref.col >= 0, ref.col < rows[ref.row].count else { return "" }
-            return rows[ref.row][ref.col]
-        }
+        private func value(at ref: CSVCellRef) -> String { sheet.value(at: ref) }
 
         func serialize() -> String { sheet.bakedCSV() }
 

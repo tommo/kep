@@ -318,8 +318,9 @@ public struct MmdLexer {
     }
 }
 
-private extension Character {
+extension Character {
     /// Java's `Character.isISOControl`: U+0000–U+001F or U+007F–U+009F.
+    /// Module-internal so ModelUtils + the lexer share one definition.
     var isISOControl: Bool {
         guard let scalar = unicodeScalars.first else { return false }
         let v = scalar.value

@@ -64,18 +64,6 @@ public enum FreemindExporter {
 
     /// XML attribute-value escape — &, <, >, ", ' all need the entity form.
     private static func escape(_ s: String) -> String {
-        var out = ""
-        out.reserveCapacity(s.count)
-        for ch in s {
-            switch ch {
-            case "&": out.append("&amp;")
-            case "<": out.append("&lt;")
-            case ">": out.append("&gt;")
-            case "\"": out.append("&quot;")
-            case "'": out.append("&apos;")
-            default: out.append(ch)
-            }
-        }
-        return out
+        ModelUtils.escapeXML(s, quotes: true)
     }
 }

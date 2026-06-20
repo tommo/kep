@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 
 /// Pure-logic transforms for Tab / Shift-Tab indent + outdent shared by
 /// the markdown and plantuml editors. Operates on the selected lines as
@@ -40,5 +40,28 @@ public enum EditorIndent {
             }
             return line
         }
+    }
+}
+
+public extension NSTextView {
+    /// Apply a line-block `transform` to the selected lines as one undo entry
+    /// (shared by the markdown + plantuml editors' Tab/Shift-Tab/comment
+    /// actions). Excludes the trailing newline so the transform sees only
+    /// visible-line content, and re-selects the modified region so repeated
+    /// presses keep stacking on the same block.
+    func applyLineTransform(_ transform: (String) -> String) {
+        let body = string as NSString
+        let lineRange = body.lineRange(for: selectedRange())
+        var workRange = lineRange
+        if workRange.length > 0,
+           body.character(at: workRange.location + workRange.length - 1) == 0x0A {
+            workRange.length -= 1
+        }
+        let block = body.substring(with: workRange)
+        let replaced = transform(block)
+        guard replaced != block, shouldChangeText(in: workRange, replacementString: replaced) else { return }
+        replaceCharacters(in: workRange, with: replaced)
+        didChangeText()
+        setSelectedRange(NSRange(location: workRange.location, length: (replaced as NSString).length))
     }
 }

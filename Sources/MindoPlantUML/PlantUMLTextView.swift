@@ -65,20 +65,4 @@ public final class PlantUMLTextView: NSTextView {
     /// to whole lines, run `transform` over the block, commit through
     /// shouldChangeText / didChangeText so the edit lands as one undo
     /// entry. Re-selects the modified region so Tab presses keep stacking.
-    private func applyLineTransform(_ transform: (String) -> String) {
-        let body = string as NSString
-        let selection = selectedRange()
-        let lineRange = body.lineRange(for: selection)
-        var workRange = lineRange
-        if workRange.length > 0,
-           body.character(at: workRange.location + workRange.length - 1) == 0x0A {
-            workRange.length -= 1
-        }
-        let block = body.substring(with: workRange)
-        let replaced = transform(block)
-        guard replaced != block, shouldChangeText(in: workRange, replacementString: replaced) else { return }
-        replaceCharacters(in: workRange, with: replaced)
-        didChangeText()
-        setSelectedRange(NSRange(location: workRange.location, length: (replaced as NSString).length))
-    }
 }

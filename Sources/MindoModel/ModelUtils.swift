@@ -15,9 +15,7 @@ public enum ModelUtils {
                 continue
             }
             // Skip ISO control chars (Java's Character.isISOControl)
-            if let scalar = ch.unicodeScalars.first, isISOControl(scalar) {
-                continue
-            }
+            if ch.isISOControl { continue }
             if escapedChars.contains(ch) {
                 out.append("\\")
             }
@@ -58,8 +56,10 @@ public enum ModelUtils {
         return "<pre>\(escapeForPreBlock(text))</pre>"
     }
 
-    /// HTML-escape `&`, `<`, `>` (the only entities the Java side emits inside <pre>).
-    public static func escapeForPreBlock(_ text: String) -> String {
+    /// XML/HTML-escape `&`, `<`, `>` (always); also `"`/`'` when `quotes` is
+    /// true (for attribute values). The one escaper shared by the `<pre>` note
+    /// body (quotes:false) and the FreeMind exporter (quotes:true).
+    public static func escapeXML(_ text: String, quotes: Bool) -> String {
         var out = ""
         out.reserveCapacity(text.count)
         for ch in text {
@@ -67,10 +67,17 @@ public enum ModelUtils {
             case "&": out.append("&amp;")
             case "<": out.append("&lt;")
             case ">": out.append("&gt;")
+            case "\"" where quotes: out.append("&quot;")
+            case "'" where quotes: out.append("&apos;")
             default: out.append(ch)
             }
         }
         return out
+    }
+
+    /// HTML-escape `&`, `<`, `>` (the only entities the Java side emits inside <pre>).
+    public static func escapeForPreBlock(_ text: String) -> String {
+        escapeXML(text, quotes: false)
     }
 
     /// Mirrors Apache Commons `StringEscapeUtils.unescapeHtml3` for the entities Mindolph emits.
@@ -150,15 +157,10 @@ public enum ModelUtils {
         var out = ""
         out.reserveCapacity(text.count)
         for ch in text {
-            if let scalar = ch.unicodeScalars.first, isISOControl(scalar) { continue }
+            if ch.isISOControl { continue }
             out.append(ch)
         }
         return out
-    }
-
-    private static func isISOControl(_ scalar: Unicode.Scalar) -> Bool {
-        let v = scalar.value
-        return v <= 0x1F || (v >= 0x7F && v <= 0x9F)
     }
 
     private static let namedEntities: [String: Character] = [

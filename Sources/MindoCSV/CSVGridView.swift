@@ -265,6 +265,29 @@ public final class CSVGridView: NSView, NSTextFieldDelegate {
         finishSelectionChange()
     }
 
+    /// Right-click selects the cell / column / row under the cursor (unless it's
+    /// already inside the selection) so the context-menu insert/delete acts on
+    /// the clicked target, then lets AppKit show `menu`.
+    public override func rightMouseDown(with event: NSEvent) {
+        let p = convert(event.locationInWindow, from: nil)
+        let vis = enclosingScrollView?.documentVisibleRect ?? bounds
+        let inHeader = p.y < vis.minY + headerHeight
+        let inGutter = p.x < vis.minX + gutterWidth
+        if inHeader, !inGutter, let col = geometry.columnIndex(atX: p.x) {
+            selection.moveActive(to: CSVCellRef(row: 0, col: col))
+            selection.extend(to: CSVCellRef(row: rowCount - 1, col: col))
+            finishSelectionChange()
+        } else if inGutter, !inHeader, let row = geometry.rowIndex(atY: p.y) {
+            selection.moveActive(to: CSVCellRef(row: row, col: 0))
+            selection.extend(to: CSVCellRef(row: row, col: colCount - 1))
+            finishSelectionChange()
+        } else if let cell = clampedCell(at: p), !selection.contains(cell) {
+            selection.moveActive(to: cell)
+            finishSelectionChange()
+        }
+        super.rightMouseDown(with: event)
+    }
+
     public override func mouseDragged(with event: NSEvent) {
         guard editingRef == nil else { return }
         let p = convert(event.locationInWindow, from: nil)

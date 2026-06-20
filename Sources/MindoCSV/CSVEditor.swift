@@ -211,55 +211,44 @@ public struct CSVEditor: NSViewRepresentable {
         return stack
     }
 
+    /// The Excel-style formula bar: a name box (the active cell's A1 ref — type
+    /// an A1/range + Return to jump) and a wide formula field that always shows
+    /// the selected cell's formula source (or its value), editable + Return to
+    /// commit. Row/column operations moved to the grid's right-click menu (the
+    /// old toolbar pull-downs were clunky).
     private func makeToolbar(coordinator: Coordinator) -> NSStackView {
         let stack = NSStackView()
         stack.orientation = .horizontal
         stack.spacing = 6
         stack.edgeInsets = NSEdgeInsets(top: 4, left: 8, bottom: 4, right: 8)
-        // Let the toolbar clip rather than force the editor (and thus the whole
-        // detail pane) wider — keeps the sidebar width stable across modes.
-        // See the longer note in PlantUMLEditor.makeToolbar.
         stack.setClippingResistancePriority(.defaultLow, for: .horizontal)
         stack.setHuggingPriority(.defaultLow, for: .horizontal)
 
-        // Row / Column operations collapse into two pull-downs — eight text
-        // buttons were both wide and visually noisy. The leading symbol on each
-        // pull-down stays visible; the named actions live in the menu.
-        // A pull-down's button shows its FIRST menu item, so that item carries
-        // the visible label (a bare image item rendered as "NSMenuItem").
-        func pullDown(label: String, items: [(String, Selector)]) -> NSPopUpButton {
-            let p = NSPopUpButton(title: "", target: nil, action: nil)
-            p.pullsDown = true
-            p.bezelStyle = .accessoryBarAction
-            let menu = NSMenu()
-            menu.addItem(NSMenuItem(title: label, action: nil, keyEquivalent: ""))   // button label
-            for (itemLabel, action) in items {
-                let it = NSMenuItem(title: itemLabel, action: action, keyEquivalent: "")
-                it.target = coordinator
-                menu.addItem(it)
-            }
-            p.menu = menu
-            p.toolTip = "\(label) operations"
-            return p
-        }
+        let nameBox = NSTextField(string: "A1")
+        nameBox.alignment = .center
+        nameBox.font = .monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+        nameBox.toolTip = "Active cell — type an A1 reference or range to jump"
+        nameBox.target = coordinator
+        nameBox.action = #selector(Coordinator.nameBoxCommitted(_:))
+        nameBox.widthAnchor.constraint(equalToConstant: 64).isActive = true
+        nameBox.setContentHuggingPriority(.required, for: .horizontal)
+        coordinator.nameBox = nameBox
 
-        stack.addArrangedSubview(pullDown(label: "Row", items: [
-            ("Append Row",       #selector(Coordinator.addRow)),
-            ("Insert Above",     #selector(Coordinator.insertRowBefore)),
-            ("Insert Below",     #selector(Coordinator.insertRowAfter)),
-            ("Delete Row",       #selector(Coordinator.removeRow)),
-        ]))
-        stack.addArrangedSubview(pullDown(label: "Column", items: [
-            ("Append Column",    #selector(Coordinator.addColumn)),
-            ("Insert Left",      #selector(Coordinator.insertColumnBefore)),
-            ("Insert Right",     #selector(Coordinator.insertColumnAfter)),
-            ("Delete Column",    #selector(Coordinator.removeColumn)),
-        ]))
-        stack.addArrangedSubview(NSView())
-        let header = NSButton(checkboxWithTitle: "First row is header", target: coordinator, action: #selector(Coordinator.toggleHeader))
-        header.state = .on
-        coordinator.headerCheckbox = header
-        stack.addArrangedSubview(header)
+        let fx = NSTextField(labelWithString: "ƒx")
+        fx.textColor = .secondaryLabelColor
+
+        let formula = NSTextField(string: "")
+        formula.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
+        formula.placeholderString = "Value or formula — e.g. =A1+B1, =SUM(A1:A10)"
+        formula.toolTip = "Formula / value of the active cell"
+        formula.target = coordinator
+        formula.action = #selector(Coordinator.formulaBarCommitted(_:))
+        formula.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        coordinator.formulaField = formula
+
+        stack.addArrangedSubview(nameBox)
+        stack.addArrangedSubview(fx)
+        stack.addArrangedSubview(formula)
         return stack
     }
 
@@ -269,6 +258,8 @@ public struct CSVEditor: NSViewRepresentable {
         var grid: CSVGridView?
         /// Mirror of the grid's selection, used by the toolbar/clipboard ops.
         var selection = CSVSelectionModel()
+        weak var nameBox: NSTextField?
+        weak var formulaField: NSTextField?
         var headerCheckbox: NSButton?
         weak var statusFooter: NSTextField?
 
@@ -306,6 +297,7 @@ public struct CSVEditor: NSViewRepresentable {
             }
             grid?.sheet = sheet
             grid?.reload()
+            syncFormulaBar()
         }
 
         // MARK: - Grid callbacks
@@ -320,7 +312,41 @@ public struct CSVEditor: NSViewRepresentable {
 
         func gridSelectionChanged(_ sel: CSVSelectionModel) {
             selection = sel
+            syncFormulaBar()
             refreshStatusFooter()
+        }
+
+        /// Reflect the active cell in the formula bar: its A1 ref in the name
+        /// box and its formula SOURCE (or value) in the formula field — so the
+        /// formula stays visible, not just its computed result.
+        func syncFormulaBar() {
+            let a = selection.active
+            nameBox?.stringValue = a.a1
+            formulaField?.stringValue = sheet.formula(at: a) ?? value(at: a)
+        }
+
+        /// Commit the formula bar's text to the active cell (Return in the field).
+        @objc func formulaBarCommitted(_ sender: NSTextField) {
+            commitGridEdit(selection.active, sender.stringValue)
+            syncFormulaBar()
+            grid?.window?.makeFirstResponder(grid)
+        }
+
+        /// Jump the selection to the A1 ref / range typed in the name box.
+        @objc func nameBoxCommitted(_ sender: NSTextField) {
+            let s = sender.stringValue.trimmingCharacters(in: .whitespaces)
+            var sel: CSVSelectionModel?
+            if let ref = CSVCellRef(a1: s) {
+                sel = CSVSelectionModel(ref)
+            } else if let cells = CSVCellRef.parseRange(s), let first = cells.first, let last = cells.last {
+                var s2 = CSVSelectionModel(first); s2.extend(to: last); sel = s2
+            }
+            if let sel {
+                selection = sel
+                grid?.setSelection(sel)
+            }
+            syncFormulaBar()
+            grid?.window?.makeFirstResponder(grid)
         }
 
         /// Delete over the selection — clear values + any formulas, one undo step.

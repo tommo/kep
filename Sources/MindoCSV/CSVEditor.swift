@@ -252,15 +252,13 @@ public struct CSVEditor: NSViewRepresentable {
         return stack
     }
 
-    public final class Coordinator: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSTextFieldDelegate {
+    public final class Coordinator: NSObject {
         var parent: CSVEditor?
-        var tableView: NSTableView?            // legacy; unused since the grid swap
         var grid: CSVGridView?
         /// Mirror of the grid's selection, used by the toolbar/clipboard ops.
         var selection = CSVSelectionModel()
         weak var nameBox: NSTextField?
         weak var formulaField: NSTextField?
-        var headerCheckbox: NSButton?
         weak var statusFooter: NSTextField?
 
         // Find/replace bar state.
@@ -288,7 +286,6 @@ public struct CSVEditor: NSViewRepresentable {
             // hasHeader=false so grid rows == document rows == find/replace rows.
             sheet = CSVSheet.load(csv: parent?.text ?? "", sidecar: readSidecar(), hasHeader: false)
             sheet.recompute()
-            headerCheckbox?.state = .off
             // One-time migration: if an old visible sidecar exists, rewrite it as
             // the hidden dotfile and delete the legacy file so it stops showing.
             if let url = parent?.documentURL,
@@ -396,44 +393,6 @@ public struct CSVEditor: NSViewRepresentable {
             }
         }
 
-        func rebuildColumns() {
-            guard let table = tableView else { return }
-            table.tableColumns.forEach { table.removeTableColumn($0) }
-            for (idx, header) in doc.headers.enumerated() {
-                let col = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("col\(idx)"))
-                col.title = header
-                col.width = columnWidths[idx] ?? 120
-                col.minWidth = 60
-                // Sort descriptor key encodes the column index — the
-                // delegate's sortDescriptorsDidChange callback parses it
-                // back to call CSVDocument.sort.
-                col.sortDescriptorPrototype = NSSortDescriptor(key: "col\(idx)", ascending: true)
-                table.addTableColumn(col)
-            }
-        }
-
-        /// In-session column-width memo. Persists across reloadData /
-        /// rebuildColumns within the same editor instance so the user's
-        /// resize doesn't snap back when the doc reparses. Keyed by
-        /// column index because the column identity itself is rebuilt.
-        private var columnWidths: [Int: CGFloat] = [:]
-
-        public func tableViewColumnDidResize(_ notification: Notification) {
-            guard let col = notification.userInfo?["NSTableColumn"] as? NSTableColumn,
-                  let idx = tableView?.tableColumns.firstIndex(of: col) else { return }
-            columnWidths[idx] = col.width
-        }
-
-        public func tableView(_ tableView: NSTableView, sortDescriptorsDidChange oldDescriptors: [NSSortDescriptor]) {
-            guard let descriptor = tableView.sortDescriptors.first,
-                  let key = descriptor.key,
-                  key.hasPrefix("col"),
-                  let columnIndex = Int(key.dropFirst(3)) else { return }
-            performUndoable(actionName: "Sort by Column") {
-                doc.sort(byColumn: columnIndex, ascending: descriptor.ascending)
-            }
-        }
-
         private func notifyChange() {
             parent?.text = sheet.bakedCSV()
             writeSidecar()
@@ -457,118 +416,7 @@ public struct CSVEditor: NSViewRepresentable {
             footer.stringValue = "\(doc.bodyRows.count) rows × \(doc.columnCount) cols"
         }
 
-        // MARK: - DataSource
-
-        public func numberOfRows(in tableView: NSTableView) -> Int {
-            return doc.bodyRows.count
-        }
-
-        public func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
-            guard let column = tableColumn else { return nil }
-            let colIndex = tableView.tableColumns.firstIndex(of: column) ?? 0
-            let rowIndex = doc.hasHeader ? row + 1 : row
-            let value = doc.rows[safe: rowIndex]?[safe: colIndex] ?? ""
-
-            let identifier = NSUserInterfaceItemIdentifier("cell")
-            let cell: NSTableCellView
-            if let reused = tableView.makeView(withIdentifier: identifier, owner: self) as? NSTableCellView {
-                cell = reused
-            } else {
-                cell = NSTableCellView()
-                cell.identifier = identifier
-                let tf = NSTextField(string: "")
-                tf.isBordered = false
-                tf.isEditable = true
-                tf.drawsBackground = false
-                tf.target = self
-                tf.action = #selector(cellEdited(_:))
-                tf.delegate = self   // controlTextDidBeginEditing → reveal formula source
-                cell.addSubview(tf)
-                cell.textField = tf
-                tf.translatesAutoresizingMaskIntoConstraints = false
-                NSLayoutConstraint.activate([
-                    tf.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 4),
-                    tf.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -4),
-                    tf.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
-                ])
-            }
-            cell.textField?.stringValue = value
-            cell.textField?.tag = (rowIndex << 16) | colIndex
-            applyStyle(cell.textField, sheet.style(at: CSVCellRef(row: rowIndex, col: colIndex)))
-            return cell
-        }
-
-        /// Apply (or reset, for reused cells) the extended-layer styling to a
-        /// cell's text field: bold/italic font, text + background color, align.
-        private func applyStyle(_ tf: NSTextField?, _ style: CSVCellStyle?) {
-            guard let tf else { return }
-            let size = NSFont.systemFontSize
-            var font = NSFont.systemFont(ofSize: size)
-            if let s = style, s.bold || s.italic {
-                var traits: NSFontTraitMask = []
-                if s.bold { traits.insert(.boldFontMask) }
-                if s.italic { traits.insert(.italicFontMask) }
-                font = NSFontManager.shared.convert(font, toHaveTrait: traits)
-            }
-            tf.font = font
-            tf.textColor = style?.textColor.flatMap(Self.color(hex:)) ?? .labelColor
-            if let bg = style?.background.flatMap(Self.color(hex:)) {
-                tf.drawsBackground = true
-                tf.backgroundColor = bg
-            } else {
-                tf.drawsBackground = false
-            }
-            switch style?.align {
-            case "center": tf.alignment = .center
-            case "right":  tf.alignment = .right
-            default:       tf.alignment = .left
-            }
-        }
-
-        /// Parse `#RRGGBB` → NSColor (nil for anything else).
-        private static func color(hex: String) -> NSColor? {
-            var s = hex
-            if s.hasPrefix("#") { s.removeFirst() }
-            guard s.count == 6, let v = Int(s, radix: 16) else { return nil }
-            return NSColor(srgbRed: CGFloat((v >> 16) & 0xFF) / 255,
-                           green: CGFloat((v >> 8) & 0xFF) / 255,
-                           blue: CGFloat(v & 0xFF) / 255, alpha: 1)
-        }
-
-        /// When editing begins on a formula cell, swap the baked value the field
-        /// shows for the formula SOURCE so the user edits the formula, not the
-        /// computed result. cellEdited reads back whatever they leave.
-        public func controlTextDidBeginEditing(_ obj: Notification) {
-            guard let tf = obj.object as? NSTextField else { return }
-            let ref = CSVCellRef(row: tf.tag >> 16, col: tf.tag & 0xFFFF)
-            if let formula = sheet.formula(at: ref) { tf.stringValue = formula }
-        }
-
         // MARK: - Actions
-
-        @objc func cellEdited(_ sender: NSTextField) {
-            let packed = sender.tag
-            let rowIndex = packed >> 16
-            let colIndex = packed & 0xFFFF
-            let ref = CSVCellRef(row: rowIndex, col: colIndex)
-            let typed = sender.stringValue
-            // The "current" content is the formula source if the cell has one,
-            // else the baked value — so re-confirming an unchanged formula cell
-            // (we pre-fill its source on edit) doesn't burn an undo entry.
-            let current = sheet.formula(at: ref) ?? (doc.rows[safe: rowIndex]?[safe: colIndex] ?? "")
-            guard current != typed else { return }
-            performUndoable(actionName: "Edit Cell") {
-                // Routes "=…" into the extended layer + recomputes; a literal
-                // clears any prior formula and re-bakes dependents.
-                sheet.setCell(ref, to: typed)
-            }
-        }
-
-        @objc func addRow() {
-            performUndoable(actionName: "Add Row") {
-                doc.appendRow()
-            }
-        }
 
         /// Insert a blank row above the first selected row (header
         /// excluded — selection indices are body-relative). With no
@@ -603,12 +451,6 @@ public struct CSVEditor: NSViewRepresentable {
             let rows = Array((selection.top...selection.bottom)).reversed()
             performUndoable(actionName: rows.count > 1 ? "Delete Rows" : "Delete Row") {
                 for i in rows { doc.removeRow(at: i) }
-            }
-        }
-
-        @objc func addColumn() {
-            performUndoable(actionName: "Add Column", rebuildColumns: true) {
-                doc.appendColumn()
             }
         }
 
@@ -792,12 +634,6 @@ public struct CSVEditor: NSViewRepresentable {
             refreshFindCount()
         }
 
-        @objc func toggleHeader(_ sender: NSButton) {
-            performUndoable(actionName: "Toggle Header", rebuildColumns: true) {
-                doc.hasHeader = sender.state == .on
-            }
-        }
-
         // MARK: - Undo
 
         /// Snapshot the current rows + hasHeader, run the mutation, then
@@ -826,7 +662,6 @@ public struct CSVEditor: NSViewRepresentable {
                 let redoHadHeader = coordinator.doc.hasHeader
                 coordinator.doc.rows = snapshotRows
                 coordinator.doc.hasHeader = hadHeader
-                coordinator.headerCheckbox?.state = hadHeader ? .on : .off
                 coordinator.applyChange(rebuildColumns: rebuild)
                 // Register the redo (inverse of the inverse) so ⌘⇧Z works.
                 coordinator.registerUndo(actionName: actionName, snapshotRows: redoSnapshot, hadHeader: redoHadHeader, rebuildColumns: rebuild)

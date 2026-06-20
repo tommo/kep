@@ -128,76 +128,6 @@ public struct MarkdownEditor: NSViewRepresentable {
         return container
     }
 
-    private func makeVerticalDivider() -> NSView {
-        let box = NSBox()
-        box.boxType = .separator
-        box.translatesAutoresizingMaskIntoConstraints = false
-        box.widthAnchor.constraint(equalToConstant: 1).isActive = true
-        box.heightAnchor.constraint(equalToConstant: 18).isActive = true
-        return box
-    }
-
-    private func makeToolbar(coordinator: Coordinator) -> NSStackView {
-        let stack = NSStackView()
-        stack.orientation = .horizontal
-        stack.spacing = 4
-        stack.edgeInsets = NSEdgeInsets(top: 4, left: 8, bottom: 4, right: 8)
-        stack.alignment = .centerY
-
-        func iconButton(symbol: String, tooltip: String, action: Selector) -> NSButton {
-            let img = NSImage(systemSymbolName: symbol, accessibilityDescription: tooltip)
-            let b = NSButton(image: img ?? NSImage(), target: coordinator, action: action)
-            b.bezelStyle = .accessoryBarAction
-            b.toolTip = tooltip
-            return b
-        }
-        stack.addArrangedSubview(iconButton(symbol: "bold", tooltip: "Bold", action: #selector(Coordinator.toolbarBold)))
-        stack.addArrangedSubview(iconButton(symbol: "italic", tooltip: "Italic", action: #selector(Coordinator.toolbarItalic)))
-        stack.addArrangedSubview(iconButton(symbol: "chevron.left.forwardslash.chevron.right", tooltip: "Inline code", action: #selector(Coordinator.toolbarInlineCode)))
-        stack.addArrangedSubview(iconButton(symbol: "curlybraces.square", tooltip: "Code block", action: #selector(Coordinator.toolbarCodeBlock)))
-        stack.addArrangedSubview(makeVerticalDivider())
-        stack.addArrangedSubview(iconButton(symbol: "1.square", tooltip: "Heading 1", action: #selector(Coordinator.toolbarH1)))
-        stack.addArrangedSubview(iconButton(symbol: "2.square", tooltip: "Heading 2", action: #selector(Coordinator.toolbarH2)))
-        stack.addArrangedSubview(iconButton(symbol: "3.square", tooltip: "Heading 3", action: #selector(Coordinator.toolbarH3)))
-        stack.addArrangedSubview(iconButton(symbol: "4.square", tooltip: "Heading 4", action: #selector(Coordinator.toolbarH4)))
-        stack.addArrangedSubview(iconButton(symbol: "5.square", tooltip: "Heading 5", action: #selector(Coordinator.toolbarH5)))
-        stack.addArrangedSubview(iconButton(symbol: "6.square", tooltip: "Heading 6", action: #selector(Coordinator.toolbarH6)))
-        stack.addArrangedSubview(makeVerticalDivider())
-        stack.addArrangedSubview(iconButton(symbol: "list.bullet", tooltip: "Bullet list", action: #selector(Coordinator.toolbarBullet)))
-        stack.addArrangedSubview(iconButton(symbol: "list.number", tooltip: "Numbered list", action: #selector(Coordinator.toolbarNumbered)))
-        stack.addArrangedSubview(iconButton(symbol: "checklist", tooltip: "Toggle task checkbox", action: #selector(Coordinator.toolbarToggleTask)))
-        stack.addArrangedSubview(iconButton(symbol: "text.quote", tooltip: "Quote", action: #selector(Coordinator.toolbarQuote)))
-        stack.addArrangedSubview(makeVerticalDivider())
-        stack.addArrangedSubview(iconButton(symbol: "link", tooltip: "Link", action: #selector(Coordinator.toolbarLink)))
-        stack.addArrangedSubview(iconButton(symbol: "photo", tooltip: "Image", action: #selector(Coordinator.toolbarImage)))
-        stack.addArrangedSubview(makeVerticalDivider())
-        stack.addArrangedSubview(iconButton(symbol: "strikethrough", tooltip: "Strikethrough", action: #selector(Coordinator.toolbarStrikethrough)))
-        stack.addArrangedSubview(iconButton(symbol: "tablecells", tooltip: "Table", action: #selector(Coordinator.toolbarTable)))
-        stack.addArrangedSubview(iconButton(symbol: "captions.bubble", tooltip: "HTML comment", action: #selector(Coordinator.toolbarComment)))
-        stack.addArrangedSubview(iconButton(symbol: "minus", tooltip: "Horizontal rule", action: #selector(Coordinator.toolbarHorizontalRule)))
-        stack.addArrangedSubview(NSView())  // spacer — pushes view controls to the right
-
-        // Right side: flip split orientation + a 3-way view-mode switch
-        // (editor / split / preview). Mirrors Obsidian's editing/reading toggle.
-        let flip = iconButton(symbol: "arrow.left.arrow.right.square",
-                              tooltip: "Flip orientation",
-                              action: #selector(Coordinator.toolbarFlipOrientation))
-        stack.addArrangedSubview(flip)
-        coordinator.flipButton = flip
-
-        let modes = MarkdownViewMode.allCases
-        let images = modes.map { NSImage(systemSymbolName: $0.symbolName, accessibilityDescription: $0.tooltip) ?? NSImage() }
-        let seg = NSSegmentedControl(images: images, trackingMode: .selectOne,
-                                     target: coordinator, action: #selector(Coordinator.toolbarViewModeChanged(_:)))
-        for (i, mode) in modes.enumerated() {
-            seg.setToolTip(mode.tooltip, forSegment: i)
-        }
-        seg.selectedSegment = modes.firstIndex(of: coordinator.viewMode) ?? 1
-        stack.addArrangedSubview(seg)
-        coordinator.viewModeControl = seg
-
-        return stack
-    }
 
     public func updateNSView(_ nsView: NSView, context: Context) {
         context.coordinator.parent = self
@@ -229,8 +159,6 @@ public struct MarkdownEditor: NSViewRepresentable {
         weak var statusFooter: NSTextField?
         weak var splitView: NSSplitView?
         weak var editorScroll: NSScrollView?
-        weak var viewModeControl: NSSegmentedControl?
-        weak var flipButton: NSButton?
         /// Current pane layout. Persisted to `PrefKeys.markdownViewMode`.
         var viewMode: MarkdownViewMode = .from(rawValue: PrefKeys.string(PrefKeys.markdownViewMode))
         var lastNavigated: String?
@@ -281,101 +209,9 @@ public struct MarkdownEditor: NSViewRepresentable {
         @objc func toolbarBold()       { applyTransform(MarkdownFormatting.bold) }
         @objc func toolbarItalic()     { applyTransform(MarkdownFormatting.italic) }
         @objc func toolbarInlineCode() { applyTransform(MarkdownFormatting.inlineCode) }
-        @objc func toolbarCodeBlock()  { applyTransform(MarkdownFormatting.codeBlock) }
-        @objc func toolbarH1()         { applyTransform { MarkdownFormatting.heading($0, range: $1, level: 1) } }
-        @objc func toolbarH2()         { applyTransform { MarkdownFormatting.heading($0, range: $1, level: 2) } }
-        @objc func toolbarH3()         { applyTransform { MarkdownFormatting.heading($0, range: $1, level: 3) } }
-        @objc func toolbarH4()         { applyTransform { MarkdownFormatting.heading($0, range: $1, level: 4) } }
-        @objc func toolbarH5()         { applyTransform { MarkdownFormatting.heading($0, range: $1, level: 5) } }
-        @objc func toolbarH6()         { applyTransform { MarkdownFormatting.heading($0, range: $1, level: 6) } }
-        @objc func toolbarBullet()     { applyTransform(MarkdownFormatting.bulletList) }
-        @objc func toolbarNumbered()   { applyTransform(MarkdownFormatting.numberedList) }
-        @objc func toolbarToggleTask() { applyTransform(MarkdownFormatting.toggleTask) }
-        @objc func toolbarQuote()      { applyTransform(MarkdownFormatting.blockquote) }
         @objc func toolbarLink() {
             guard let url = promptString(title: "Insert Link", message: "URL:", initial: "https://") else { return }
             applyTransform { MarkdownFormatting.link($0, range: $1, url: url) }
-        }
-        @objc func toolbarStrikethrough() { applyTransform(MarkdownFormatting.strikethrough) }
-        @objc func toolbarComment()       { applyTransform(MarkdownFormatting.comment) }
-        @objc func toolbarHorizontalRule() { applyTransform(MarkdownFormatting.horizontalRule) }
-        @objc func toolbarTable() {
-            // Picker dialog with rows + cols steppers + alignment segmented
-            // control. Mirrors mindolph's TableDialog at the input level.
-            let alert = NSAlert()
-            alert.messageText = "Insert Table"
-            alert.informativeText = "Pick the table size and column alignment."
-
-            let stack = NSStackView()
-            stack.orientation = .vertical
-            stack.alignment = .leading
-            stack.spacing = 8
-            stack.frame = NSRect(x: 0, y: 0, width: 320, height: 100)
-
-            let rowsRow = NSStackView()
-            rowsRow.orientation = .horizontal
-            rowsRow.spacing = 8
-            let rowsLabel = NSTextField(labelWithString: "Rows:")
-            rowsLabel.frame.size.width = 60
-            let rowsField = NSTextField(string: "3"); rowsField.frame.size.width = 48; rowsField.alignment = .right
-            let rowsStepper = NSStepper(); rowsStepper.minValue = 1; rowsStepper.maxValue = 30; rowsStepper.integerValue = 3
-            rowsStepper.target = self; rowsStepper.action = #selector(syncStepperToField(_:))
-            stepperFieldMap[ObjectIdentifier(rowsStepper)] = rowsField
-            rowsRow.addArrangedSubview(rowsLabel); rowsRow.addArrangedSubview(rowsField); rowsRow.addArrangedSubview(rowsStepper)
-
-            let colsRow = NSStackView()
-            colsRow.orientation = .horizontal
-            colsRow.spacing = 8
-            let colsLabel = NSTextField(labelWithString: "Columns:")
-            colsLabel.frame.size.width = 60
-            let colsField = NSTextField(string: "3"); colsField.frame.size.width = 48; colsField.alignment = .right
-            let colsStepper = NSStepper(); colsStepper.minValue = 1; colsStepper.maxValue = 12; colsStepper.integerValue = 3
-            colsStepper.target = self; colsStepper.action = #selector(syncStepperToField(_:))
-            stepperFieldMap[ObjectIdentifier(colsStepper)] = colsField
-            colsRow.addArrangedSubview(colsLabel); colsRow.addArrangedSubview(colsField); colsRow.addArrangedSubview(colsStepper)
-
-            let alignRow = NSStackView()
-            alignRow.orientation = .horizontal
-            alignRow.spacing = 8
-            let alignLabel = NSTextField(labelWithString: "Align:")
-            alignLabel.frame.size.width = 60
-            let alignSeg = NSSegmentedControl(labels: ["Default", "Left", "Center", "Right"], trackingMode: .selectOne, target: nil, action: nil)
-            alignSeg.selectedSegment = 0
-            alignRow.addArrangedSubview(alignLabel); alignRow.addArrangedSubview(alignSeg)
-
-            stack.addArrangedSubview(rowsRow)
-            stack.addArrangedSubview(colsRow)
-            stack.addArrangedSubview(alignRow)
-            alert.accessoryView = stack
-            alert.addButton(withTitle: "Insert")
-            alert.addButton(withTitle: "Cancel")
-            guard alert.runModal() == .alertFirstButtonReturn else { return }
-
-            let rows = max(1, Int(rowsField.stringValue) ?? rowsStepper.integerValue)
-            let cols = max(1, Int(colsField.stringValue) ?? colsStepper.integerValue)
-            let alignment: MarkdownFormatting.TableAlignment
-            switch alignSeg.selectedSegment {
-            case 1: alignment = .left
-            case 2: alignment = .center
-            case 3: alignment = .right
-            default: alignment = .none
-            }
-            applyTransform { MarkdownFormatting.table($0, range: $1, rows: rows, cols: cols, alignment: alignment) }
-        }
-
-        // MARK: - View mode
-
-        @objc func toolbarViewModeChanged(_ sender: NSSegmentedControl) {
-            let modes = MarkdownViewMode.allCases
-            guard modes.indices.contains(sender.selectedSegment) else { return }
-            applyViewMode(modes[sender.selectedSegment])
-        }
-
-        @objc func toolbarFlipOrientation() {
-            guard let split = splitView else { return }
-            split.isVertical.toggle()
-            UserDefaults.standard.set(split.isVertical, forKey: PrefKeys.markdownSplitVertical)
-            split.adjustSubviews()
         }
 
         /// Show/hide the editor and preview panes for `mode`. NSSplitView
@@ -387,12 +223,6 @@ public struct MarkdownEditor: NSViewRepresentable {
             editorScroll?.isHidden = !mode.showsEditor
             webView?.isHidden = !mode.showsPreview
             splitView?.adjustSubviews()
-            // The orientation flip only means something when both panes show.
-            flipButton?.isEnabled = (mode == .split)
-            if let seg = viewModeControl,
-               let idx = MarkdownViewMode.allCases.firstIndex(of: mode) {
-                seg.selectedSegment = idx
-            }
             if mode.showsPreview { refreshPreview() }
             placeDividerIfNeeded()
             syncModeControl()
@@ -401,43 +231,6 @@ public struct MarkdownEditor: NSViewRepresentable {
             }
         }
 
-        /// Backing map so the stepper action can find its sibling field.
-        private var stepperFieldMap: [ObjectIdentifier: NSTextField] = [:]
-
-        @objc private func syncStepperToField(_ sender: NSStepper) {
-            stepperFieldMap[ObjectIdentifier(sender)]?.stringValue = String(sender.integerValue)
-        }
-
-        @objc func toolbarImage() {
-            // Two-button alert: paste URL or pick a local file (NSOpenPanel
-            // → base64-encoded data: URL for offline embedding).
-            let alert = NSAlert()
-            alert.messageText = "Insert Image"
-            alert.informativeText = "Paste a URL, or choose a local file to embed as data:"
-            let field = NSTextField(string: "https://")
-            field.frame = NSRect(x: 0, y: 0, width: 320, height: 24)
-            alert.accessoryView = field
-            alert.addButton(withTitle: "Insert URL")
-            alert.addButton(withTitle: "Choose File…")
-            alert.addButton(withTitle: "Cancel")
-            switch alert.runModal() {
-            case .alertFirstButtonReturn:
-                let url = field.stringValue
-                guard !url.isEmpty else { return }
-                applyTransform { MarkdownFormatting.image($0, range: $1, url: url) }
-            case .alertSecondButtonReturn:
-                let panel = NSOpenPanel()
-                panel.allowedContentTypes = [.image, .png, .jpeg, .gif]
-                panel.allowsMultipleSelection = false
-                guard panel.runModal() == .OK, let fileURL = panel.url else { return }
-                guard let data = try? Data(contentsOf: fileURL) else { return }
-                let mime = Self.mimeType(for: fileURL.pathExtension.lowercased())
-                let dataURL = "data:\(mime);base64,\(data.base64EncodedString())"
-                applyTransform { MarkdownFormatting.image($0, range: $1, url: dataURL) }
-            default:
-                return
-            }
-        }
 
         /// One-line text-field prompt — returns nil on Cancel or empty input.
         private func promptString(title: String, message: String, initial: String) -> String? {

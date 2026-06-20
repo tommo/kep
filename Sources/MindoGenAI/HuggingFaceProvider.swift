@@ -36,8 +36,7 @@ public final class HuggingFaceProvider: LLMProvider, @unchecked Sendable {
     }
 
     private var basePath: String {
-        let trimmed = meta.endpoint.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        return trimmed.isEmpty ? GenAIProviderID.huggingFace.defaultEndpoint : trimmed
+        meta.resolvedBase(default: GenAIProviderID.huggingFace.defaultEndpoint)
     }
 
     private func endpoint(model: String, streaming: Bool) throws -> URL {

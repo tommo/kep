@@ -41,8 +41,7 @@ public final class GeminiProvider: LLMProvider, @unchecked Sendable {
     // MARK: - URL building
 
     private var basePath: String {
-        let trimmed = meta.endpoint.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        return trimmed.isEmpty ? GenAIProviderID.gemini.defaultEndpoint : trimmed
+        meta.resolvedBase(default: GenAIProviderID.gemini.defaultEndpoint)
     }
 
     private func endpoint(for action: String, model: String) throws -> URL {

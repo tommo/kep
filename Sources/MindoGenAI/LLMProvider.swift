@@ -145,6 +145,13 @@ public struct ProviderMeta: Codable, Hashable, Sendable {
         self.apiKey = apiKey
         self.endpoint = endpoint
     }
+
+    /// The configured endpoint with surrounding slashes trimmed, falling back to
+    /// `fallback` when blank. The base every provider builds its request URLs on.
+    public func resolvedBase(default fallback: String) -> String {
+        let trimmed = endpoint.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        return trimmed.isEmpty ? fallback : trimmed
+    }
 }
 
 /// Per-model configuration. Mirrors `ModelMeta`.

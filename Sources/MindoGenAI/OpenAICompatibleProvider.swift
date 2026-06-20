@@ -33,8 +33,7 @@ open class OpenAICompatibleProvider: LLMProvider, @unchecked Sendable {
 
     open var endpoint: URL {
         get throws {
-            let trimmed = meta.endpoint.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-            guard let url = URL(string: trimmed.isEmpty ? providerID.defaultEndpoint : trimmed) else {
+            guard let url = URL(string: meta.resolvedBase(default: providerID.defaultEndpoint)) else {
                 throw LLMError.invalidURL
             }
             return url.appendingPathComponent("chat/completions")

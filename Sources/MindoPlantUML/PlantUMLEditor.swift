@@ -242,6 +242,13 @@ public struct PlantUMLEditor: NSViewRepresentable {
         /// the coordinator) to detect a theme flip. nil until the first render.
         var lastRenderedDarkModeValue: Bool? { lastRenderedDarkMode }
 
+        /// Index of the diagram page (\@start…\@end block) shown in the preview.
+        /// Multi-diagram files render one page at a time, switching as the caret
+        /// moves between blocks (javamind parity).
+        private var activePageIndex = 0
+        /// Page count from the last render scan — drives the footer indicator.
+        private var pageCount = 1
+
         /// Whether a diagram has successfully rendered — gates the preview
         /// context menu's Copy/Export items.
         var hasRenderedDiagram: Bool { PlantUMLClipboard.outcome(for: lastSVGData) == .copied }
@@ -270,13 +277,34 @@ public struct PlantUMLEditor: NSViewRepresentable {
             statsDebouncer.schedule(after: 0.25) { [weak self] in self?.refreshStatusFooter() }
         }
 
+        /// Caret moved — if it entered a different diagram page, switch the
+        /// preview to that page (javamind's cursor-aware page tracking).
+        public func textViewDidChangeSelection(_ notification: Notification) {
+            guard let tv = textView else { return }
+            let pages = PlantUMLPages.split(tv.string)
+            guard pages.count > 1 else { return }
+            let line = Self.lineIndex(of: tv.selectedRange().location, in: tv.string)
+            guard let idx = PlantUMLPages.pageIndex(forLine: line, in: pages), idx != activePageIndex else { return }
+            activePageIndex = idx
+            scheduleRender(immediate: true)
+            refreshStatusFooter()
+        }
+
+        /// 0-based line number containing character offset `loc`.
+        static func lineIndex(of loc: Int, in string: String) -> Int {
+            let end = string.index(string.startIndex, offsetBy: min(loc, string.count))
+            return string[string.startIndex..<end].reduce(0) { $1 == "\n" ? $0 + 1 : $0 }
+        }
+
         /// Recompute the line / char status footer for the current source.
         /// Lines are split on \n (one entry per visible line including blanks);
         /// chars are grapheme clusters so emoji + combining marks count once.
         func refreshStatusFooter() {
             guard let footer = statusFooter, let body = textView?.string else { return }
             let lines = body.split(separator: "\n", omittingEmptySubsequences: false).count
-            footer.stringValue = "\(lines) lines · \(body.count) chars"
+            var status = "\(lines) lines · \(body.count) chars"
+            if pageCount > 1 { status += " · page \(activePageIndex + 1)/\(pageCount)" }
+            footer.stringValue = status
         }
 
         // MARK: - Toolbar actions
@@ -370,7 +398,12 @@ public struct PlantUMLEditor: NSViewRepresentable {
 
         private func render() {
             guard let web = webView else { return }
-            let source = parent.text
+            // Render just the active diagram page (the whole source when the
+            // file holds a single — or no — @start…@end block).
+            let pages = PlantUMLPages.split(parent.text)
+            pageCount = pages.count
+            if activePageIndex >= pages.count { activePageIndex = max(0, pages.count - 1) }
+            let source = pages[activePageIndex].text
             let isDark = parent.isDarkMode
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
                 let html: String

@@ -88,6 +88,10 @@ public final class MindMapView: NSView {
     /// Whether the canvas has been centred + revealed for the current map (it
     /// starts hidden on load to avoid the lay-out-then-jump flash).
     private var didInitialReveal = false
+    /// Debounced one-time reveal. While the open-time Auto Layout size cascade
+    /// is still settling, each resize re-arms this; the canvas is only revealed
+    /// once the size has stopped changing for a beat (see prepareRevealAtCurrentSize).
+    private var pendingReveal: DispatchWorkItem?
     /// Topic the inlineEditor is currently editing. Set in beginInlineEdit
     /// so commitInlineEdit applies the text to the right node even when
     /// the selection moved on (e.g. Tab created a child mid-edit).
@@ -206,35 +210,54 @@ public final class MindMapView: NSView {
         // / headless renders (no scroll view, e.g. image export) stay visible.
         if enclosingScrollView != nil {
             didInitialReveal = false
+            pendingReveal?.cancel()
             alphaValue = 0
         } else {
             alphaValue = 1
         }
-        // Reveal only AFTER a real-size relayout has positioned + centred the
-        // content — via clipViewDidResize when the size arrives, or this async
-        // fallback for an already-sized canvas (switching maps). Centring
-        // synchronously here ran before layout settled and stranded the root.
+        // Reveal only AFTER the size has settled — see prepareRevealAtCurrentSize.
+        // This async covers an already-sized canvas (switching maps) where no
+        // clipViewDidResize fires; a fresh tab is driven by clipViewDidResize.
         DispatchQueue.main.async { [weak self] in
-            self?.revealWhenLaidOut()
+            self?.prepareRevealAtCurrentSize()
             self?.grabFocus()
         }
     }
 
-    /// Once the scroll view has a real size, centre the root and reveal the
-    /// canvas (once). No-op until sized; harmless without a scroll view.
-    private func revealWhenLaidOut() {
+    /// Pre-reveal step run on every size change until the canvas is shown. The
+    /// open-time Auto Layout pass fires several clip resizes (0 → intermediate →
+    /// final); revealing on the first one and relaying-out on the rest produced
+    /// the visible "centre then jump" flash. Instead, while hidden we re-centre
+    /// at whatever the current size is and (re)arm a short debounce — the canvas
+    /// is only revealed once the size has stopped changing. No-op until sized.
+    private func prepareRevealAtCurrentSize() {
         guard !didInitialReveal, let scroll = enclosingScrollView else { return }
         let vp = scroll.documentVisibleRect.size
         guard vp.width > 0, vp.height > 0 else { return }
-        // Restore the saved zoom/pan/selection if the host has one for this
-        // document; otherwise centre the root. Restoring the exact origin also
-        // avoids the open-time jump (no centre-then-resize shuffle).
+        anchoredRootCenter = nil   // re-centre for the current (settling) viewport
+        relayout()
+        centerOnRoot()
+        pendingReveal?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.finishInitialReveal() }
+        pendingReveal = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: work)
+    }
+
+    /// Commit the one-time reveal once the size has settled: lay out + restore
+    /// the saved view state (or centre the root) at the final size, then show.
+    private func finishInitialReveal() {
+        guard !didInitialReveal, let scroll = enclosingScrollView else { return }
+        let vp = scroll.documentVisibleRect.size
+        guard vp.width > 0, vp.height > 0 else { return }
+        didInitialReveal = true   // set first so a magnification-driven resize
+                                  // (from applyViewState) takes the post-reveal path
+        anchoredRootCenter = nil
+        relayout()
         if let saved = loadViewState?() {
             applyViewState(saved)
         } else {
             centerOnRoot()
         }
-        didInitialReveal = true
         alphaValue = 1
     }
 
@@ -504,8 +527,14 @@ public final class MindMapView: NSView {
     /// Re-run layout whenever the enclosing scroll view's clip area changes
     /// size — keeps the document view filling the viewport on window resize.
     @objc private func clipViewDidResize(_ note: Notification) {
-        relayout()
-        revealWhenLaidOut()   // first real size on load → centre + reveal
+        if didInitialReveal {
+            relayout()   // genuine window/pane resize after the map is shown
+        } else {
+            // Still settling the open-time size cascade — re-centre (hidden) and
+            // re-arm the debounced reveal instead of revealing at an intermediate
+            // size and then jumping.
+            prepareRevealAtCurrentSize()
+        }
     }
 
     // MARK: - Hit testing

@@ -167,12 +167,18 @@ public enum MindMapImageExport {
         view.contentBounds = view.contentBounds.offsetBy(dx: dx, dy: dy)
         view.needsDisplay = true
 
-        let info = NSPrintInfo.shared
+        // Copy the shared info rather than mutate it — otherwise the .fit
+        // pagination leaks into the next text/web (responder-chain) print job.
+        let info = NSPrintInfo.shared.copy() as! NSPrintInfo
         info.horizontalPagination = .fit
         info.verticalPagination = .fit
         info.isHorizontallyCentered = true
         info.isVerticallyCentered = true
-        return NSPrintOperation(view: view, printInfo: info)
+        let op = NSPrintOperation(view: view, printInfo: info)
+        // Name the job after the document so the print panel / spooler shows it.
+        let name = map.root?.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        op.jobTitle = (name?.isEmpty == false ? name! : "Mind Map")
+        return op
     }
 
     // MARK: - SVG

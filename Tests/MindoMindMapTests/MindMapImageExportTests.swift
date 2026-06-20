@@ -16,6 +16,24 @@ final class MindMapImageExportTests: XCTestCase {
         return map
     }
 
+    func testPrintOperationConfigAndDoesNotMutateShared() throws {
+        let op = try MindMapImageExport.printOperation(sampleMap())
+        XCTAssertEqual(op.printInfo.horizontalPagination, .fit)
+        XCTAssertEqual(op.printInfo.verticalPagination, .fit)
+        XCTAssertTrue(op.printInfo.isHorizontallyCentered)
+        XCTAssertEqual(op.jobTitle, "Root")
+        // The op's printInfo must be a private copy, not the shared singleton,
+        // so .fit pagination can't leak into later responder-chain prints.
+        XCTAssertFalse(op.printInfo === NSPrintInfo.shared)
+    }
+
+    func testPrintOperationJobTitleFallback() throws {
+        let map = MindMap()
+        map.root = Topic(text: "   ")   // blank → fallback name
+        let op = try MindMapImageExport.printOperation(map)
+        XCTAssertEqual(op.jobTitle, "Mind Map")
+    }
+
     func testPngExportProducesNonEmptyFile() throws {
         let tmp = FileManager.default.temporaryDirectory
             .appendingPathComponent("mindo-png-\(UUID()).png")

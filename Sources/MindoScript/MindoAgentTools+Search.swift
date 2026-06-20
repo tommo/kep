@@ -113,7 +113,15 @@ extension MindoAgentTools {
                 return "error: semantic search unavailable on this system — use search_workspace instead"
             }
             let docs = corpus.map { (doc: $0.url.deletingPathExtension().lastPathComponent, text: $0.text) }
-            let index = SemanticIndex(documents: docs, embedder: embedder)
+            // Building the index re-embeds the whole corpus — expensive, and an
+            // agent turn often issues several semantic_search calls over the
+            // same unchanged corpus. Reuse a cached index keyed by the corpus
+            // content (embeddings are deterministic for unchanged text).
+            var hasher = Hasher()
+            for d in docs { hasher.combine(d.doc); hasher.combine(d.text) }
+            let index = SemanticIndexCache.shared.index(forKey: hasher.finalize()) {
+                SemanticIndex(documents: docs, embedder: embedder)
+            }
             guard index.chunkCount > 0 else { return "(no documents to search)" }
             let hits = index.query(query, embedder: embedder, topK: a.int("k") ?? 5)
             if hits.isEmpty { return "(no matches)" }
@@ -140,5 +148,32 @@ extension MindoAgentTools {
               line[idx] == " " || line[idx] == "\t" else { return nil }
         let title = line[idx...].trimmingCharacters(in: .whitespaces)
         return (level, title)
+    }
+}
+
+/// Single-slot cache for the embedded `SemanticIndex`, keyed by a hash of the
+/// corpus content. Lets repeated `semantic_search` calls in one agent turn (or
+/// across turns on an unchanged corpus) skip re-embedding the whole workspace.
+/// Thread-safe; holds only the most recent index to bound memory.
+final class SemanticIndexCache {
+    static let shared = SemanticIndexCache()
+    private let lock = NSLock()
+    private var cachedKey: Int?
+    private var cachedIndex: SemanticIndex?
+
+    func index(forKey key: Int, build: () -> SemanticIndex) -> SemanticIndex {
+        lock.lock()
+        if cachedKey == key, let cachedIndex {
+            lock.unlock()
+            return cachedIndex
+        }
+        lock.unlock()
+        // Build outside the lock — embedding is slow and reentrancy-free.
+        let built = build()
+        lock.lock()
+        cachedKey = key
+        cachedIndex = built
+        lock.unlock()
+        return built
     }
 }

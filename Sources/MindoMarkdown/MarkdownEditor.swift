@@ -217,12 +217,18 @@ public struct MarkdownEditor: NSViewRepresentable {
 
     public func updateNSView(_ nsView: NSView, context: Context) {
         context.coordinator.parent = self
-        context.coordinator.applyHighlighting()
+        // Re-highlight only when something that affects styling actually
+        // changed — the text body or the light/dark theme. The old code ran a
+        // full-document highlight on *every* SwiftUI update pass (which fire
+        // for many unrelated reasons), doubling the per-keystroke cost.
         if let tv = context.coordinator.textView, tv.string != text {
             tv.string = text
             context.coordinator.applyHighlighting()
             context.coordinator.refreshPreview()
+        } else if context.coordinator.lastHighlightedDarkMode != isDarkMode {
+            context.coordinator.applyHighlighting()
         }
+        context.coordinator.lastHighlightedDarkMode = isDarkMode
         if let target = navigationTarget, target != context.coordinator.lastNavigated {
             context.coordinator.lastNavigated = target
             DispatchQueue.main.async { context.coordinator.scroll(toByteOffsetString: target) }
@@ -532,10 +538,16 @@ public struct MarkdownEditor: NSViewRepresentable {
             footer.stringValue = "\(stats.words) words · \(stats.characters) chars"
         }
 
+        /// Tracks the theme the storage was last highlighted with, so an
+        /// unrelated SwiftUI update pass doesn't trigger a redundant full
+        /// re-highlight when only the theme could have changed.
+        var lastHighlightedDarkMode: Bool?
+
         func applyHighlighting() {
             guard let storage = textView?.textStorage else { return }
             highlighter.theme = parent.isDarkMode ? .dark : .light
             highlighter.highlight(storage, activeRange: textView?.selectedRange())
+            lastHighlightedDarkMode = parent.isDarkMode
         }
 
         private var lastActiveParagraph: NSRange?

@@ -180,15 +180,23 @@ extension MindMapView {
         case .topic: symbolName = "arrow.uturn.right.circle"
         case .unknown: symbolName = "questionmark.circle"
         }
-        let config = NSImage.SymbolConfiguration(pointSize: rect.width - 2, weight: .medium)
-        guard let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?.withSymbolConfiguration(config) else { return }
-        let tint = theme.textColor(forLevel: level).withAlphaComponent(0.85)
-        let tinted = image.copy() as! NSImage
-        tinted.lockFocus()
-        tint.set()
-        let imageRect = NSRect(origin: .zero, size: tinted.size)
-        imageRect.fill(using: .sourceAtop)
-        tinted.unlockFocus()
+        let pointSize = (rect.width - 2).rounded()
+        let cacheKey = "\(symbolName)|\(pointSize)|\(level)"
+        let tinted: NSImage
+        if let cached = extraIconCache[cacheKey] {
+            tinted = cached
+        } else {
+            let config = NSImage.SymbolConfiguration(pointSize: pointSize, weight: .medium)
+            guard let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?.withSymbolConfiguration(config) else { return }
+            let tint = theme.textColor(forLevel: level).withAlphaComponent(0.85)
+            let copy = image.copy() as! NSImage
+            copy.lockFocus()
+            tint.set()
+            NSRect(origin: .zero, size: copy.size).fill(using: .sourceAtop)
+            copy.unlockFocus()
+            extraIconCache[cacheKey] = copy
+            tinted = copy
+        }
         let drawRect = CGRect(
             x: rect.midX - tinted.size.width / 2,
             y: rect.midY - tinted.size.height / 2,

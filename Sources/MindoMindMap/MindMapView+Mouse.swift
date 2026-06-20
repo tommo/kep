@@ -563,12 +563,44 @@ extension MindMapView {
         // (open hand already pushed).
         guard !isSpaceDown, panOriginInWindow == nil else { return }
         let p = convert(event.locationInWindow, from: nil)
-        if enclosingScrollView != nil, isPannableCanvas(at: p) {
+        // One combined hit-test per move instead of five separate full-tree
+        // traversals (4 inside isPannableCanvas + 1 in updateNoteHover).
+        let hit = hitTest(at: p)
+        if enclosingScrollView != nil, hit.isEmptyCanvas {
             NSCursor.openHand.set()
         } else {
             NSCursor.arrow.set()
         }
-        updateNoteHover(at: p)
+        updateNoteHover(at: p, extra: hit.extra)
+    }
+
+    /// The four canvas hit categories resolved in a single tree walk. Built so
+    /// the per-mouse-move cursor + note-hover work doesn't re-traverse the
+    /// whole element tree once per category.
+    struct CanvasHit {
+        var element: MindMapElement?
+        var extra: (MindMapElement, ExtraType)?
+        var collapse: MindMapElement?
+        var image: NSImage?
+        /// Empty canvas — a plain drag here pans.
+        var isEmptyCanvas: Bool { element == nil && extra == nil && collapse == nil && image == nil }
+    }
+
+    /// Resolve all four hit categories under `point` in one traversal,
+    /// preserving each category's original selection rule: `element` keeps the
+    /// last (topmost) match; extra/collapse/image keep the first match.
+    func hitTest(at point: CGPoint) -> CanvasHit {
+        var h = CanvasHit()
+        guard let root = rootElement else { return h }
+        root.traverse { el in
+            if el.frame.insetBy(dx: -2, dy: -2).contains(point) { h.element = el }
+            if h.extra == nil {
+                for (type, rect) in el.extraIconRects where rect.contains(point) { h.extra = (el, type) }
+            }
+            if h.collapse == nil, let rect = el.collapseIndicatorRect, rect.contains(point) { h.collapse = el }
+            if h.image == nil, let image = el.embeddedImage, el.embeddedImageDrawRect.contains(point) { h.image = image }
+        }
+        return h
     }
 
     public override func mouseExited(with event: NSEvent) {
@@ -583,10 +615,7 @@ extension MindMapView {
     /// or embedded image under it — i.e. a plain drag there would pan. Pure
     /// hit-test composition, so the cursor decision is unit-testable.
     func isPannableCanvas(at point: CGPoint) -> Bool {
-        element(at: point) == nil
-            && elementExtra(at: point) == nil
-            && collapseIndicator(at: point) == nil
-            && embeddedImage(at: point) == nil
+        hitTest(at: point).isEmptyCanvas
     }
 
     /// Find the element whose collapsator circle contains `point`, if any.
@@ -640,8 +669,9 @@ extension MindMapView {
     /// from mouseMoved so hovering a note icon reliably pops a rendered preview
     /// (a native tooltip was inconsistent and plain-text only). Idempotent: the
     /// popover for an already-hovered note isn't rebuilt.
-    func updateNoteHover(at point: CGPoint) {
-        if let (el, type) = elementExtra(at: point), type == .note,
+    func updateNoteHover(at point: CGPoint, extra: (MindMapElement, ExtraType)? = nil) {
+        let extraHit = extra ?? elementExtra(at: point)
+        if let (el, type) = extraHit, type == .note,
            let note = el.topic.extra(.note)?.value,
            !note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             // Over a note icon: keep it open (cancel any pending dismissal).

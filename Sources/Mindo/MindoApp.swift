@@ -399,6 +399,18 @@ final class AppSession {
     /// One per added workspace — refreshes the sidebar tree on directory changes.
     @ObservationIgnored var workspaceWatchers: [URL: WorkspaceWatcher] = [:]
 
+    /// Monotonic counter bumped on any workspace file change (add/remove/rename
+    /// via reloadWorkspace, plus content writes seen by the workspace watcher).
+    /// Keys the file-index / backlink caches below so they recompute only when
+    /// the corpus actually changed — not on every view re-render or autocomplete
+    /// keystroke. ObservationIgnored: bumping it must not itself invalidate views
+    /// (the watcher already re-publishes workspaceRoots).
+    @ObservationIgnored var workspaceContentVersion = 0
+    /// Cached workspace file index (the FS walk in `quickSwitcherFiles`).
+    @ObservationIgnored private var fileIndexCache: (version: Int, files: [WorkspaceFile])?
+    /// Cached linked-mentions for the active doc, keyed by target + version.
+    @ObservationIgnored private var linkedMentionsCache: (key: String, value: [LinkedMention])?
+
     // AI sheets
     var aiSettingsOpen: Bool = false
     var aiGenerateOpen: Bool = false
@@ -473,10 +485,15 @@ final class AppSession {
     /// the quick switcher. Rebuilt each time the switcher opens so it
     /// reflects files added since launch.
     func quickSwitcherFiles() -> [WorkspaceFile] {
-        WorkspaceFileIndex.index(
+        if let cache = fileIndexCache, cache.version == workspaceContentVersion {
+            return cache.files
+        }
+        let files = WorkspaceFileIndex.index(
             roots: workspaceRoots.map { ($0.url, $0.name) },
             config: .fromPreferences()
         )
+        fileIndexCache = (workspaceContentVersion, files)
+        return files
     }
 
     /// Resolve a clicked `[[wiki link]]` target to a workspace document and open
@@ -516,11 +533,19 @@ final class AppSession {
     /// the active doc is unsaved or nothing links to it.
     func linkedMentions() -> [LinkedMention] {
         guard let target = activeDocument?.fileURL else { return [] }
+        // linksInspector reads this during view-body evaluation, which can fire
+        // many times per interaction; the body re-reads the whole workspace
+        // corpus from disk. Memoize per (target, corpus-version) so it only
+        // does the disk pass when the active doc or the corpus changes.
+        let key = "\(target.path)#\(workspaceContentVersion)"
+        if let cache = linkedMentionsCache, cache.key == key { return cache.value }
         let files = quickSwitcherFiles().map(\.url)
         let corpus: [(url: URL, text: String)] = files.compactMap { u in
             (try? String(contentsOf: u, encoding: .utf8)).map { (u, $0) }
         }
-        return Backlinks.mentions(to: target, corpus: corpus, allFiles: files)
+        let result = Backlinks.mentions(to: target, corpus: corpus, allFiles: files)
+        linkedMentionsCache = (key, result)
+        return result
     }
     /// Whether the sidebar column is shown. Persisted (PrefKeys.sidebarVisible)
     /// so collapse state survives relaunch. Toggled from the View menu (⌃⌘S).

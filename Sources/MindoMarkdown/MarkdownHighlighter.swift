@@ -70,6 +70,35 @@ public final class MarkdownHighlighter {
         self.baseFont = baseFont
     }
 
+    // MARK: - Font cache
+
+    // The highlight passes used to build a font per match — `mono(...)`,
+    // `NSFontManager.convert(...)`, `systemFont(ofSize:)` — on *every* bold,
+    // italic, heading and code span, on every keystroke. Font construction is
+    // the dominant cost of a pass, so cache the fixed set keyed on the only
+    // thing they depend on (the base point size) and rebuild only when it
+    // changes.
+    private var cachedPointSize: CGFloat = -1
+    private var _mono: NSFont = .monospacedSystemFont(ofSize: 13, weight: .regular)
+    private var _bold: NSFont = .boldSystemFont(ofSize: 13)
+    private var _italic: NSFont = .systemFont(ofSize: 13)
+    private var _boldItalic: NSFont = .boldSystemFont(ofSize: 13)
+    private var _headings: [NSFont] = []
+
+    private func ensureFontCache() {
+        let ps = baseFont.pointSize
+        if ps == cachedPointSize, !_headings.isEmpty { return }
+        cachedPointSize = ps
+        let fm = NSFontManager.shared
+        _mono = NSFont.monospacedSystemFont(ofSize: ps, weight: .regular)
+        _bold = fm.convert(baseFont, toHaveTrait: .boldFontMask)
+        _italic = fm.convert(baseFont, toHaveTrait: .italicFontMask)
+        _boldItalic = fm.convert(_bold, toHaveTrait: .italicFontMask)
+        _headings = Self.headingScale.map {
+            fm.convert(.systemFont(ofSize: ps * $0, weight: .bold), toHaveTrait: .boldFontMask)
+        }
+    }
+
     private static func regex(_ p: String) -> NSRegularExpression { try! NSRegularExpression(pattern: p, options: []) }
 
     // Capturing groups split markup punctuation from content so the punctuation
@@ -92,20 +121,20 @@ public final class MarkdownHighlighter {
         guard full.length > 0 else { return }
         let text = storage.string as NSString
         let activePara = activeRange.map { text.paragraphRange(for: $0) }
+        ensureFontCache()
 
         storage.beginEditing()
         storage.setAttributes([.font: baseFont, .foregroundColor: theme.defaultStyle.color], range: full)
 
         // Block elements first.
         enumerate(Self.codeBlock, text) { m in
-            storage.addAttributes([.font: mono(baseFont.pointSize), .foregroundColor: theme.codeBlock.color], range: m.range)
+            storage.addAttributes([.font: _mono, .foregroundColor: theme.codeBlock.color], range: m.range)
         }
         enumerate(Self.heading, text) { m in
             let level = max(1, min(6, m.range(at: 1).length))
-            let size = baseFont.pointSize * Self.headingScale[level - 1]
-            let hFont = NSFontManager.shared.convert(.systemFont(ofSize: size, weight: .bold), toHaveTrait: .boldFontMask)
+            let hFont = _headings[level - 1]
             storage.addAttributes([.font: hFont, .foregroundColor: theme.heading.color], range: m.range(at: 3))
-            markup(m.range(at: 1), m.range(at: 2), in: storage, activePara: activePara, sizedTo: size)
+            markup(m.range(at: 1), m.range(at: 2), in: storage, activePara: activePara, revealFont: hFont)
         }
         enumerate(Self.quote, text) { m in
             storage.addAttributes([.font: font(theme.quote), .foregroundColor: theme.quote.color], range: m.range(at: 2))
@@ -121,7 +150,7 @@ public final class MarkdownHighlighter {
         enumerate(Self.bold, text) { m in styleSpan(m, content: 2, in: storage, style: theme.bold, activePara: activePara) }
         enumerate(Self.italic, text) { m in styleSpan(m, content: 2, in: storage, style: theme.italic, activePara: activePara) }
         enumerate(Self.code, text) { m in
-            storage.addAttributes([.font: mono(baseFont.pointSize), .foregroundColor: theme.code.color], range: m.range(at: 2))
+            storage.addAttributes([.font: _mono, .foregroundColor: theme.code.color], range: m.range(at: 2))
             markup(m.range(at: 1), m.range(at: 3), in: storage, activePara: activePara)
         }
         enumerate(Self.url, text) { m in
@@ -150,25 +179,25 @@ public final class MarkdownHighlighter {
     }
 
     /// Dim one or two markup ranges, unless they're on the active paragraph.
-    private func markup(_ ranges: NSRange..., in storage: NSTextStorage, activePara: NSRange?, sizedTo: CGFloat? = nil) {
+    private func markup(_ ranges: NSRange..., in storage: NSTextStorage, activePara: NSRange?, revealFont: NSFont? = nil) {
         for r in ranges where r.length > 0 {
             let onActive = activePara.map { NSIntersectionRange($0, r).length > 0 } ?? false
             if onActive {
-                // Revealed: keep it readable (match heading size if given).
-                if let sz = sizedTo { storage.addAttributes([.font: NSFont.systemFont(ofSize: sz, weight: .bold)], range: r) }
+                // Revealed: keep it readable (match heading font if given).
+                if let revealFont { storage.addAttributes([.font: revealFont], range: r) }
             } else {
                 storage.addAttributes([.foregroundColor: theme.marker], range: r)
             }
         }
     }
 
-    private func mono(_ pt: CGFloat) -> NSFont { NSFont.monospacedSystemFont(ofSize: pt, weight: .regular) }
-
     private func font(_ style: Style) -> NSFont {
-        if style.monospace { return mono(baseFont.pointSize) }
-        var traits: NSFontTraitMask = []
-        if style.bold { traits.insert(.boldFontMask) }
-        if style.italic { traits.insert(.italicFontMask) }
-        return traits.isEmpty ? baseFont : NSFontManager.shared.convert(baseFont, toHaveTrait: traits)
+        if style.monospace { return _mono }
+        switch (style.bold, style.italic) {
+        case (true, true):   return _boldItalic
+        case (true, false):  return _bold
+        case (false, true):  return _italic
+        case (false, false): return baseFont
+        }
     }
 }

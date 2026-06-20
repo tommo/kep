@@ -61,6 +61,8 @@ extension AppSession {
             node.reloadChildren()
             // Trigger the @Observable to re-publish.
             self.workspaceRoots = self.workspaceRoots
+            // Invalidate the file-index / backlink caches — corpus changed.
+            self.workspaceContentVersion &+= 1
         }
         watcher.start()
         workspaceWatchers[node.url] = watcher

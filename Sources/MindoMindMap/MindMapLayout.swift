@@ -26,6 +26,11 @@ public final class MindMapLayout {
     public func layout(_ root: MindMapElement) -> CGRect {
         measureRecursive(root)
         balanceRoot(root)
+        // Subtree heights are needed at every level of the top-down placement
+        // below. Computing them once here (a single bottom-up pass) instead of
+        // re-walking each subtree from inside `layOutColumn` turns the old
+        // O(n·depth) placement into O(n).
+        computeSubtreeHeights(root)
 
         // Place root at origin (0,0) — view centers later via scrollPoint.
         place(root, at: .zero)
@@ -179,14 +184,8 @@ public final class MindMapLayout {
     /// Each child's center sits at the column edge facing its parent (right edge for left side).
     private func layOutColumn(_ elements: [MindMapElement], columnX: CGFloat, parentCenterY: CGFloat, side: CGFloat) {
         guard !elements.isEmpty else { return }
-        // Tentatively place at y=0; we'll measure subtree heights and recenter.
-        var heights: [CGFloat] = []
-        var subtreeHeights: [CGFloat] = []
-        for el in elements {
-            measureSubtreeHeight(el)
-            heights.append(el.elementSize.height)
-            subtreeHeights.append(el.subtreeHeight)
-        }
+        // Subtree heights were precomputed once in `layout()`; just read them.
+        let subtreeHeights = elements.map(\.subtreeHeight)
         let totalHeight = subtreeHeights.reduce(0, +) + verticalGap * CGFloat(elements.count - 1)
         var cursor = parentCenterY - totalHeight / 2
         for (i, el) in elements.enumerated() {
@@ -199,15 +198,16 @@ public final class MindMapLayout {
         }
     }
 
-    /// Measure the vertical extent that this subtree occupies. Stored as a derived
-    /// property on the element so we can reuse it during placement.
-    private func measureSubtreeHeight(_ element: MindMapElement) {
+    /// Measure the vertical extent each subtree occupies, in a single bottom-up
+    /// (post-order) pass so every node's `subtreeHeight` is ready before
+    /// placement reads it. Stored as a derived property on the element.
+    private func computeSubtreeHeights(_ element: MindMapElement) {
         let kids = element.visibleChildren
         if kids.isEmpty {
             element.subtreeHeight = element.elementSize.height
             return
         }
-        for k in kids { measureSubtreeHeight(k) }
+        for k in kids { computeSubtreeHeights(k) }
         let kidsHeight = kids.map(\.subtreeHeight).reduce(0, +) + verticalGap * CGFloat(kids.count - 1)
         element.subtreeHeight = max(element.elementSize.height, kidsHeight)
     }

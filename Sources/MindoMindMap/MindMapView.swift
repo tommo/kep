@@ -6,8 +6,14 @@ import MindoModel
 /// Mirrors a small slice of `mindmap-panel`'s `MindMapPanel`/`MindMapViewSkin`.
 public final class MindMapView: NSView {
     public var theme: MindMapTheme = .light {
-        didSet { needsDisplay = true }
+        didSet { extraIconCache.removeAll(); needsDisplay = true }
     }
+
+    /// Cache of pre-tinted extra-type icons (note/link/file/jump badges),
+    /// keyed by symbol + size + tint level. Rebuilding these with an
+    /// offscreen lockFocus pass on every frame for every icon was a per-drag
+    /// hot spot; tinted glyphs only change when the theme does.
+    var extraIconCache: [String: NSImage] = [:]
 
     public private(set) var mindMap: MindMap?
     public private(set) var rootElement: MindMapElement?

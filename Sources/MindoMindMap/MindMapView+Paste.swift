@@ -1,4 +1,5 @@
 import AppKit
+import MindoBase
 import MindoCore
 import MindoModel
 
@@ -153,16 +154,6 @@ public enum MindMapPasteHelper {
     }
 
     public static func imageBase64(from pasteboard: NSPasteboard) -> String? {
-        // Direct PNG data is the cheapest path — skip image decode round-trip.
-        if let pngData = pasteboard.data(forType: .png) {
-            return pngData.base64EncodedString()
-        }
-        // Fall back to NSImage so JPEG/TIFF/PDF screenshots all become PNG.
-        guard let image = NSImage(pasteboard: pasteboard),
-              let tiff = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiff),
-              let png = bitmap.representation(using: .png, properties: [:])
-        else { return nil }
-        return png.base64EncodedString()
+        PasteboardImage.base64(from: pasteboard)
     }
 }

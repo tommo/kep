@@ -1,4 +1,5 @@
 import AppKit
+import MindoBase
 import MindoCore
 
 /// NSTextView subclass that turns dropped files into the right markdown
@@ -231,19 +232,8 @@ public final class MarkdownDropTextView: NSTextView {
 
     /// Read PNG bytes from the pasteboard (direct .png type, falling back
     /// to NSImage decode + PNG re-encode for TIFF/JPEG/PDF) and return
-    /// base64. Mirrors the `MindMapPasteHelper.imageBase64(from:)` logic
-    /// in MindoMindMap; inlined here to avoid pulling MindoMindMap into
-    /// MindoMarkdown's dep graph for ~10 lines of helper.
     static func imageBase64(from pasteboard: NSPasteboard) -> String? {
-        if let pngData = pasteboard.data(forType: .png) {
-            return pngData.base64EncodedString()
-        }
-        guard let image = NSImage(pasteboard: pasteboard),
-              let tiff = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiff),
-              let png = bitmap.representation(using: .png, properties: [:])
-        else { return nil }
-        return png.base64EncodedString()
+        PasteboardImage.base64(from: pasteboard)
     }
 
     /// ⌘B / ⌘I / ⌘E / ⌘K → bold / italic / inline-code / link. Shortcuts

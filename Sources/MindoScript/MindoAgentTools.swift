@@ -13,6 +13,12 @@ public final class AgentToolEffects {
     /// Lets a later tool call in the same agent loop read the freshest bytes
     /// (the start-of-run `corpus`/`allFiles` snapshot can't see same-run writes).
     public var liveDocs: [URL: String] = [:]
+    /// Host-provided CSV cell access (the spreadsheet model lives in MindoCSV,
+    /// which depends on MindoScript — so the app injects these to avoid a cycle).
+    /// Read returns the cell's value (or formula source) at an A1 ref; write sets
+    /// a value/formula at an A1 ref and persists, returning success.
+    public var csvCellValue: ((URL, String) -> String?)?
+    public var csvSetCell: ((URL, String, String) -> Bool)?
     public init() {}
 }
 
@@ -76,6 +82,7 @@ public struct MindoAgentTools {
             + docEditDescriptors
             + mindmapEditDescriptors
             + topicExtrasDescriptors
+            + csvDescriptors
     }
 
     static let coreDescriptors: [(name: String, description: String, parametersJSON: String)] = [
@@ -123,6 +130,7 @@ public struct MindoAgentTools {
             ?? handleDocEdit(name, a)
             ?? handleMindmapEdit(name, a)
             ?? handleTopicExtras(name, a)
+            ?? handleCSV(name, a)
             ?? "error: unknown tool '\(name)'"
     }
 

@@ -35,14 +35,6 @@ public enum MarkdownViewMode: String, CaseIterable, Sendable {
         }
     }
 
-    /// Next mode in the editor → split → preview → editor cycle. Lets a
-    /// single keyboard shortcut rotate through the modes.
-    public func next() -> MarkdownViewMode {
-        let all = MarkdownViewMode.allCases
-        let idx = all.firstIndex(of: self) ?? 0
-        return all[(idx + 1) % all.count]
-    }
-
     /// Parse a persisted raw value, falling back to `.editor` for unknown /
     /// missing values — the single live-styled pane is the modern default
     /// (the HTML side-by-side preview is opt-in via the footer switch).

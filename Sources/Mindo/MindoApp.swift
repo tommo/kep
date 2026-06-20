@@ -496,6 +496,16 @@ final class AppSession {
         return files
     }
 
+    /// Workspace file URLs + their text (the KB corpus) — shared by backlinks,
+    /// the Lua runner, and the agent loop (best-effort; unreadable files drop).
+    func workspaceCorpus() -> (files: [URL], corpus: [(url: URL, text: String)]) {
+        let files = quickSwitcherFiles().map(\.url)
+        let corpus: [(url: URL, text: String)] = files.compactMap { u in
+            (try? String(contentsOf: u, encoding: .utf8)).map { (u, $0) }
+        }
+        return (files, corpus)
+    }
+
     /// Resolve a clicked `[[wiki link]]` target to a workspace document and open
     /// it. Heading navigation is best-effort (v0 opens the doc). Surfaces an
     /// error when nothing resolves.
@@ -539,10 +549,7 @@ final class AppSession {
         // does the disk pass when the active doc or the corpus changes.
         let key = "\(target.path)#\(workspaceContentVersion)"
         if let cache = linkedMentionsCache, cache.key == key { return cache.value }
-        let files = quickSwitcherFiles().map(\.url)
-        let corpus: [(url: URL, text: String)] = files.compactMap { u in
-            (try? String(contentsOf: u, encoding: .utf8)).map { (u, $0) }
-        }
+        let (files, corpus) = workspaceCorpus()
         let result = Backlinks.mentions(to: target, corpus: corpus, allFiles: files)
         linkedMentionsCache = (key, result)
         return result

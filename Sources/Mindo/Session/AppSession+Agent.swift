@@ -27,10 +27,7 @@ extension AppSession {
             throw AgentRunError.noProvider
         }
 
-        let files = quickSwitcherFiles().map(\.url)
-        let corpus: [(url: URL, text: String)] = files.compactMap { u in
-            (try? String(contentsOf: u, encoding: .utf8)).map { (u, $0) }
-        }
+        let (files, corpus) = workspaceCorpus()
         let hadMindMap = activeMindMap != nil
         let map = activeMindMap ?? MindMap(root: Topic(text: "Scratch"))
         let mapBefore = hadMindMap ? map.write() : ""

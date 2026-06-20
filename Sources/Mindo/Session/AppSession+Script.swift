@@ -14,11 +14,7 @@ extension AppSession {
               case .mindMap(let map) = openDocuments[idx].kind else {
             return ScriptRunResult(output: "", error: "Open a mind map to run a script against it.")
         }
-        let files = quickSwitcherFiles().map(\.url)
-        // Best-effort KB corpus (text of workspace files) for backlinks/resolve.
-        let corpus: [(url: URL, text: String)] = files.compactMap { url in
-            (try? String(contentsOf: url, encoding: .utf8)).map { (url, $0) }
-        }
+        let (files, corpus) = workspaceCorpus()
         let before = map.write()
         let result = MindoScriptRunner.run(source, on: map, corpus: corpus, allFiles: files)
         if result.ok {

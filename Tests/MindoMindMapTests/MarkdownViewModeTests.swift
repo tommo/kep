@@ -18,20 +18,6 @@ final class MarkdownViewModeTests: XCTestCase {
         XCTAssertTrue(MarkdownViewMode.split.showsPreview)
     }
 
-    func testCycleOrder() {
-        XCTAssertEqual(MarkdownViewMode.editor.next(), .split)
-        XCTAssertEqual(MarkdownViewMode.split.next(), .preview)
-        XCTAssertEqual(MarkdownViewMode.preview.next(), .editor)
-    }
-
-    func testCycleVisitsEveryModeOnce() {
-        var mode = MarkdownViewMode.editor
-        var seen: [MarkdownViewMode] = [mode]
-        for _ in 0..<2 { mode = mode.next(); seen.append(mode) }
-        XCTAssertEqual(Set(seen), Set(MarkdownViewMode.allCases))
-        XCTAssertEqual(mode.next(), .editor)   // wraps back to start
-    }
-
     func testFromRawValueRoundTrips() {
         for mode in MarkdownViewMode.allCases {
             XCTAssertEqual(MarkdownViewMode.from(rawValue: mode.rawValue), mode)

@@ -198,6 +198,14 @@
 "conflict.button.reload" = "从磁盘重新加载";
 "conflict.button.keep_mine" = "保留我的更改";
 "conflict.button.save_mine" = "保存我的更改";
+"close.dirty.title" = "关闭前要保存对“%@”的更改吗？";
+"close.dirty.title_many" = "关闭前要保存对 %d 个文档的更改吗？";
+"close.dirty.message" = "如果不保存，你的更改将会丢失。";
+"close.dirty.save" = "保存";
+"close.dirty.save_all" = "全部保存";
+"close.dirty.discard" = "不保存";
+"close.dirty.discard_all" = "全部不保存";
+"close.dirty.cancel" = "取消";
 
 /* MARK: - 偏好设置 */
 "prefs.tab.general" = "通用";

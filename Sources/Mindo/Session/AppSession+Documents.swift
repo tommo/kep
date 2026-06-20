@@ -88,18 +88,70 @@ extension AppSession {
     func newTextFile() { newTextDocument(.plainText) }
 
     func closeActive() {
-        guard let id = activeDocumentID,
-              let idx = openDocuments.firstIndex(where: { $0.id == id }) else { return }
-        stopFileWatcher(for: id)
-        openDocuments.remove(at: idx)
-        tabManager.remove(id)
-        activeDocumentID = tabManager.activeID ?? openDocuments.last?.id
+        guard let id = activeDocumentID else { return }
+        closeTab(id)
+    }
+
+    /// Close a single tab by id. When the tab has unsaved changes, prompt
+    /// Save / Discard / Cancel first so ⌘W can't silently throw work away
+    /// (#178). Switches active to the next available when the closed tab was
+    /// active.
+    func closeTab(_ id: OpenDocument.ID) {
+        guard let idx = openDocuments.firstIndex(where: { $0.id == id }) else { return }
+        if openDocuments[idx].isDirty {
+            switch promptDirtyClose(titles: [openDocuments[idx].title]) {
+            case .cancel:
+                return
+            case .save:
+                // A failed / cancelled save must abort the close — never
+                // discard the buffer behind the user's back.
+                guard saveDocument(at: idx) else { return }
+            case .discard:
+                break
+            }
+        }
+        performClose(id)
         persistOpenTabs()
     }
 
-    /// Close a single tab by id. Switches active to the next available
-    /// when the closed tab was active.
-    func closeTab(_ id: OpenDocument.ID) {
+    /// Close every tab except the one with `keep`.
+    func closeOtherTabs(keep id: OpenDocument.ID) {
+        closeMany(openDocuments.map(\.id).filter { $0 != id })
+    }
+
+    /// Close every open tab.
+    func closeAllTabs() {
+        closeMany(openDocuments.map(\.id))
+    }
+
+    /// Close a batch of tabs with a single combined dirty-changes prompt
+    /// rather than one alert per tab. Save All saves each dirty doc (aborting
+    /// the whole batch if any save fails/cancels); Discard All closes them
+    /// regardless; Cancel leaves everything open.
+    private func closeMany(_ ids: [OpenDocument.ID]) {
+        let dirtyIdx = ids.compactMap { id in
+            openDocuments.firstIndex(where: { $0.id == id && $0.isDirty })
+        }
+        if !dirtyIdx.isEmpty {
+            switch promptDirtyClose(titles: dirtyIdx.map { openDocuments[$0].title }) {
+            case .cancel:
+                return
+            case .save:
+                for idx in dirtyIdx where openDocuments.indices.contains(idx) {
+                    guard saveDocument(at: idx) else { return }
+                }
+            case .discard:
+                break
+            }
+        }
+        for id in ids { performClose(id) }
+        persistOpenTabs()
+    }
+
+    /// The bookkeeping half of closing a tab — stop its watcher, drop it from
+    /// the model + tab manager, retarget the active tab. No prompting,
+    /// no persistence (callers batch the persist).
+    private func performClose(_ id: OpenDocument.ID) {
         guard let idx = openDocuments.firstIndex(where: { $0.id == id }) else { return }
         stopFileWatcher(for: id)
         openDocuments.remove(at: idx)
@@ -107,18 +159,30 @@ extension AppSession {
         if activeDocumentID == id {
             activeDocumentID = tabManager.activeID ?? openDocuments.last?.id
         }
-        persistOpenTabs()
     }
 
-    /// Close every tab except the one with `keep`.
-    func closeOtherTabs(keep id: OpenDocument.ID) {
-        let toClose = openDocuments.map(\.id).filter { $0 != id }
-        for tabID in toClose { closeTab(tabID) }
-    }
-
-    /// Close every open tab.
-    func closeAllTabs() {
-        for tabID in openDocuments.map(\.id) { closeTab(tabID) }
+    /// Show the Save / Discard / Cancel alert for one or more dirty documents.
+    /// `titles` drives the message; a single entry names the file, several get
+    /// a count. Returns the user's `DirtyCloseChoice`.
+    private func promptDirtyClose(titles: [String]) -> DirtyCloseChoice {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        if titles.count == 1 {
+            alert.messageText = String(format: L("close.dirty.title"), titles[0])
+        } else {
+            alert.messageText = String(format: L("close.dirty.title_many"), titles.count)
+        }
+        alert.informativeText = L("close.dirty.message")
+        alert.addButton(withTitle: titles.count == 1 ? L("close.dirty.save")
+                                                      : L("close.dirty.save_all"))
+        alert.addButton(withTitle: L("close.dirty.cancel"))
+        alert.addButton(withTitle: titles.count == 1 ? L("close.dirty.discard")
+                                                      : L("close.dirty.discard_all"))
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:  return .save
+        case .alertThirdButtonReturn:  return .discard
+        default:                       return .cancel
+        }
     }
 
     func cycleNextTab() {

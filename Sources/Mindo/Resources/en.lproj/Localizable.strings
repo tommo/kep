@@ -201,6 +201,14 @@
 "conflict.button.reload" = "Reload from Disk";
 "conflict.button.keep_mine" = "Keep My Changes";
 "conflict.button.save_mine" = "Save My Changes";
+"close.dirty.title" = "Save changes to “%@” before closing?";
+"close.dirty.title_many" = "Save changes to %d documents before closing?";
+"close.dirty.message" = "Your changes will be lost if you don't save them.";
+"close.dirty.save" = "Save";
+"close.dirty.save_all" = "Save All";
+"close.dirty.discard" = "Discard";
+"close.dirty.discard_all" = "Discard All";
+"close.dirty.cancel" = "Cancel";
 
 /* MARK: - Preferences */
 "prefs.tab.general" = "General";

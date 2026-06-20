@@ -67,44 +67,64 @@ extension AppSession {
     func saveActive() {
         guard let id = activeDocumentID,
               let idx = openDocuments.firstIndex(where: { $0.id == id }) else { return }
+        _ = saveDocument(at: idx)
+    }
+
+    /// Save the document at `idx`, prompting for a path when it's untitled.
+    /// Returns `true` when the document ended up persisted (no longer dirty) —
+    /// `false` if a write failed or the user cancelled the Save panel. The
+    /// dirty-tab close flow (#178) relies on this signal: a cancelled save must
+    /// abort the close rather than silently discard the changes.
+    @discardableResult
+    func saveDocument(at idx: Int) -> Bool {
+        guard openDocuments.indices.contains(idx) else { return false }
         let doc = openDocuments[idx]
+        guard let url = doc.fileURL else {
+            return saveDocumentAs(at: idx)
+        }
+        do {
+            try doc.save(to: url)
+            openDocuments[idx].isDirty = false
+            openDocuments[idx].hasExternalChanges = false
+            return true
+        } catch {
+            lastError = String(format: L("error.save_failed"), error.localizedDescription)
+            return false
+        }
+    }
+
+    /// Save-As for an arbitrary tab index (not just the active one). Returns
+    /// `true` only when the user picked a path and the write succeeded.
+    @discardableResult
+    func saveDocumentAs(at idx: Int) -> Bool {
+        guard openDocuments.indices.contains(idx) else { return false }
+        let doc = openDocuments[idx]
+        let panel = NSSavePanel()
+        if let ext = doc.kind.preferredExtension {
+            panel.allowedContentTypes = [UTType.init(filenameExtension: ext) ?? .data]
+        }
         if let url = doc.fileURL {
-            do {
-                try doc.save(to: url)
-                openDocuments[idx].isDirty = false
-                openDocuments[idx].hasExternalChanges = false
-            }
-            catch { lastError = "Save failed: \(error.localizedDescription)" }
-        } else {
-            saveActiveAs()
+            panel.directoryURL = url.deletingLastPathComponent()
+        }
+        panel.nameFieldStringValue = doc.title.isEmpty ? L("picker.untitled_mindmap") : doc.title
+        guard panel.runModal() == .OK, let url = panel.url else { return false }
+        do {
+            try doc.save(to: url)
+            openDocuments[idx].fileURL = url
+            openDocuments[idx].title = url.lastPathComponent
+            openDocuments[idx].isDirty = false
+            openDocuments[idx].hasExternalChanges = false
+            return true
+        } catch {
+            lastError = String(format: L("error.save_failed"), error.localizedDescription)
+            return false
         }
     }
 
     func saveActiveAs() {
         guard let id = activeDocumentID,
               let idx = openDocuments.firstIndex(where: { $0.id == id }) else { return }
-        let doc = openDocuments[idx]
-        let panel = NSSavePanel()
-        if let ext = doc.kind.preferredExtension {
-            panel.allowedContentTypes = [UTType.init(filenameExtension: ext) ?? .data]
-        }
-        // Default to the active doc's parent dir when it has one — saves the
-        // user from re-navigating to the workspace on every Save As.
-        if let url = doc.fileURL {
-            panel.directoryURL = url.deletingLastPathComponent()
-        }
-        panel.nameFieldStringValue = doc.title.isEmpty ? L("picker.untitled_mindmap") : doc.title
-        if panel.runModal() == .OK, let url = panel.url {
-            do {
-                try doc.save(to: url)
-                openDocuments[idx].fileURL = url
-                openDocuments[idx].title = url.lastPathComponent
-                openDocuments[idx].isDirty = false
-                openDocuments[idx].hasExternalChanges = false
-            } catch {
-                lastError = String(format: L("error.save_failed"), error.localizedDescription)
-            }
-        }
+        saveDocumentAs(at: idx)
     }
 
     /// Pull the active doc's markdown text and write it as standalone HTML.

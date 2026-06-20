@@ -48,6 +48,8 @@ public struct CSVEditor: NSViewRepresentable {
         grid.onCopy  = { [weak coord] in coord?.copyCells() }
         grid.onCut   = { [weak coord] in coord?.cutCells() }
         grid.onPaste = { [weak coord] in coord?.pasteCells() }
+        grid.onAddColumn = { [weak coord] in coord?.appendColumn() }
+        grid.onAddRow    = { [weak coord] in coord?.appendRow() }
         // Right-click context menu — same coordinator selectors as the toolbar.
         let menu = NSMenu()
         func item(_ title: String, _ action: Selector) -> NSMenuItem {
@@ -312,6 +314,10 @@ public struct CSVEditor: NSViewRepresentable {
             syncFormulaBar()
             refreshStatusFooter()
         }
+
+        /// "+" tail affordances: append a row / column (one undo step + reload).
+        func appendRow()    { performUndoable(actionName: "Add Row") { doc.appendRow() } }
+        func appendColumn() { performUndoable(actionName: "Add Column") { doc.appendColumn() } }
 
         /// Reflect the active cell in the formula bar: its A1 ref in the name
         /// box and its formula SOURCE (or value) in the formula field — so the

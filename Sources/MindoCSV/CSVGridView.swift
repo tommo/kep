@@ -30,11 +30,17 @@ public final class CSVGridView: NSView, NSTextFieldDelegate {
     @objc func cut(_ sender: Any?)   { onCut?() }
     @objc func paste(_ sender: Any?) { onPaste?() }
 
+    /// The "+" affordances at the tail of the header / gutter append a column / row.
+    public var onAddColumn: (() -> Void)?
+    public var onAddRow: (() -> Void)?
+
     private var columnWidths: [CGFloat] = []
     private let defaultColumnWidth: CGFloat = 100
     private let rowHeight: CGFloat = 22
     private let headerHeight: CGFloat = 24
     private let gutterWidth: CGFloat = 48
+    /// Size of the trailing "+" add-column / add-row cells.
+    private let plusSlot: CGFloat = 28
 
     private var geometry = CSVGridGeometry()
     private var fieldEditor: NSTextField?
@@ -73,8 +79,17 @@ public final class CSVGridView: NSView, NSTextFieldDelegate {
         geometry = CSVGridGeometry(rowHeight: rowHeight, headerHeight: headerHeight,
                                    gutterWidth: gutterWidth, columnWidths: columnWidths, rowCount: rows)
         selection.clamp(rows: rows, cols: cols)
-        setFrameSize(geometry.contentSize)
+        // Extend the document view past the content for the trailing "+" cells.
+        let size = geometry.contentSize
+        setFrameSize(CGSize(width: size.width + plusSlot, height: size.height + rowHeight))
         needsDisplay = true
+    }
+
+    private var plusColumnRect: CGRect {
+        CGRect(x: geometry.columnX(colCount), y: 0, width: plusSlot, height: headerHeight)
+    }
+    private var plusRowRect: CGRect {
+        CGRect(x: 0, y: geometry.rowY(rowCount), width: gutterWidth, height: rowHeight)
     }
 
     public func setSelection(_ sel: CSVSelectionModel, notify: Bool = true) {
@@ -106,6 +121,31 @@ public final class CSVGridView: NSView, NSTextFieldDelegate {
         drawGutter(visible: vis)
         drawHeader(visible: vis)
         drawCorner(visible: vis)
+        drawAddAffordances(visible: vis)
+    }
+
+    /// The "+" add-column (header tail) and add-row (gutter tail) buttons.
+    private func drawAddAffordances(visible vis: NSRect) {
+        // Add-column: in the header strip, just past the last column (scrolls
+        // horizontally, pinned to the header's y).
+        let colR = CGRect(x: geometry.columnX(colCount), y: vis.minY, width: plusSlot, height: headerHeight)
+        drawPlusCell(colR)
+        // Add-row: in the gutter, just below the last row.
+        let rowR = CGRect(x: vis.minX, y: geometry.rowY(rowCount), width: gutterWidth, height: rowHeight)
+        drawPlusCell(rowR)
+    }
+
+    private func drawPlusCell(_ r: CGRect) {
+        headerFillColor().setFill(); r.fill()
+        NSColor.gridColor.setStroke(); NSBezierPath(rect: r).stroke()
+        let para = NSMutableParagraphStyle(); para.alignment = .center
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 13, weight: .medium),
+            .foregroundColor: NSColor.secondaryLabelColor,
+            .paragraphStyle: para,
+        ]
+        let h = ("+" as NSString).size(withAttributes: attrs).height
+        ("+" as NSString).draw(in: CGRect(x: r.minX, y: r.midY - h / 2, width: r.width, height: h), withAttributes: attrs)
     }
 
     private func drawCells(in dirtyRect: NSRect) {
@@ -248,6 +288,9 @@ public final class CSVGridView: NSView, NSTextFieldDelegate {
         let inHeader = p.y < vis.minY + headerHeight
         let inGutter = p.x < vis.minX + gutterWidth
         if inHeader && inGutter { return }                       // corner → no-op
+        // "+" tail affordances (past the last column / row).
+        if inHeader, !inGutter, p.x >= geometry.columnX(colCount) { onAddColumn?(); return }
+        if inGutter, !inHeader, p.y >= geometry.rowY(rowCount) { onAddRow?(); return }
         if inHeader, let col = geometry.columnIndex(atX: p.x) {   // whole column
             selection.moveActive(to: CSVCellRef(row: 0, col: col))
             selection.extend(to: CSVCellRef(row: rowCount - 1, col: col))

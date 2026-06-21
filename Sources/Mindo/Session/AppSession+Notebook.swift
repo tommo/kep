@@ -101,6 +101,8 @@ extension AppSession {
                !sources.names.contains(name) {
                 sources.names.append(name)
             }
+            let step = Self.describeCall(call)
+            Task { @MainActor in sink.agentLog(step) }   // live "watch it work" trace
             return tools.handle(name: call.name, argumentsJSON: call.argumentsJSON)
         }
         // Let the last streamed Task land before reporting / setting provenance.
@@ -116,6 +118,23 @@ extension AppSession {
         guard let data = json.data(using: .utf8),
               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
         return obj[key] as? String
+    }
+
+    /// A short, human-readable line for the agent block's research-steps trace.
+    private static func describeCall(_ call: ToolCall) -> String {
+        let a = call.argumentsJSON
+        switch call.name {
+        case "semantic_search":  return "🔎 searched: \(argString(a, "query") ?? "")"
+        case "find_topics":      return "🔎 found topics: \(argString(a, "query") ?? "")"
+        case "read_document":    return "📄 read: \(argString(a, "name") ?? "")"
+        case "resolve_link":     return "🔗 resolved: \(argString(a, "target") ?? "")"
+        case "backlinks":        return "🔗 backlinks: \(argString(a, "name") ?? "")"
+        case "get_subtree":      return "🌳 read subtree"
+        case "list_docs":        return "📑 listed documents"
+        case "notebook_add_note": return "✎ wrote a note"
+        case "notebook_add_code": return "λ ran a query"
+        default:                 return "• \(call.name)"
+        }
     }
 
     /// Run a single cell in a fresh kernel; load-modify-save the sidecar so a

@@ -11,6 +11,8 @@ final class NotebookModel: ObservableObject, NotebookAgentSink {
     @Published var outputs: ExecOutputs
     @Published var running: Set<String> = []
     @Published var agentBusy = false
+    /// Per-agent-block tool-call trace (ephemeral — process info, not persisted).
+    @Published var agentTrace: [String: [String]] = [:]
 
     let documentURL: URL?
     let runOne: NotebookRunOne
@@ -48,6 +50,7 @@ final class NotebookModel: ObservableObject, NotebookAgentSink {
               !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         setAgentResult(id, "")
         setAgentSources(id, [])
+        agentTrace[id] = []
         activeAgentCell = id
         running.insert(id); agentBusy = true
         await runAgent(prompt, self)
@@ -71,6 +74,11 @@ final class NotebookModel: ObservableObject, NotebookAgentSink {
         setAgentSources(id, sources)
         flushNow()
     }
+    func agentLog(_ step: String) {
+        guard let id = activeAgentCell else { return }
+        agentTrace[id, default: []].append(step)
+    }
+    func agentSteps(of id: String) -> [String] { agentTrace[id] ?? [] }
     private func appendToAgentResult(_ id: String, _ markdown: String) {
         let existing = agentResult(of: id)
         setAgentResult(id, existing.isEmpty ? markdown : existing + "\n\n" + markdown)
@@ -497,6 +505,18 @@ private struct NotebookCellRow: View {
                 .focused(focus, equals: .edit(cell.id))
                 .onKeyPress(.escape) { focus.wrappedValue = .command; return .handled }
                 .onSubmit { Task { await model.runAgentCell(cell.id) } }
+            let steps = model.agentSteps(of: cell.id)
+            if !steps.isEmpty {
+                DisclosureGroup("Research steps (\(steps.count))") {
+                    VStack(alignment: .leading, spacing: 1) {
+                        ForEach(Array(steps.enumerated()), id: \.offset) { _, s in
+                            Text(s).font(.caption2).foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                }
+                .font(.caption2)
+            }
             let result = model.agentResult(of: cell.id)
             if !result.isEmpty {
                 Divider()

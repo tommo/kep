@@ -52,6 +52,22 @@ final class NotebookModelTests: XCTestCase {
         XCTAssertTrue(model.running.isEmpty)
     }
 
+    func testAgentTraceAccumulatesAndClearsOnRerun() async {
+        let model = makeModel(text: "# n\n", runAgent: { _, sink in
+            sink.agentLog("🔎 searched: x")
+            sink.agentLog("📄 read: Doc")
+            sink.agentAddProse("done")
+        })
+        model.addAgent()
+        let id = model.cells.last!.id
+        model.updateText(id, "q")
+        await model.runAgentCell(id)
+        XCTAssertEqual(model.agentSteps(of: id), ["🔎 searched: x", "📄 read: Doc"])
+        // Re-run clears the prior trace before logging again.
+        await model.runAgentCell(id)
+        XCTAssertEqual(model.agentSteps(of: id).count, 2)
+    }
+
     func testAgentBlockNoopWithoutRunnerOrPrompt() async {
         let model = makeModel(text: "# Notes\n")   // runAgent nil
         model.addAgent()

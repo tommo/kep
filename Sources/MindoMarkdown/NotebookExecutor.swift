@@ -21,6 +21,8 @@ public protocol NotebookAgentSink: AnyObject {
     func agentAddCode(_ code: String, output: ExecOutput)
     /// Report the source documents consulted (provenance for the block).
     func agentSetSources(_ sources: [String])
+    /// Report a research step as it happens (tool-call trace, "watch it work").
+    func agentLog(_ step: String)
 }
 
 /// Run the research agent for `question`, authoring cells into `sink`. Injected

@@ -9,6 +9,8 @@ import Foundation
 ///     property matches if it contains `value`; others by canonical-string or
 ///     inferred-value equality, case-insensitive). `key:` (empty value) matches
 ///     any topic that HAS the property.
+///   • `under:X`    — scope to a branch: the topic has an ancestor whose text
+///     contains `X` (case-insensitive).
 ///   • `#tag`       — shorthand: the topic's `tags` contains `tag` (case-insensitive).
 ///   • `/regex/`    — the topic's text matches the regular expression.
 ///   • `word`       — the topic's text contains `word` (case-insensitive).
@@ -63,6 +65,15 @@ public enum TopicQuery {
             let value = String(term[term.index(after: colon)...])
             if key.isEmpty { return topic.text.localizedCaseInsensitiveContains(term) }
             if key == "text" { return topic.text.localizedCaseInsensitiveContains(value) }
+            if key == "under" {                                   // scope to a branch
+                guard !value.isEmpty else { return false }
+                var ancestor = topic.parent
+                while let cur = ancestor {
+                    if cur.text.localizedCaseInsensitiveContains(value) { return true }
+                    ancestor = cur.parent
+                }
+                return false
+            }
             if key == "tag" || key == "tags" {
                 return value.isEmpty
                     ? !MindMapTags.tags(of: topic).isEmpty

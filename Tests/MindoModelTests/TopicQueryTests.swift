@@ -54,6 +54,18 @@ final class TopicQueryTests: XCTestCase {
         XCTAssertEqual(TopicQuery.evaluate("priority: -done:true", in: m).map(\.text), ["Design API"])
     }
 
+    func testUnderScopesToBranch() {
+        let root = Topic(text: "Root")
+        let work = root.addChild(text: "Work")
+        let t1 = work.addChild(text: "Ship release"); t1.setProperty("done", .checkbox(false))
+        let home = root.addChild(text: "Home")
+        let t2 = home.addChild(text: "Ship package"); t2.setProperty("done", .checkbox(false))
+        let m = MindMap(root: root)
+        // done:false under the Work branch → only the Work task.
+        XCTAssertEqual(TopicQuery.evaluate("done:false under:Work", in: m).map(\.text), ["Ship release"])
+        XCTAssertEqual(TopicQuery.evaluate("under:Home", in: m).map(\.text), ["Ship package"])
+    }
+
     func testRegexTerm() {
         let m = sample()
         XCTAssertEqual(TopicQuery.evaluate("/^Design/", in: m).map(\.text), ["Design API"])

@@ -414,7 +414,30 @@ public struct MarkdownEditor: NSViewRepresentable {
             case .refresh:    refreshPreview()
             case .viewSource: textView?.window?.makeFirstResponder(textView)
             case .copyHTML:   MarkdownExporter.copyHTMLToPasteboard(markdown: parent.text)
+            case .exportHTML: exportPreview(asPDF: false)
+            case .exportPDF:  exportPreview(asPDF: true)
             default:          break   // SVG/PNG/script/export are PlantUML-only
+            }
+        }
+
+        /// Save the rendered markdown to an .html/.pdf file via a save panel —
+        /// the right-click peer of the File ▸ Export menu items.
+        private func exportPreview(asPDF: Bool) {
+            let ext = asPDF ? "pdf" : "html"
+            let panel = NSSavePanel()
+            panel.allowedContentTypes = [UTType(filenameExtension: ext) ?? .data]
+            if let url = parent.documentURL {
+                panel.directoryURL = url.deletingLastPathComponent()
+                panel.nameFieldStringValue = url.deletingPathExtension().lastPathComponent + "." + ext
+            } else {
+                panel.nameFieldStringValue = "Untitled." + ext
+            }
+            guard panel.runModal() == .OK, let out = panel.url else { return }
+            let body = parent.text
+            if asPDF {
+                Task { try? await MarkdownExporter.exportPDF(markdown: body, to: out) }
+            } else {
+                try? MarkdownExporter.exportHTML(markdown: body, to: out)
             }
         }
 

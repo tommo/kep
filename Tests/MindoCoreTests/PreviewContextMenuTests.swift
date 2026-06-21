@@ -43,7 +43,7 @@ final class PreviewContextMenuTests: XCTestCase {
 
     func testMarkdownMenuItems() {
         let items = PreviewContextMenu.markdown()
-        XCTAssertEqual(items.map { $0.action }, [.refresh, .copyHTML, .viewSource])
+        XCTAssertEqual(items.map { $0.action }, [.refresh, .copyHTML, .exportHTML, .exportPDF, .viewSource])
         XCTAssertTrue(items.allSatisfy { $0.isEnabled })
     }
 

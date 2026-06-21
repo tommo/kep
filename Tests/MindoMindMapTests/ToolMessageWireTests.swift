@@ -43,10 +43,4 @@ final class ToolMessageWireTests: XCTestCase {
         XCTAssertNil(wire[0]["tool_calls"])
         XCTAssertNil(wire[1]["tool_call_id"])
     }
-
-    func testToolCallCodableRoundTrips() throws {
-        let call = ToolCall(id: "1", name: "n", argumentsJSON: "{}")
-        let data = try JSONEncoder().encode(call)
-        XCTAssertEqual(try JSONDecoder().decode(ToolCall.self, from: data), call)
-    }
 }

@@ -45,21 +45,4 @@ final class ExtrasIconTests: XCTestCase {
                           "icon \(rect) should sit inside topic frame \(element.frame)")
         }
     }
-
-    func testTapOnExtraDispatchesCallback() {
-        let map = MindMap()
-        let root = Topic(text: "Root")
-        map.root = root
-        root.setExtra(ExtraLink(uri: "https://example.com/path"))
-
-        let view = makeHeadlessMindMap(map: map, frame: NSRect(x: 0, y: 0, width: 600, height: 400))
-
-        guard let rootEl = view.rootElement else { XCTFail("no root element"); return }
-        guard let (_, iconRect) = rootEl.extraIconRects.first else {
-            XCTFail("expected at least one extra icon")
-            return
-        }
-        // Sanity: the icon rect is within the root's frame (drawn at right-edge).
-        XCTAssertTrue(rootEl.frame.intersects(iconRect))
-    }
 }

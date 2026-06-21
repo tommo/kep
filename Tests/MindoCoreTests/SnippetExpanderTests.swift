@@ -41,10 +41,12 @@ final class SnippetExpanderTests: XCTestCase {
     }
 
     func testUnknownPlaceholdersPassThrough() {
-        XCTAssertEqual(SnippetExpander.expand("set ${nope}=${date}",
-                                              context: .init(date: referenceDate)),
-                       // ${nope} is preserved; ${date} expands.
-                       SnippetExpander.expand("set ${nope}=${date}", context: .init(date: referenceDate)))
+        // An unknown placeholder is preserved verbatim while a known one in the
+        // same string still expands. (TZ-agnostic: assert structure, not the
+        // date value, which testExpandsDateAndTime already pins.)
+        let out = SnippetExpander.expand("set ${nope}=${date}", context: .init(date: referenceDate))
+        XCTAssertTrue(out.hasPrefix("set ${nope}="), "unknown placeholder must pass through")
+        XCTAssertFalse(out.contains("${date}"), "known placeholder must still expand")
         XCTAssertTrue(SnippetExpander.expand("hello ${unknown}", context: .init()).contains("${unknown}"))
     }
 

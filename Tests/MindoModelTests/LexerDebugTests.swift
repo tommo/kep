@@ -29,9 +29,6 @@ final class LexerDebugTests: XCTestCase {
             tokens.append(("\(lexer.tokenType!)", lexer.tokenText))
             safety += 1
         }
-        for t in tokens {
-            print("TOK \(t.0)\t\(t.1.debugDescription)")
-        }
         // Only succeeds if our parsing reaches end of input.
         XCTAssertGreaterThan(tokens.count, 8, "expected at least header + 4 topics worth of tokens")
         // Sanity: should see HEAD_DELIMITER and several TOPIC_TITLE tokens.

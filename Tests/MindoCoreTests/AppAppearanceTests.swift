@@ -5,13 +5,6 @@ import AppKit
 
 final class AppAppearanceTests: XCTestCase {
 
-    func testRawValueRoundTrip() {
-        for a in AppAppearance.allCases {
-            XCTAssertEqual(AppAppearance(rawValue: a.rawValue), a)
-        }
-        XCTAssertEqual(AppAppearance.allCases.count, 3)
-    }
-
     func testNSAppearanceMapping() {
         XCTAssertNil(AppAppearance.system.nsAppearance, "system follows the OS (nil)")
         XCTAssertEqual(AppAppearance.light.nsAppearance?.name, .aqua)

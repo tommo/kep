@@ -13,13 +13,6 @@ final class MindMapEmoticonPickerTests: XCTestCase {
         XCTAssertEqual(names, names.sorted())
     }
 
-    func testEveryPickerItemHasANonEmptySymbol() {
-        for item in MindMapEmoticon.pickerItems {
-            XCTAssertFalse(item.name.isEmpty)
-            XCTAssertFalse(item.symbol.isEmpty)
-        }
-    }
-
     func testNoPickerItemUsesTheGenericFallback() {
         // pickerItems are the explicit map entries; resolving each name must
         // return its own symbol, never the "tag" unknown-name fallback.

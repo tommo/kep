@@ -4,30 +4,15 @@ import AppKit
 
 final class EditorFontTests: XCTestCase {
 
-    func testNilNameYieldsSystemMono() {
-        let font = EditorFont.resolve(family: nil, size: 13)
-        // The system mono font's familyName starts with "." (e.g.
-        // ".AppleSystemUIFontMonospaced") on modern macOS — both legacy
-        // and current paths produce a usable monospaced font, so just
-        // assert size + advance equality across two calls instead of
-        // string-matching the family name (which is OS-version-fragile).
-        XCTAssertEqual(font.pointSize, 13)
-        let again = EditorFont.resolve(family: nil, size: 13)
-        XCTAssertEqual(font.advancement(forCGGlyph: 0), again.advancement(forCGGlyph: 0))
-    }
-
-    func testEmptyNameYieldsSystemMono() {
-        let font = EditorFont.resolve(family: "", size: 13)
-        XCTAssertEqual(font.pointSize, 13)
+    func testBlankFamilyYieldsSystemMono() {
+        // nil / empty / whitespace-only family all fall back to the system mono
+        // at the requested size.
         let mono = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
-        // Same family — both are the system mono.
-        XCTAssertEqual(font.familyName, mono.familyName)
-    }
-
-    func testWhitespaceOnlyNameYieldsSystemMono() {
-        let font = EditorFont.resolve(family: "   ", size: 13)
-        let mono = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
-        XCTAssertEqual(font.familyName, mono.familyName)
+        for family in [nil, "", "   "] as [String?] {
+            let font = EditorFont.resolve(family: family, size: 13)
+            XCTAssertEqual(font.pointSize, 13, "family=\(String(describing: family))")
+            XCTAssertEqual(font.familyName, mono.familyName, "family=\(String(describing: family))")
+        }
     }
 
     func testKnownInstalledMonoNameWins() {

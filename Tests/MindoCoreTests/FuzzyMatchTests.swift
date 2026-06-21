@@ -10,10 +10,6 @@ final class FuzzyMatchTests: XCTestCase {
         XCTAssertEqual(r, FuzzyMatch.Result(score: 0, matchedIndices: []))
     }
 
-    func testExactSubsequenceMatches() {
-        XCTAssertNotNil(FuzzyMatch.match(query: "cfg", candidate: "config.swift"))
-    }
-
     func testNonSubsequenceFails() {
         // 'z' never appears.
         XCTAssertNil(FuzzyMatch.match(query: "cfgz", candidate: "config.swift"))

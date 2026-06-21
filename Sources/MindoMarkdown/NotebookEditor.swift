@@ -173,11 +173,14 @@ public struct NotebookEditor: View {
             Button { Task { await model.runAllCells() } } label: {
                 Label("Run All", systemImage: "play.fill")
             }
+            .keyboardShortcut(.return, modifiers: [.command, .shift])
             .disabled(!model.running.isEmpty)
+            .help("Run all cells (⇧⌘↩)")
             Button { model.clearOutputs() } label: {
                 Label("Clear Outputs", systemImage: "eraser")
             }
             Spacer()
+            Text("⌘↩ run cell · ⇧⌘↩ run all").font(.caption2).foregroundStyle(.tertiary)
             if !model.running.isEmpty { ProgressView().controlSize(.small) }
         }
         .padding(.horizontal, 10)
@@ -204,6 +207,13 @@ private struct NotebookCellRow: View {
 
     private var binding: Binding<String> {
         Binding(get: { model.text(of: cell.id) }, set: { model.updateText(cell.id, $0) })
+    }
+
+    /// Grow the code editor with its content (no nested scroll); clamp so a huge
+    /// cell doesn't dominate the notebook.
+    private func codeHeight(_ code: String) -> CGFloat {
+        let lines = max(3, code.components(separatedBy: "\n").count)
+        return CGFloat(min(lines, 30)) * 18 + 16
     }
 
     var body: some View {
@@ -244,9 +254,8 @@ private struct NotebookCellRow: View {
                     }
                     cellMenu
                 }
-                TextEditor(text: binding)
-                    .font(.system(.body, design: .monospaced))
-                    .frame(minHeight: 44)
+                NotebookCodeView(text: binding) { Task { await model.run(cell.id) } }
+                    .frame(height: codeHeight(binding.wrappedValue))
                     .padding(6)
                     .background(RoundedRectangle(cornerRadius: 6).fill(Color.gray.opacity(0.10)))
                 outputView
@@ -283,6 +292,55 @@ private struct NotebookCellRow: View {
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
+    }
+}
+
+/// Monospaced Lua source editor for a code cell that runs the cell from the
+/// keyboard — ⌘↩ or ⇧↩ (Jupyter-style), so notebooks aren't mouse-only.
+/// Backed by an NSTextView (SwiftUI TextEditor can't intercept those keys).
+struct NotebookCodeView: NSViewRepresentable {
+    @Binding var text: String
+    var onRun: () -> Void
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let (scroll, tv) = CodeArea.makeMonospaced(text: text, delegate: context.coordinator) {
+            NotebookCodeTextView()
+        }
+        scroll.hasVerticalScroller = false   // outer notebook ScrollView scrolls
+        (tv as? NotebookCodeTextView)?.onRun = onRun
+        context.coordinator.textView = tv
+        return scroll
+    }
+
+    func updateNSView(_ scroll: NSScrollView, context: Context) {
+        guard let tv = scroll.documentView as? NSTextView else { return }
+        if tv.string != text { tv.string = text }
+        (tv as? NotebookCodeTextView)?.onRun = onRun
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
+
+    final class Coordinator: NSObject, NSTextViewDelegate {
+        let text: Binding<String>
+        weak var textView: NSTextView?
+        init(text: Binding<String>) { self.text = text }
+        func textDidChange(_ notification: Notification) {
+            guard let tv = notification.object as? NSTextView, tv.string != text.wrappedValue else { return }
+            text.wrappedValue = tv.string
+        }
+    }
+}
+
+/// NSTextView that runs its cell on ⌘↩ / ⇧↩ and otherwise behaves normally
+/// (plain Return inserts a newline).
+final class NotebookCodeTextView: NSTextView {
+    var onRun: (() -> Void)?
+    override func keyDown(with event: NSEvent) {
+        if event.keyCode == 36 {   // Return
+            let mods = event.modifierFlags.intersection([.command, .shift, .option, .control])
+            if mods == .command || mods == .shift { onRun?(); return }
+        }
+        super.keyDown(with: event)
     }
 }
 

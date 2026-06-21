@@ -115,6 +115,10 @@ public struct MindoAgentTools {
          #"{"type":"object","properties":{"query":{"type":"string"},"path":{"type":"string"}}}"#),
         ("set_topic_attr", "Set a topic attribute (e.g. fillColor, textColor) on a topic targeted by `path` or `query`. Omit 'value' to clear it.",
          #"{"type":"object","properties":{"query":{"type":"string"},"path":{"type":"string"},"key":{"type":"string"},"value":{"type":"string"}},"required":["key"]}"#),
+        ("find_topics_by_property", "Find topics by a typed user property: `key` is the property name (e.g. priority, done, tags, status, due). Optional `value` filters to that value (for a tags list, matches when the list contains it); omit `value` to find every topic that has the property. Hits are prefixed with [outline-path] and show the value.",
+         #"{"type":"object","properties":{"key":{"type":"string"},"value":{"type":"string"}},"required":["key"]}"#),
+        ("set_topic_property", "Set a typed user property (e.g. priority=3, done=true, status=active, tags=[\"a\",\"b\"]) on a topic targeted by `path` or `query`. The value's type is inferred (number/checkbox/date/JSON list/text). Omit `value` to clear it. Built-in/reserved keys are rejected — use set_topic_attr for those.",
+         #"{"type":"object","properties":{"query":{"type":"string"},"path":{"type":"string"},"key":{"type":"string"},"value":{"type":"string"}},"required":["key"]}"#),
         ("run_lua", "Run a Lua script against the mind map via the `mindo` API; returns its result.",
          #"{"type":"object","properties":{"script":{"type":"string"}},"required":["script"]}"#),
     ]
@@ -125,7 +129,7 @@ public struct MindoAgentTools {
     public static let mapMutatingToolNames: Set<String> = [
         "add_child_topic", "rename_topic", "remove_topic", "set_topic_attr", "run_lua",
         "add_sibling_topic", "move_topic", "build_subtree", "sort_children",
-        "set_topic_note", "link_topics", "set_topic_collapsed",
+        "set_topic_note", "link_topics", "set_topic_collapsed", "set_topic_property",
     ]
 
     /// Execute a tool by name. Unknown tools and bad arguments return an error
@@ -233,6 +237,38 @@ public struct MindoAgentTools {
             t.setAttribute(key, newValue)   // nil value clears
             effects.mapMutated = true
             return "set @\(key)=\(newValue ?? "nil") on \"\(t.text)\""
+
+        case "find_topics_by_property":
+            guard let key = a.str("key") else { return "error: missing 'key'" }
+            guard map.root != nil else { return "(none)" }
+            let wanted = a.str("value")
+            var hits: [String] = []
+            forEachTopic { t in
+                guard let val = t.property(key) else { return }
+                if let wanted {
+                    let matches: Bool
+                    if case .list(let items) = val { matches = items.contains(wanted) }
+                    else { matches = PropertyCodec.encode(val) == wanted || PropertyInference.infer(wanted) == val }
+                    guard matches else { return }
+                }
+                hits.append("[\(t.outlinePath)] \(t.text) — \(key)=\(PropertyCodec.encode(val))")
+            }
+            return hits.isEmpty ? "(none)" : hits.joined(separator: "\n")
+
+        case "set_topic_property":
+            guard let key = a.str("key") else { return "error: missing 'key'" }
+            guard !Topic.isReservedAttributeKey(key) else {
+                return "error: '\(key)' is a built-in/reserved key — use set_topic_attr"
+            }
+            guard let t = resolveTopic(a) else { return "error: no topic matches the given path/query" }
+            if let raw = a.str("value") {
+                t.setProperty(key, PropertyInference.infer(raw))
+                effects.mapMutated = true
+                return "set property \(key)=\(raw) on \"\(t.text)\""
+            }
+            t.setProperty(key, nil)
+            effects.mapMutated = true
+            return "cleared property \(key) on \"\(t.text)\""
 
         case "run_lua":
             guard let script = a.str("script") else { return "error: missing 'script'" }

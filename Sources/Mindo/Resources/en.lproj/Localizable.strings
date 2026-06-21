@@ -294,6 +294,7 @@
 "prefs.editor.csv_font" = "CSV grid font";
 "prefs.editor.section.colors" = "Editor Colors";
 "prefs.editor.customize_colors" = "Customize editor colors";
+"prefs.editor.load_preset" = "Load Preset…";
 "prefs.editor.colors_editing_fmt" = "Editing %@ colors (follows the app appearance)";
 "prefs.editor.colors_reset" = "Reset these colors";
 "prefs.editor.plantuml.dotpath_placeholder" = "Path to dot (Graphviz)";

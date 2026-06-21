@@ -232,6 +232,12 @@ private struct EditorColorPrefs: View {
                 get: { theme.enabled },
                 set: { theme.enabled = $0; EditorThemeStore.save(theme) }
             ))
+            Menu(L("prefs.editor.load_preset")) {
+                ForEach(EditorThemePresets.all) { preset in
+                    Button(preset.name) { theme = preset.theme; EditorThemeStore.save(theme) }
+                }
+            }
+            .fixedSize()
             if theme.enabled {
                 Text(String(format: L("prefs.editor.colors_editing_fmt"),
                             dark ? L("prefs.appearance.dark") : L("prefs.appearance.light")))

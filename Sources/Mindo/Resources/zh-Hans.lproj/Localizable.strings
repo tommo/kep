@@ -291,6 +291,7 @@
 "prefs.editor.csv_font" = "CSV 表格字体";
 "prefs.editor.section.colors" = "编辑器颜色";
 "prefs.editor.customize_colors" = "自定义编辑器颜色";
+"prefs.editor.load_preset" = "载入预设…";
 "prefs.editor.colors_editing_fmt" = "正在编辑%@颜色（跟随应用外观）";
 "prefs.editor.colors_reset" = "重置这些颜色";
 "prefs.editor.plantuml.dotpath_placeholder" = "dot 路径（Graphviz）";

@@ -71,6 +71,9 @@
 "menu.view.theme.light" = "浅色";
 "menu.view.theme.dark" = "深色";
 "menu.view.theme.classic" = "经典";
+"menu.view.theme.custom" = "自定义";
+"prefs.mindmap.section.canvas_colors" = "画布颜色";
+"prefs.mindmap.canvas_colors_hint" = "选择「自定义」思维导图主题以编辑画布颜色。";
 "menu.view.show_sidebar" = "显示边栏";
 "menu.view.hide_sidebar" = "隐藏边栏";
 "menu.view.zoom_in" = "放大";

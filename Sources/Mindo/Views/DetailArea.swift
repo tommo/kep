@@ -1,8 +1,17 @@
 import SwiftUI
+import MindoMindMap
 
 /// Right-hand area: tab strip on top, active editor below.
 struct DetailArea: View {
     @Binding var session: AppSession
+
+    /// The active canvas theme, recomputed when the custom canvas colors change
+    /// (reads `canvasThemeRevision` so Observation re-renders on a custom edit
+    /// even though the ThemeChoice itself is unchanged).
+    private var resolvedCanvasTheme: MindMapTheme {
+        _ = session.canvasThemeRevision
+        return session.theme.theme
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -22,7 +31,7 @@ struct DetailArea: View {
             .frame(height: 32)
             Divider()
             if let doc = session.activeDocument {
-                EditorPane(session: $session, documentID: doc.id, theme: session.theme.theme)
+                EditorPane(session: $session, documentID: doc.id, theme: resolvedCanvasTheme)
                     .id(doc.id)
             } else {
                 ContentUnavailableView(

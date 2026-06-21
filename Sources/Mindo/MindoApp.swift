@@ -266,6 +266,7 @@ struct MindoApp: App {
                     Text(L("menu.view.theme.light")).tag(ThemeChoice.light)
                     Text(L("menu.view.theme.dark")).tag(ThemeChoice.dark)
                     Text(L("menu.view.theme.classic")).tag(ThemeChoice.classic)
+                    Text(L("menu.view.theme.custom")).tag(ThemeChoice.custom)
                 }
                 Divider()
                 Button(session.sidebarVisible ? L("menu.view.hide_sidebar") : L("menu.view.show_sidebar")) {
@@ -395,6 +396,9 @@ final class AppSession {
     var theme: ThemeChoice = ThemeChoice(rawValue:
         UserDefaults.standard.string(forKey: PrefKeys.theme) ?? ""
     ) ?? .light
+    /// Bumped when the custom canvas colors change so the canvas re-renders
+    /// even though the ThemeChoice (.custom) itself is unchanged.
+    var canvasThemeRevision = 0
     var lastError: String?
 
     /// MRU tab tracker — drives ⌃⇥ / ⌃⇧⇥ "next/previous tab" navigation.

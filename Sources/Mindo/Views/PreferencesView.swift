@@ -3,6 +3,7 @@ import SwiftUI
 import MindoBase
 import MindoCore
 import MindoGenAI
+import MindoMindMap
 
 /// Tabbed preferences sheet wired into SwiftUI's Settings scene (⌘,).
 /// Persists via @AppStorage so editors that observe the same keys
@@ -48,6 +49,7 @@ private struct GeneralPrefs: View {
                     Text(L("menu.view.theme.light")).tag(ThemeChoice.light.rawValue)
                     Text(L("menu.view.theme.dark")).tag(ThemeChoice.dark.rawValue)
                     Text(L("menu.view.theme.classic")).tag(ThemeChoice.classic.rawValue)
+                    Text(L("menu.view.theme.custom")).tag(ThemeChoice.custom.rawValue)
                 }
                 Toggle(L("prefs.general.outline_default_open"), isOn: $outlineOpen)
             }
@@ -294,10 +296,73 @@ private struct MindMapPrefs: View {
                 }
                 .disabled(!showGrid)
             }
+            CanvasColorPrefs()
             RestoreDefaultsRow(group: .mindmap)
         }
         .formStyle(.grouped)
         .padding()
+    }
+}
+
+/// Custom mind-map canvas color editor — shown when the active theme is
+/// "Custom". A color well per canvas role; edits persist + bump the canvas
+/// revision so an open canvas restyles live. Reuses the EditorColorPrefs shape.
+private struct CanvasColorPrefs: View {
+    @AppStorage(PrefKeys.theme) private var theme: String = ThemeChoice.light.rawValue
+    @Environment(AppSession.self) private var session
+    @State private var colors = CanvasThemeStore.current
+
+    private struct Role: Identifiable {
+        let id: String
+        let label: String
+        let override: WritableKeyPath<CanvasThemeColors, String?>
+        let base: KeyPath<MindMapTheme, NSColor>
+    }
+    private static let roles: [Role] = [
+        Role(id: "paper", label: "Canvas background", override: \.paper, base: \.paperColor),
+        Role(id: "rootFill", label: "Root fill", override: \.rootFill, base: \.rootFillColor),
+        Role(id: "rootText", label: "Root text", override: \.rootText, base: \.rootTextColor),
+        Role(id: "firstFill", label: "Level-1 fill", override: \.firstFill, base: \.firstLevelFillColor),
+        Role(id: "firstText", label: "Level-1 text", override: \.firstText, base: \.firstLevelTextColor),
+        Role(id: "otherFill", label: "Other fill", override: \.otherFill, base: \.otherLevelFillColor),
+        Role(id: "otherText", label: "Other text", override: \.otherText, base: \.otherLevelTextColor),
+        Role(id: "connector", label: "Connectors", override: \.connector, base: \.connectorColor),
+    ]
+
+    var body: some View {
+        Section(L("prefs.mindmap.section.canvas_colors")) {
+            if theme == ThemeChoice.custom.rawValue {
+                ForEach(Self.roles) { role in
+                    ColorPicker(role.label, selection: binding(for: role), supportsOpacity: false)
+                }
+                Button(L("prefs.editor.colors_reset")) {
+                    colors = CanvasThemeColors()
+                    persist()
+                }
+            } else {
+                Text(L("prefs.mindmap.canvas_colors_hint"))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func persist() {
+        CanvasThemeStore.save(colors)
+        session.canvasThemeRevision &+= 1
+    }
+
+    private func binding(for role: Role) -> Binding<Color> {
+        Binding(
+            get: {
+                let hex = colors[keyPath: role.override]
+                let base = MindMapTheme.light[keyPath: role.base]
+                return Color(nsColor: hex.flatMap(NSColor.init(hexString:)) ?? base)
+            },
+            set: { newColor in
+                colors[keyPath: role.override] = NSColor(newColor).hexString
+                persist()
+            }
+        )
     }
 }
 

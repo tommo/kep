@@ -55,6 +55,7 @@ public enum PrefResetGroup: String, CaseIterable, Sendable {
                 PrefKeys.mindmapSmartTextPaste,
                 PrefKeys.mindmapCornerRadius,
                 PrefKeys.mindmapBorderWidth,
+                PrefKeys.canvasTheme,
             ]
         case .ai:
             return [PrefKeys.aiStreamingEnabled]

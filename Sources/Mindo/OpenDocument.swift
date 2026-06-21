@@ -107,12 +107,13 @@ struct OpenDocument: Identifiable, Hashable {
 /// One of the bundled mindmap themes (Light / Dark / Classic). Persisted as
 /// a `String` so it round-trips through UserDefaults cleanly.
 enum ThemeChoice: String, CaseIterable, Hashable {
-    case light, dark, classic
+    case light, dark, classic, custom
     var theme: MindMapTheme {
         switch self {
         case .light: return .light
         case .dark: return .dark
         case .classic: return .classic
+        case .custom: return .custom
         }
     }
 }

@@ -9,7 +9,7 @@
 "menu.file.new_text" = "新建文本文件";
 "menu.file.open_workspace" = "打开工作区…";
 "menu.file.open_file" = "打开文件…";
-"menu.file.quick_open" = "快速打开…";
+"menu.file.quick_open" = "跳转到文件…";
 "menu.file.command_palette" = "命令面板…";
 "menu.file.goto_node" = "跳转到节点…";
 "switcher.placeholder" = "输入以搜索文件…";

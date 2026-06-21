@@ -184,17 +184,17 @@ struct MindoApp: App {
                 Button(L("menu.file.new_text")) { session.newTextFile() }
                 Divider()
                 Button(L("menu.file.quick_open")) { session.quickSwitcherOpen = true }
-                    .keyboardShortcut("o", modifiers: .command)
+                    .keyboardShortcut("p", modifiers: .command)
                     .disabled(session.workspaceRoots.isEmpty)
                 Button(L("menu.file.command_palette")) { session.commandPaletteOpen = true }
                     .keyboardShortcut("p", modifiers: [.command, .shift])
                 Button(L("menu.file.goto_node")) { session.nodeJumpOpen = true }
-                    .keyboardShortcut("p", modifiers: .command)
+                    .keyboardShortcut("p", modifiers: [.command, .option])
                     .disabled(session.activeFileType != .mindMap)
                 Button(L("menu.file.open_workspace")) { session.openWorkspace() }
                     .keyboardShortcut("o", modifiers: [.command, .shift])
                 Button(L("menu.file.open_file")) { session.openFile() }
-                    .keyboardShortcut("o", modifiers: [.command, .option])
+                    .keyboardShortcut("o", modifiers: .command)
                 Button(L("menu.file.save")) { session.saveActive() }
                     .keyboardShortcut("s", modifiers: .command)
                 Button(L("menu.file.save_as")) { session.saveActiveAs() }

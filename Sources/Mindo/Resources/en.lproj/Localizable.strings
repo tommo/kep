@@ -12,7 +12,7 @@
 "menu.file.new_text" = "New Text File";
 "menu.file.open_workspace" = "Open Workspace…";
 "menu.file.open_file" = "Open File…";
-"menu.file.quick_open" = "Quick Open…";
+"menu.file.quick_open" = "Go to File…";
 "menu.file.command_palette" = "Command Palette…";
 "menu.file.goto_node" = "Go to Node…";
 "switcher.placeholder" = "Type to search files…";

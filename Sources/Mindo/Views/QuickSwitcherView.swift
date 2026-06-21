@@ -1,8 +1,9 @@
 import SwiftUI
 import MindoCore
 
-/// Obsidian-style ⌘O quick switcher: type a few characters, fuzzy-match
-/// against every file in the open workspaces, Return to open. Arrow keys
+/// Obsidian / VS Code-style ⌘P "Go to File" quick switcher: type a few
+/// characters, fuzzy-match against every file in the open workspaces, Return
+/// to open. Arrow keys
 /// move the highlight; Esc dismisses. Deliberately chrome-light (no window
 /// title bar, no toolbar) so it reads like Obsidian's command modal rather
 /// than a native macOS open panel.

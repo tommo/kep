@@ -268,6 +268,7 @@
 "prefs.mindmap.drop_shadow" = "Drop shadow under topics";
 "prefs.mindmap.unfold_on_drop" = "Unfold collapsed topic when something is dropped on it";
 "prefs.mindmap.smart_text_paste" = "Paste plain text as topic outline";
+"prefs.mindmap.highlight_path" = "Highlight route to the selected node";
 "prefs.mindmap.grid_step" = "Grid spacing: %d pt";
 "prefs.editor.section.preview" = "Markdown preview fonts";
 "prefs.editor.preview_font" = "Body font";

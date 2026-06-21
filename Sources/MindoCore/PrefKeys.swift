@@ -19,6 +19,8 @@ public enum PrefKeys {
     /// CSV grid cell font (family empty = system; size clamped 9…16).
     public static let csvFontFamily = "mindo.prefs.csvFontFamily"
     public static let csvFontSize = "mindo.prefs.csvFontSize"
+    /// Highlight the connector route from the root to the selected mind-map node.
+    public static let mindmapHighlightPath = "mindo.prefs.mindmapHighlightPath"
     public static let outlineOpenByDefault = "mindo.prefs.outlineOpenByDefault"
     public static let editorFontSize = "mindo.prefs.editorFontSize"
     /// Show dotfiles + hidden directories in the workspace sidebar.

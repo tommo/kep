@@ -317,8 +317,14 @@ extension MindMapView {
             ctx.addLine(to: CGPoint(x: midX, y: pEnd.y))
             ctx.addLine(to: pEnd)
         }
-        ctx.setStrokeColor(theme.connectorColor.cgColor)
-        ctx.setLineWidth(width)
+        // Accent the connector when it's on the route to the selected node.
+        if !highlightedPathIDs.isEmpty, highlightedPathIDs.contains(ObjectIdentifier(child.topic)) {
+            ctx.setStrokeColor(theme.selectionColor.cgColor)
+            ctx.setLineWidth(width * 2)
+        } else {
+            ctx.setStrokeColor(theme.connectorColor.cgColor)
+            ctx.setLineWidth(width)
+        }
         ctx.strokePath()
     }
 }

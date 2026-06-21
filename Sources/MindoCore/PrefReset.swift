@@ -58,6 +58,7 @@ public enum PrefResetGroup: String, CaseIterable, Sendable {
                 PrefKeys.mindmapCornerRadius,
                 PrefKeys.mindmapBorderWidth,
                 PrefKeys.canvasTheme,
+                PrefKeys.mindmapHighlightPath,
             ]
         case .ai:
             return [PrefKeys.aiStreamingEnabled]

@@ -260,6 +260,7 @@ private struct MindMapPrefs: View {
     @AppStorage(PrefKeys.mindmapSmartTextPaste) private var smartTextPaste: Bool = true
     @AppStorage(PrefKeys.mindmapCornerRadius) private var cornerRadius: Double = 0
     @AppStorage(PrefKeys.mindmapBorderWidth) private var borderWidth: Double = 0
+    @AppStorage(PrefKeys.mindmapHighlightPath) private var highlightPath: Bool = false
 
     var body: some View {
         Form {
@@ -302,6 +303,7 @@ private struct MindMapPrefs: View {
                 Toggle(L("prefs.mindmap.drop_shadow"), isOn: $dropShadow)
                 Toggle(L("prefs.mindmap.unfold_on_drop"), isOn: $unfoldOnDrop)
                 Toggle(L("prefs.mindmap.smart_text_paste"), isOn: $smartTextPaste)
+                Toggle(L("prefs.mindmap.highlight_path"), isOn: $highlightPath)
             }
             Section(L("prefs.mindmap.section.grid")) {
                 Toggle(L("prefs.mindmap.show_grid"), isOn: $showGrid)

@@ -24,6 +24,10 @@ public final class MindMapView: NSView {
     /// Delete operate on.
     public internal(set) var selectedTopics: Set<ObjectIdentifier> = []
 
+    /// Topics on the root→selected route, recomputed per draw when the
+    /// "highlight path" pref is on. Read by `drawConnector` to accent the route.
+    var highlightedPathIDs: Set<ObjectIdentifier> = []
+
     /// Optional injected undo manager. When set, takes precedence over the
     /// responder-chain default (`super.undoManager`). Useful for tests and for
     /// callers that want a per-document undo stack.
@@ -566,6 +570,15 @@ public final class MindMapView: NSView {
         }
 
         guard let root = rootElement else { return }
+
+        // Optional: route from the root to the selected node, so the focused
+        // node's lineage stands out. PrefKey-gated (defaults off).
+        if PrefKeys.bool(PrefKeys.mindmapHighlightPath, fallback: false),
+           let sel = selectedElement {
+            highlightedPathIDs = Set(sel.topic.ancestorsToRoot.map(ObjectIdentifier.init))
+        } else {
+            highlightedPathIDs = []
+        }
 
         // Connectors first (under the rectangles).
         ctx.setStrokeColor(theme.connectorColor.cgColor)

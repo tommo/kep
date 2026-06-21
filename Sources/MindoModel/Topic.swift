@@ -149,6 +149,15 @@ public final class Topic {
         return comps.reversed().joined(separator: "/")
     }
 
+    /// This topic and its ancestors up to the root — the route from `self` to
+    /// the root (self first, root last).
+    public var ancestorsToRoot: [Topic] {
+        var chain: [Topic] = []
+        var node: Topic? = self
+        while let n = node { chain.append(n); node = n.parent }
+        return chain
+    }
+
     /// True if `self` is `ancestor` itself or anywhere in its subtree (i.e.
     /// `ancestor` is on the path from `self` up to the root).
     public func isDescendant(of ancestor: Topic) -> Bool {

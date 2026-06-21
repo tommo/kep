@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import AppKit
 
 /// Modal sheet that lets the user enter a prompt, watch the response stream in,
 /// and insert it into the calling editor. The host passes a closure that knows
@@ -229,6 +230,12 @@ public struct AIGeneratePane: View {
                 Button("Stop") { cancel() }
             }
             Spacer()
+            Button("Copy", systemImage: "doc.on.doc") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(output, forType: .string)
+            }
+            .disabled(output.isEmpty || isRunning)
+            .help("Copy the result to the clipboard")
             Button("Discard") { dismiss() }
                 .keyboardShortcut(.cancelAction) // Esc
             Button("Insert") {

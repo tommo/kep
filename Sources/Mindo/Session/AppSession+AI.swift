@@ -27,17 +27,34 @@ extension AppSession {
         case .input:
             aiSupportedModes = modesForKind
             aiDefaultPrompt = defaultInputPrompt(for: doc)
+            aiSourceText = ""
         case .summarize:
             // Summary writes alongside the source — append for text docs,
-            // childTopic for mindmaps.
+            // childTopic for mindmaps. The whole document is fed as the source
+            // text so "Summarize" actually has something to summarize (javamind
+            // AiSummaryPane parity #220) — previously no source was passed.
             aiSupportedModes = doc.isMindMap ? [.childTopic] : [.append]
-            aiDefaultPrompt = "Summarize the selected text in three concise bullet points."
+            aiDefaultPrompt = "Summarize the following document in three concise bullet points."
+            aiSourceText = activeDocumentPlainText()
         case .reframe:
             // Reframe rewrites the selection in place.
             aiSupportedModes = doc.isMindMap ? [.childTopic] : [.replace]
             aiDefaultPrompt = "Rewrite the selected text more clearly and concisely."
+            aiSourceText = ""
         }
         aiGenerateOpen = true
+    }
+
+    /// Plain-text rendering of the active document, used as the source text for
+    /// the Summarize intent. Text docs return their body; a mind map returns its
+    /// indented outline (PlainTextExporter).
+    func activeDocumentPlainText() -> String {
+        guard let doc = activeDocument else { return "" }
+        switch doc.kind {
+        case .text(let body, _): return body
+        case .mindMap(let map):  return PlainTextExporter.export(map)
+        case .unsupported:       return ""
+        }
     }
 
     private func defaultInputPrompt(for doc: OpenDocument) -> String {

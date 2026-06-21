@@ -99,6 +99,7 @@ struct MindoApp: App {
                 .sheet(isPresented: $session.aiGenerateOpen) {
                     AIGeneratePane(
                         context: AIGeneratePane.Context(
+                            selectedText: session.aiSourceText,
                             supportedModes: session.aiSupportedModes,
                             defaultPrompt: session.aiDefaultPrompt
                         )
@@ -471,6 +472,9 @@ final class AppSession {
     @ObservationIgnored var regionFocusMonitor: Any?
     var aiSupportedModes: [AIGeneratePane.InsertionMode] = [.append]
     var aiDefaultPrompt: String = ""
+    /// Source text fed to the AI generate sheet as context (e.g. the whole
+    /// document for the Summarize intent). Empty = no source context.
+    var aiSourceText: String = ""
 
     /// Whether the right-hand outline inspector is showing. Seeded from
     /// PrefKeys so the user's "show outline by default" choice sticks.

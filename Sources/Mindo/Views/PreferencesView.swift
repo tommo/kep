@@ -317,6 +317,17 @@ private struct MindMapPrefs: View {
         }
         .formStyle(.grouped)
         .padding()
+        // Re-apply to open canvases the moment any rendering-affecting pref
+        // changes (otherwise the change only showed on the next interaction).
+        .onChange(of: renderSignature) { _, _ in
+            NotificationCenter.default.post(name: .mindmapSettingsChanged, object: nil)
+        }
+    }
+
+    /// Combined value of every pref that affects how the canvas draws/lays out;
+    /// a change to any of them fires the single onChange above.
+    private var renderSignature: String {
+        "\(verticalGap)|\(horizontalGap)|\(connectorStyle)|\(connectorWidth)|\(inheritFillColor)|\(trimTopicText)|\(showGrid)|\(gridStep)|\(dropShadow)|\(cornerRadius)|\(borderWidth)|\(highlightPath)"
     }
 }
 

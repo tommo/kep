@@ -2,6 +2,12 @@ import AppKit
 import MindoCore
 import MindoModel
 
+public extension Notification.Name {
+    /// Posted when a mind-map preference changes so open canvases re-apply it
+    /// live (Preferences pane → canvas). Scoped, unlike UserDefaults.didChange.
+    static let mindmapSettingsChanged = Notification.Name("mindo.mindmapSettingsChanged")
+}
+
 /// AppKit canvas that renders a mind map and handles mouse + keyboard editing.
 /// Mirrors a small slice of `mindmap-panel`'s `MindMapPanel`/`MindMapViewSkin`.
 public final class MindMapView: NSView {
@@ -363,11 +369,24 @@ public final class MindMapView: NSView {
             self, selector: #selector(clipBoundsDidChange(_:)),
             name: NSView.boundsDidChangeNotification, object: scroll.contentView
         )
+        // Re-apply gap/connector/grid/highlight/etc. prefs live when the user
+        // changes them in Preferences (scoped notification — NOT the global
+        // UserDefaults change, which also fires on every pan via view-state).
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(mindmapSettingsChanged),
+            name: .mindmapSettingsChanged, object: nil
+        )
+    }
+
+    @objc private func mindmapSettingsChanged() {
+        relayout()          // re-reads layout prefs (gaps) and redraws
+        needsDisplay = true // covers draw-only prefs (highlight path, grid, shadow)
     }
 
     private func removeClipResizeWatcher() {
         NotificationCenter.default.removeObserver(self, name: NSView.frameDidChangeNotification, object: nil)
         NotificationCenter.default.removeObserver(self, name: NSView.boundsDidChangeNotification, object: nil)
+        NotificationCenter.default.removeObserver(self, name: .mindmapSettingsChanged, object: nil)
     }
 
     private var persistDebounce: DispatchWorkItem?

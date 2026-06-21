@@ -33,20 +33,6 @@ public enum CanvasScroll {
         let maxY = content.maxY - keepY
         return CGPoint(x: clamp(proposed.x, minX, maxX), y: clamp(proposed.y, minY, maxY))
     }
-
-    /// Convert a `scrollWheel` event's deltas into a pan vector in points.
-    /// Trackpad / Magic-Mouse events carry precise deltas already in points;
-    /// classic mouse wheels report coarse "line" deltas (small integers) that
-    /// must be scaled up to feel like panning. Pure → unit-testable.
-    public static func panVector(
-        scrollingDeltaX: CGFloat, scrollingDeltaY: CGFloat, hasPreciseDeltas: Bool
-    ) -> CGVector {
-        let scale: CGFloat = hasPreciseDeltas ? 1 : Self.lineScrollPoints
-        return CGVector(dx: scrollingDeltaX * scale, dy: scrollingDeltaY * scale)
-    }
-
-    /// Points panned per line for a non-precise (classic) scroll wheel notch.
-    public static let lineScrollPoints: CGFloat = 24
 }
 
 /// NSClipView that pans freely a screenful beyond the content instead of

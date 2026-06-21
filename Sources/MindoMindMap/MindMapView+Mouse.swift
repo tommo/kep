@@ -756,10 +756,17 @@ extension MindMapView {
 
     /// Scroll-wheel / trackpad behaviour on the canvas:
     ///   • ⌘ + scroll → zoom, centered on the cursor.
-    ///   • bare scroll → **pan** the canvas (translate the clip origin), the
-    ///     same grab-the-canvas feel as drag-to-pan. We drive the clip
-    ///     directly instead of letting NSScrollView scroll so there's no
-    ///     rubber-band / overlay-scrollbar "scroll view" UX — just panning.
+    ///   • bare scroll → pan, handled by **NSScrollView natively** (super).
+    ///
+    /// History: a hand-rolled pan that drove the clip origin directly fought
+    /// NSScrollView's own scroll machinery (which the trackpad gesture also
+    /// drives) and produced the "locked / bounced back at the top-left corner"
+    /// bug — my scroll(to:) and NSScrollView's clamp undoing each other every
+    /// event. Letting NSScrollView be the single, canonical scroller (with
+    /// elasticity off, so it clamps cleanly without rubber-banding) removes the
+    /// fight entirely. CanvasClipView.constrainBoundsRect still supplies the
+    /// free-pan bounds, which native scrolling honours. Drag-to-pan (mouseDragged)
+    /// is unchanged.
     public override func scrollWheel(with event: NSEvent) {
         guard let scroll = enclosingScrollView else {
             super.scrollWheel(with: event)
@@ -775,44 +782,7 @@ extension MindMapView {
             scroll.setMagnification(target, centeredAt: center)
             return
         }
-        // Ignore the inertial MOMENTUM tail (events after the fingers lift). A
-        // flick toward an edge otherwise keeps coasting into the corner and
-        // pins there for the length of the inertia — which reads as "scroll
-        // locked at the top-left corner". Pan only while actively scrolling.
-        if !event.momentumPhase.isEmpty { return }
-        // PAN by driving the clip's bounds origin directly — do NOT defer to
-        // NSScrollView. When the map fits the viewport the documentView frame
-        // equals the clip, so NSScrollView concludes there's "nothing to
-        // scroll" and silently drops the wheel event — the long-standing
-        // "trackpad two-finger pan does nothing" bug. Drag-pan never hit it
-        // because it drives the clip directly via constrainBoundsRect; this
-        // makes scroll-pan do exactly the same, so it works at any content size.
-        let pan = CanvasScroll.panVector(
-            scrollingDeltaX: event.scrollingDeltaX,
-            scrollingDeltaY: event.scrollingDeltaY,
-            hasPreciseDeltas: event.hasPreciseScrollingDeltas)
-        guard pan.dx != 0 || pan.dy != 0 else { return }
-        // Drive the clip directly (any NSClipView; the production CanvasClipView
-        // supplies the free-pan bounds via constrainBoundsRect). Flipped clip,
-        // grab-the-canvas convention (matches CanvasClipView's mouseDragged):
-        // content follows the fingers, so the origin moves opposite the delta.
-        let clip = scroll.contentView
-        let proposed = NSPoint(x: clip.bounds.origin.x - pan.dx,
-                               y: clip.bounds.origin.y - pan.dy)
-        // Clamp to the DOCUMENT frame [0, docMax] — NOT the free-pan margin.
-        // A trackpad scroll gesture also drives NSScrollView's own live-scroll,
-        // which clamps to the document; pushing our origin OUTSIDE the document
-        // (the free-pan overscroll region, e.g. the top-left margin) makes the
-        // two fight and pins the corner — the "scroll locked at top-left" bug.
-        // Staying inside [0, docMax], where NSScrollView agrees, is smooth and
-        // never locks. (Drag-pan keeps the free-pan overscroll: it's a mouse
-        // drag, so it never engages NSScrollView's scroll machinery.)
-        let maxX = max(0, frame.width - clip.bounds.width)
-        let maxY = max(0, frame.height - clip.bounds.height)
-        let origin = NSPoint(x: min(max(proposed.x, 0), maxX),
-                             y: min(max(proposed.y, 0), maxY))
-        clip.scroll(to: origin)
-        scroll.reflectScrolledClipView(clip)
+        super.scrollWheel(with: event)
     }
 
 

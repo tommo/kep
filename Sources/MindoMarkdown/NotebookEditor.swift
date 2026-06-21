@@ -199,6 +199,8 @@ public struct NotebookEditor: View {
 private struct NotebookCellRow: View {
     @ObservedObject var model: NotebookModel
     let cell: NotebookCell
+    @State private var editingProse = false
+    @FocusState private var proseFocused: Bool
 
     private var binding: Binding<String> {
         Binding(get: { model.text(of: cell.id) }, set: { model.updateText(cell.id, $0) })
@@ -209,10 +211,20 @@ private struct NotebookCellRow: View {
         case .prose:
             HStack(alignment: .top, spacing: 6) {
                 Image(systemName: "text.alignleft").foregroundStyle(.secondary).font(.caption).padding(.top, 6)
-                TextEditor(text: binding)
-                    .font(.body)
-                    .frame(minHeight: 40)
-                    .scrollContentBackground(.hidden)
+                if editingProse {
+                    TextEditor(text: binding)
+                        .font(.body)
+                        .frame(minHeight: 40)
+                        .scrollContentBackground(.hidden)
+                        .focused($proseFocused)
+                        .onAppear { proseFocused = true }
+                        .onChange(of: proseFocused) { _, focused in if !focused { editingProse = false } }
+                } else {
+                    ProseRenderedView(markdown: model.text(of: cell.id))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                        .onTapGesture { editingProse = true }
+                }
                 cellMenu
             }
         case .code:
@@ -271,5 +283,56 @@ private struct NotebookCellRow: View {
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
+    }
+}
+
+/// Read view for a prose cell: renders markdown line-by-line (headings, bullets,
+/// inline emphasis) without a WKWebView. Click to switch to editing.
+private struct ProseRenderedView: View {
+    let markdown: String
+
+    var body: some View {
+        let lines = ProseMarkdown.lines(markdown)
+        if lines.allSatisfy({ $0 == .blank }) {
+            Text("Empty — click to write…").foregroundStyle(.tertiary).italic()
+        } else {
+            VStack(alignment: .leading, spacing: 3) {
+                ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
+                    lineView(line)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private func lineView(_ line: ProseLine) -> some View {
+        switch line {
+        case .blank:
+            Spacer().frame(height: 4)
+        case .heading(let level, let text):
+            inline(text).font(headingFont(level)).bold()
+        case .bullet(let text):
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text("•").foregroundStyle(.secondary)
+                inline(text)
+            }
+        case .text(let text):
+            inline(text)
+        }
+    }
+
+    /// Inline markdown (bold/italic/code/links) via AttributedString; falls back
+    /// to plain text if it can't parse.
+    private func inline(_ s: String) -> Text {
+        if let attr = try? AttributedString(markdown: s) { return Text(attr) }
+        return Text(s)
+    }
+
+    private func headingFont(_ level: Int) -> Font {
+        switch level {
+        case 1: return .title
+        case 2: return .title2
+        case 3: return .title3
+        default: return .headline
+        }
     }
 }

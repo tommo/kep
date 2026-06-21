@@ -79,6 +79,10 @@
 "prefs.mindmap.section.canvas_colors" = "Canvas Colors";
 "prefs.mindmap.canvas_colors_hint" = "Select the Custom mind-map theme to edit canvas colors.";
 "menu.view.show_sidebar" = "Show Sidebar";
+"menu.view.focus_tree" = "Focus Workspace Tree";
+"menu.view.focus_document" = "Focus Document";
+"menu.view.focus_inspector" = "Focus Inspector";
+"menu.view.focus_agent" = "Focus Agent";
 "menu.view.hide_sidebar" = "Hide Sidebar";
 "menu.view.zoom_in" = "Zoom In";
 "menu.view.zoom_out" = "Zoom Out";

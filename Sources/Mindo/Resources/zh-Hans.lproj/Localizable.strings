@@ -76,6 +76,10 @@
 "prefs.mindmap.section.canvas_colors" = "画布颜色";
 "prefs.mindmap.canvas_colors_hint" = "选择「自定义」思维导图主题以编辑画布颜色。";
 "menu.view.show_sidebar" = "显示边栏";
+"menu.view.focus_tree" = "聚焦工作区树";
+"menu.view.focus_document" = "聚焦文档";
+"menu.view.focus_inspector" = "聚焦检查器";
+"menu.view.focus_agent" = "聚焦智能体";
 "menu.view.hide_sidebar" = "隐藏边栏";
 "menu.view.zoom_in" = "放大";
 "menu.view.zoom_out" = "缩小";

@@ -58,6 +58,41 @@ extension AppSession {
         }
     }
 
+    /// The window's main regions, for keyboard focus switching (⌘1/2/3, ⌘\).
+    enum FocusRegion { case sidebar, document, inspector, agent }
+
+    /// Move keyboard focus to a region (revealing it first if collapsed). The
+    /// keyboard-only navigation backbone — see [[feedback_keyboard_only_ux]].
+    @MainActor func focusRegion(_ region: FocusRegion) {
+        switch region {
+        case .sidebar:
+            sidebarVisible = true
+            focusAfterReveal { win, content in
+                if let outline = content.firstSubview(ofType: NSOutlineView.self, where: { _ in true }) {
+                    win.makeFirstResponder(outline)
+                }
+            }
+        case .document:
+            focusAfterReveal { _, _ in self.focusActiveEditor() }
+        case .inspector:
+            outlineOpen = true
+            inspectorTab = .inspector
+            // Inspector content (Outline list) takes ↑↓ once shown.
+        case .agent:
+            outlineOpen = true
+            inspectorTab = .agent   // DialogView auto-focuses its input on appear
+        }
+    }
+
+    /// Run `body` on the next runloop turns so a just-revealed column/panel has
+    /// been laid out before we hunt for its view to focus.
+    @MainActor private func focusAfterReveal(_ body: @escaping (NSWindow, NSView) -> Void) {
+        DispatchQueue.main.async {
+            guard let win = NSApp.keyWindow ?? NSApp.mainWindow, let content = win.contentView else { return }
+            body(win, content)
+        }
+    }
+
     /// Write the selected node's markdown content (its Note). Empty clears it.
     /// The note BADGE only changes when content appears/disappears, so we only
     /// rebuild the canvas then — typing into existing content just updates the

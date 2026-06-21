@@ -299,6 +299,15 @@ struct MindoApp: App {
                 }
                 .keyboardShortcut("s", modifiers: [.control, .command])
                 Divider()
+                Button(L("menu.view.focus_tree")) { session.focusRegion(.sidebar) }
+                    .keyboardShortcut("1", modifiers: .command)
+                Button(L("menu.view.focus_document")) { session.focusRegion(.document) }
+                    .keyboardShortcut("2", modifiers: .command)
+                Button(L("menu.view.focus_inspector")) { session.focusRegion(.inspector) }
+                    .keyboardShortcut("3", modifiers: .command)
+                Button(L("menu.view.focus_agent")) { session.focusRegion(.agent) }
+                    .keyboardShortcut("\\", modifiers: .command)
+                Divider()
                 Button(L("menu.view.zoom_in")) { session.zoomCommand = .in; session.zoomCommandTick &+= 1 }
                     .keyboardShortcut("=", modifiers: .command)
                 Button(L("menu.view.zoom_out")) { session.zoomCommand = .out; session.zoomCommandTick &+= 1 }

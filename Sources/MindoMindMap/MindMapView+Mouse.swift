@@ -754,35 +754,17 @@ extension MindMapView {
 
     // MARK: - Mouse-wheel zoom
 
-    /// Scroll-wheel / trackpad behaviour on the canvas:
-    ///   • ⌘ + scroll → zoom, centered on the cursor.
-    ///   • bare scroll → pan, handled by **NSScrollView natively** (super).
-    ///
-    /// History: a hand-rolled pan that drove the clip origin directly fought
-    /// NSScrollView's own scroll machinery (which the trackpad gesture also
-    /// drives) and produced the "locked / bounced back at the top-left corner"
-    /// bug — my scroll(to:) and NSScrollView's clamp undoing each other every
-    /// event. Letting NSScrollView be the single, canonical scroller (with
-    /// elasticity off, so it clamps cleanly without rubber-banding) removes the
-    /// fight entirely. CanvasClipView.constrainBoundsRect still supplies the
-    /// free-pan bounds, which native scrolling honours. Drag-to-pan (mouseDragged)
-    /// is unchanged.
+    /// Scroll-wheel / trackpad PAN + ⌘-zoom live on `CanvasScrollView` (the
+    /// NSScrollView subclass), which drives a MANUAL pan and REPLACES native
+    /// scrolling (native fought our free-pan and locked/bounced the top-left
+    /// corner). The document view just forwards its wheel event up to that
+    /// scroll view. Drag-to-pan (mouseDragged) stays here, unchanged.
     public override func scrollWheel(with event: NSEvent) {
-        guard let scroll = enclosingScrollView else {
+        if let scroll = enclosingScrollView {
+            scroll.scrollWheel(with: event)
+        } else {
             super.scrollWheel(with: event)
-            return
         }
-        if event.modifierFlags.contains(.command) {
-            let factor = Self.scrollZoomFactor(delta: event.scrollingDeltaY)
-            guard factor != 1 else { return }
-            let target = Self.clampedZoom(
-                current: scroll.magnification, factor: factor,
-                min: scroll.minMagnification, max: scroll.maxMagnification)
-            let center = convert(event.locationInWindow, from: nil)
-            scroll.setMagnification(target, centeredAt: center)
-            return
-        }
-        super.scrollWheel(with: event)
     }
 
 

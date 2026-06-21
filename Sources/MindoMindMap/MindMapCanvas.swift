@@ -56,7 +56,7 @@ public struct MindMapCanvas: NSViewRepresentable {
     public func makeNSView(context: Context) -> NSView {
         let container = NSView()
 
-        let scroll = NSScrollView()
+        let scroll = CanvasScrollView()
         // Free-canvas clip view: panning runs a screenful past the content
         // instead of clamping to the document, so the canvas feels grabbed and
         // moved rather than scrolled like a page.

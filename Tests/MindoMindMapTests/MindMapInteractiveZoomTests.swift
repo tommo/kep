@@ -26,7 +26,8 @@ final class MindMapInteractiveZoomTests: XCTestCase {
         let map = MindMap()
         let root = Topic(text: "Root"); map.root = root
         for i in 0..<6 { root.addChild(text: "Child \(i)").setAttribute(TopicAttribute.leftSide, "false") }
-        let scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: 500, height: 400))
+        let scroll = CanvasScrollView(frame: NSRect(x: 0, y: 0, width: 500, height: 400))
+        scroll.contentView = CanvasClipView()
         scroll.allowsMagnification = true
         scroll.minMagnification = 0.25
         scroll.maxMagnification = 3.0

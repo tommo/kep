@@ -96,3 +96,38 @@ final class CanvasClipView: NSClipView {
         return NSRect(origin: origin, size: proposedBounds.size)
     }
 }
+
+/// Scroll view that REPLACES NSScrollView's native scrolling with a MANUAL pan.
+/// Native scroll (and its concurrent "responsive scrolling" path) fought our
+/// free-pan and locked/bounced the clip at the top-left corner — overriding
+/// `scrollWheel` and never calling super makes manual pan the SOLE driver and
+/// also opts the scroll view out of responsive scrolling. The document view no
+/// longer overrides scrollWheel, so the wheel event bubbles up to here.
+final class CanvasScrollView: NSScrollView {
+    override func scrollWheel(with event: NSEvent) {
+        guard let clip = contentView as? CanvasClipView else {
+            super.scrollWheel(with: event); return
+        }
+        // ⌘ + scroll → zoom, centered on the cursor.
+        if event.modifierFlags.contains(.command), let doc = documentView as? MindMapView {
+            let factor = MindMapView.scrollZoomFactor(delta: event.scrollingDeltaY)
+            guard factor != 1 else { return }
+            let target = MindMapView.clampedZoom(
+                current: magnification, factor: factor,
+                min: minMagnification, max: maxMagnification)
+            setMagnification(target, centeredAt: doc.convert(event.locationInWindow, from: nil))
+            return
+        }
+        // Manual pan: drive the clip origin via its free-pan constraint. Precise
+        // (trackpad) deltas are points; classic wheel "line" deltas are scaled.
+        // Flipped clip, grab-the-canvas convention (matches mouseDragged):
+        // content follows the fingers → origin moves opposite the delta.
+        let scale: CGFloat = event.hasPreciseScrollingDeltas ? 1 : 24
+        let dx = event.scrollingDeltaX * scale
+        let dy = event.scrollingDeltaY * scale
+        guard dx != 0 || dy != 0 else { return }
+        let proposed = NSPoint(x: clip.bounds.origin.x - dx, y: clip.bounds.origin.y - dy)
+        clip.scroll(to: clip.constrainBoundsRect(NSRect(origin: proposed, size: clip.bounds.size)).origin)
+        reflectScrolledClipView(clip)
+    }
+}

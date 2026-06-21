@@ -24,7 +24,7 @@ final class MindMapInteractiveScrollPanTests: XCTestCase {
             let size = NSSize(width: 240, height: 180)
             window = NSWindow(contentRect: NSRect(origin: .zero, size: size),
                               styleMask: [.titled], backing: .buffered, defer: false)
-            scroll = NSScrollView(frame: NSRect(origin: .zero, size: size))
+            scroll = CanvasScrollView(frame: NSRect(origin: .zero, size: size))
             scroll.contentView = CanvasClipView()   // the real free-canvas clip view
             scroll.hasHorizontalScroller = false
             scroll.hasVerticalScroller = false
@@ -172,16 +172,15 @@ final class MindMapInteractiveScrollPanTests: XCTestCase {
         XCTAssertEqual(h.origin.y, yBefore, accuracy: 0.5, "and leaves the vertical offset alone")
     }
 
-    /// When the map FITS the viewport (documentView frame == clip) scroll-pan is
-    /// intentionally a bounded no-op — there's nothing off-screen to reveal, and
-    /// clamping scroll-pan to the document frame [0, docMax] is exactly what
-    /// avoids fighting NSScrollView's own clamp (the top-left corner lock). The
-    /// canvas must stay put and NOT crash; the whole map is already visible.
-    func testScrollWhenContentFitsViewportIsASafeNoOp() throws {
+    /// A map that FITS the viewport still scroll-pans (free-canvas grab feel):
+    /// manual pan drives the clip via constrainBoundsRect, so the canvas moves,
+    /// and — critically — you can pan BACK out (no top-left lock/bounce, because
+    /// CanvasScrollView replaces native scrolling so nothing fights it).
+    func testScrollPansAndRecoversWhenContentFitsViewport() throws {
         let size = NSSize(width: 480, height: 360)
         let window = NSWindow(contentRect: NSRect(origin: .zero, size: size),
                               styleMask: [.titled], backing: .buffered, defer: false)
-        let scroll = NSScrollView(frame: NSRect(origin: .zero, size: size))
+        let scroll = CanvasScrollView(frame: NSRect(origin: .zero, size: size))
         scroll.contentView = CanvasClipView()
         scroll.hasHorizontalScroller = false
         scroll.hasVerticalScroller = false
@@ -206,15 +205,19 @@ final class MindMapInteractiveScrollPanTests: XCTestCase {
         XCTAssertLessThanOrEqual(view.contentBounds.width, scroll.documentVisibleRect.width)
         XCTAssertLessThanOrEqual(view.contentBounds.height, scroll.documentVisibleRect.height)
 
-        let before = scroll.documentVisibleRect.origin
-        // Synthesize a real precise (trackpad) scroll and dispatch it, hard,
-        // toward the top-left — must not move (bounded) and must not crash/lock.
-        for _ in 0..<5 {
+        func wheel(_ dx: Int32, _ dy: Int32) {
             let cg = CGEvent(scrollWheelEvent2Source: nil, units: .pixel,
-                             wheelCount: 2, wheel1: 60, wheel2: 60, wheel3: 0)!
+                             wheelCount: 2, wheel1: dy, wheel2: dx, wheel3: 0)!
             view.scrollWheel(with: NSEvent(cgEvent: cg)!)
         }
-        let after = scroll.documentVisibleRect.origin
-        XCTAssertEqual(after, before, "content fits the viewport → scroll-pan stays put (no lock, no jump)")
+        let before = scroll.contentView.bounds.origin
+        // Pan hard toward the top-left corner — the canvas moves (free-pan).
+        for _ in 0..<6 { wheel(60, 60) }
+        let corner = scroll.contentView.bounds.origin
+        XCTAssertNotEqual(corner, before, "a map that fits the viewport still scroll-pans")
+        // Pan back out — must recover (no lock/bounce at the corner).
+        for _ in 0..<6 { wheel(-60, -60) }
+        XCTAssertNotEqual(scroll.contentView.bounds.origin, corner,
+                          "can pan back out of the corner — no lock")
     }
 }

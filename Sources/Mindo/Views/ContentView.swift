@@ -43,15 +43,19 @@ struct ContentView: View {
         Binding(get: { session.outlineOpen }, set: { session.outlineOpen = $0 })
     }
 
-    /// Accent border on the region that currently holds keyboard focus, so it's
-    /// always visible which region is active (⌘1/2/3/⌘\). The agent view lives
-    /// in the inspector, so it lights the inspector too.
+    /// A thin accent bar along the TOP edge of the region that holds keyboard
+    /// focus (⌘1/2/3/⌘\) — shows focus without boxing in / dimming the content
+    /// you're editing. The agent view lives in the inspector, so it lights it too.
     @ViewBuilder private func regionRing(_ region: AppSession.FocusRegion) -> some View {
         let active = session.activeRegion == region
             || (region == .inspector && session.activeRegion == .agent)
-        RoundedRectangle(cornerRadius: 6)
-            .strokeBorder(active ? Color.accentColor : Color.clear, lineWidth: 2)
-            .allowsHitTesting(false)
+        VStack(spacing: 0) {
+            Rectangle()
+                .fill(active ? Color.accentColor : Color.clear)
+                .frame(height: 2)
+            Spacer(minLength: 0)
+        }
+        .allowsHitTesting(false)
     }
 
     var body: some View {

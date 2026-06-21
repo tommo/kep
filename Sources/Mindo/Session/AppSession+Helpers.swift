@@ -216,11 +216,18 @@ extension AppSession {
         }
     }
 
+    /// Well-known keys that render a canvas marker — editing one must relayout
+    /// the canvas so the marker strip appears/updates.
+    private var markerKeys: Set<String> {
+        [PropertyMarkers.priorityKey, PropertyMarkers.doneKey, PropertyMarkers.tagsKey]
+    }
+
     /// Set or clear (nil) a typed property on the selected node.
     @MainActor func setSelectedNodeProperty(_ key: String, _ value: PropertyValue?) {
         guard let topic = selectedTopic else { return }
         topic.setProperty(key, value)
         markActiveDocumentDirty()
+        if markerKeys.contains(key) { activeMindMapView?.rebuildElementsPublic() }
     }
 
     /// Add a property whose type is inferred from the raw string. No-op for an
@@ -231,12 +238,14 @@ extension AppSession {
               let topic = selectedTopic, topic.attribute(key) == nil else { return }
         topic.setProperty(key, PropertyInference.infer(rawValue))
         markActiveDocumentDirty()
+        if markerKeys.contains(key) { activeMindMapView?.rebuildElementsPublic() }
     }
 
     @MainActor func removeSelectedNodeProperty(_ key: String) {
         guard let topic = selectedTopic else { return }
         topic.setProperty(key, nil)
         markActiveDocumentDirty()
+        if markerKeys.contains(key) { activeMindMapView?.rebuildElementsPublic() }
     }
 
     /// Flip the active doc to dirty (once) so a property edit is saved.

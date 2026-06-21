@@ -100,6 +100,9 @@ extension MindMapView {
         if el.extraIconStripWidth > 0 {
             textRect.size.width = max(0, textRect.width - el.extraIconStripWidth)
         }
+        if el.markerStripWidth > 0 {
+            textRect.size.width = max(0, textRect.width - el.markerStripWidth)
+        }
         if el.embeddedImageHeight > 0 {
             textRect.origin.y += el.embeddedImageHeight
             textRect.size.height = max(0, textRect.height - el.embeddedImageHeight)
@@ -126,6 +129,11 @@ extension MindMapView {
         // Extras strip.
         for (type, rect) in el.extraIconRects {
             drawExtraIcon(type: type, in: rect, level: level, into: ctx)
+        }
+
+        // Property markers strip (priority / done / tags), left of the extras.
+        for (marker, rect) in el.markerRects {
+            drawPropertyMarker(marker, in: rect, level: level, into: ctx)
         }
 
         // Clickable collapsator: a small circle on the side facing children,
@@ -167,6 +175,52 @@ extension MindMapView {
             drawConnector(from: element, to: child, into: ctx)
             drawConnectors(from: child, into: ctx)
         }
+    }
+
+    /// Tint for a property marker by role: priority is a warm→cool scale
+    /// (1 = most urgent), done is green/secondary, tags use the text color.
+    private func markerTint(_ marker: PropertyMarker, level: Int) -> NSColor {
+        switch marker.role {
+        case .priority(let p):
+            switch p {
+            case 1: return .systemRed
+            case 2: return .systemOrange
+            case 3: return .systemYellow
+            case 4: return .systemBlue
+            default: return .systemGray
+            }
+        case .doneTrue:  return .systemGreen
+        case .doneFalse: return theme.textColor(forLevel: level).withAlphaComponent(0.55)
+        case .tags:      return theme.textColor(forLevel: level).withAlphaComponent(0.85)
+        }
+    }
+
+    /// Render a property marker's SF Symbol inside `rect`, tinted by its role.
+    func drawPropertyMarker(_ marker: PropertyMarker, in rect: CGRect, level: Int, into ctx: CGContext) {
+        let symbolName = marker.symbolName
+        let tint = markerTint(marker, level: level)
+        let pointSize = (rect.width - 2).rounded()
+        let cacheKey = "marker|\(symbolName)|\(pointSize)|\(tint.hashValue)"
+        let tinted: NSImage
+        if let cached = extraIconCache[cacheKey] {
+            tinted = cached
+        } else {
+            let config = NSImage.SymbolConfiguration(pointSize: pointSize, weight: .medium)
+            guard let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?.withSymbolConfiguration(config) else { return }
+            let copy = image.copy() as! NSImage
+            copy.lockFocus()
+            tint.set()
+            NSRect(origin: .zero, size: copy.size).fill(using: .sourceAtop)
+            copy.unlockFocus()
+            extraIconCache[cacheKey] = copy
+            tinted = copy
+        }
+        let drawRect = CGRect(
+            x: rect.midX - tinted.size.width / 2,
+            y: rect.midY - tinted.size.height / 2,
+            width: tinted.size.width, height: tinted.size.height
+        )
+        tinted.draw(in: drawRect)
     }
 
     /// Render an SF Symbol-based icon for one extra type inside `rect`,

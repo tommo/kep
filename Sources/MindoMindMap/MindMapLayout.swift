@@ -79,7 +79,7 @@ public final class MindMapLayout {
         let insets = theme.textInsets
         let imageH = element.embeddedImageHeight
         let imageMinW: CGFloat = element.embeddedImage != nil ? 96 : 0
-        let textW = ceil(bounding.width) + insets.left + insets.right + element.extraIconStripWidth + element.emoticonLeadingWidth
+        let textW = ceil(bounding.width) + insets.left + insets.right + element.extraIconStripWidth + element.markerStripWidth + element.emoticonLeadingWidth
         let w = max(textW, imageMinW + insets.left + insets.right)
         let h = ceil(bounding.height) + insets.top + insets.bottom + imageH
         element.elementSize = CGSize(width: max(40, w), height: max(28, h))

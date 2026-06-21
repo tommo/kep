@@ -119,6 +119,35 @@ public final class MindMapElement {
     public static let extraIconGap: CGFloat = 4
     public static let extraIconLeading: CGFloat = 6
 
+    // MARK: - Property markers (keystone #200 — canvas consumer)
+
+    /// Well-known-property markers for this topic (priority / done / tags),
+    /// drawn in their own strip just left of the extras strip.
+    public var propertyMarkers: [PropertyMarker] { PropertyMarkers.markerRow(for: topic) }
+
+    /// Width reserved for the marker strip; 0 when the topic has no markers, so
+    /// nodes without typed properties are unaffected by the layout.
+    public var markerStripWidth: CGFloat {
+        let count = propertyMarkers.count
+        if count == 0 { return 0 }
+        return CGFloat(count) * (extraIconSize + extraIconGap) + extraIconLeading
+    }
+
+    /// Per-marker rects (same coordinate space as `frame`), positioned to the
+    /// left of the extras strip so the two never overlap.
+    public var markerRects: [(PropertyMarker, CGRect)] {
+        let markers = propertyMarkers
+        guard !markers.isEmpty else { return [] }
+        let stripStartX = frame.maxX - extraIconStripWidth - markerStripWidth + extraIconLeading
+        let y = frame.midY - extraIconSize / 2
+        var rects: [(PropertyMarker, CGRect)] = []
+        for (i, marker) in markers.enumerated() {
+            let x = stripStartX + CGFloat(i) * (extraIconSize + extraIconGap)
+            rects.append((marker, CGRect(x: x, y: y, width: extraIconSize, height: extraIconSize)))
+        }
+        return rects
+    }
+
     /// Inline emoticon (left of text). nil when the topic has no
     /// `mmd.emoticon` attribute set.
     var emoticonName: String? {

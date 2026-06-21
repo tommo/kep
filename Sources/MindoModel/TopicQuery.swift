@@ -3,24 +3,56 @@ import Foundation
 /// A tiny query language over a topic's text + typed properties — the first
 /// increment of property queries (#203 / roadmap T4). Pure → unit-testable.
 ///
-/// A query is space-separated terms, ANDed together. Each term is one of:
+/// Space-separated terms are ANDed; an uppercase `OR` token splits the query
+/// into OR-groups (a topic matches if ANY group's terms all match). Each term:
 ///   • `key:value`  — the typed property `key` matches `value` (a tags/list
 ///     property matches if it contains `value`; others by canonical-string or
 ///     inferred-value equality, case-insensitive). `key:` (empty value) matches
 ///     any topic that HAS the property.
 ///   • `#tag`       — shorthand: the topic's `tags` contains `tag` (case-insensitive).
+///   • `/regex/`    — the topic's text matches the regular expression.
 ///   • `word`       — the topic's text contains `word` (case-insensitive).
+///   • a leading `-` negates any term (e.g. `-done:true`, `-#archived`).
 public enum TopicQuery {
 
-    /// True if `topic` satisfies every term in `query`. An all-whitespace query
-    /// matches nothing (callers treat empty as "no filter").
+    /// True if `topic` matches the query: ANY OR-group whose every term matches.
+    /// An all-whitespace query matches nothing (callers treat empty as "no filter").
     public static func matches(_ query: String, topic: Topic) -> Bool {
-        let terms = query.split(whereSeparator: { $0 == " " }).map(String.init)
-        guard !terms.isEmpty else { return false }
-        return terms.allSatisfy { term(term: $0, matches: topic) }
+        let groups = orGroups(query)
+        guard !groups.isEmpty else { return false }
+        return groups.contains { group in
+            !group.isEmpty && group.allSatisfy { evalTerm($0, topic) }
+        }
     }
 
-    static func term(term: String, matches topic: Topic) -> Bool {
+    /// Split a query into OR-groups of AND-terms on the uppercase `OR` token.
+    static func orGroups(_ query: String) -> [[String]] {
+        var groups: [[String]] = []
+        var current: [String] = []
+        for token in query.split(whereSeparator: { $0 == " " }).map(String.init) {
+            if token == "OR" { groups.append(current); current = [] }
+            else { current.append(token) }
+        }
+        groups.append(current)
+        return groups.filter { !$0.isEmpty }
+    }
+
+    /// Evaluate a term, honoring a leading `-` negation.
+    static func evalTerm(_ term: String, _ topic: Topic) -> Bool {
+        if term.hasPrefix("-"), term.count > 1 {
+            return !base(term: String(term.dropFirst()), matches: topic)
+        }
+        return base(term: term, matches: topic)
+    }
+
+    static func base(term: String, matches topic: Topic) -> Bool {
+        if term.count >= 2, term.hasPrefix("/"), term.hasSuffix("/") {
+            let pattern = String(term.dropFirst().dropLast())
+            guard !pattern.isEmpty,
+                  let re = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return false }
+            let range = NSRange(topic.text.startIndex..., in: topic.text)
+            return re.firstMatch(in: topic.text, range: range) != nil
+        }
         if term.hasPrefix("#") {
             let tag = String(term.dropFirst())
             return !tag.isEmpty && MindMapTags.tags(of: topic)

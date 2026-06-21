@@ -40,4 +40,23 @@ final class TopicQueryTests: XCTestCase {
     func testBlankQueryMatchesNothing() {
         XCTAssertTrue(TopicQuery.evaluate("   ", in: sample()).isEmpty)
     }
+
+    func testOrGroups() {
+        let m = sample()
+        // (priority:1) OR (priority:3) → both tasks.
+        XCTAssertEqual(Set(TopicQuery.evaluate("priority:1 OR priority:3", in: m).map(\.text)),
+                       ["Design API", "Write docs"])
+    }
+
+    func testNegation() {
+        let m = sample()
+        // has a priority but NOT done → Design API only.
+        XCTAssertEqual(TopicQuery.evaluate("priority: -done:true", in: m).map(\.text), ["Design API"])
+    }
+
+    func testRegexTerm() {
+        let m = sample()
+        XCTAssertEqual(TopicQuery.evaluate("/^Design/", in: m).map(\.text), ["Design API"])
+        XCTAssertTrue(TopicQuery.evaluate("/zzz/", in: m).isEmpty)
+    }
 }

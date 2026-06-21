@@ -1,4 +1,5 @@
 import AppKit
+import MindoBase
 import MindoCore
 import MindoModel
 
@@ -376,6 +377,36 @@ public final class MindMapView: NSView {
             self, selector: #selector(mindmapSettingsChanged),
             name: .mindmapSettingsChanged, object: nil
         )
+        // Degrade the selection cursor when the window loses key (general
+        // focus-styling rule — see FocusStyle); redraw on key transitions.
+        if let window {
+            NotificationCenter.default.addObserver(
+                self, selector: #selector(focusStateChanged),
+                name: NSWindow.didBecomeKeyNotification, object: window
+            )
+            NotificationCenter.default.addObserver(
+                self, selector: #selector(focusStateChanged),
+                name: NSWindow.didResignKeyNotification, object: window
+            )
+        }
+    }
+
+    @objc private func focusStateChanged() { needsDisplay = true }
+
+    /// Whether the canvas currently owns keyboard focus — drives the
+    /// degraded-selection styling (FocusStyle).
+    var isSelectionFocused: Bool { FocusStyle.isFocused(self) }
+
+    // Redraw when first-responder status flips (e.g. user clicks into the
+    // sidebar) so the selection cursor dims/undims immediately.
+    public override func becomeFirstResponder() -> Bool {
+        defer { needsDisplay = true }
+        return super.becomeFirstResponder()
+    }
+
+    public override func resignFirstResponder() -> Bool {
+        defer { needsDisplay = true }
+        return super.resignFirstResponder()
     }
 
     @objc private func mindmapSettingsChanged() {
@@ -387,6 +418,8 @@ public final class MindMapView: NSView {
         NotificationCenter.default.removeObserver(self, name: NSView.frameDidChangeNotification, object: nil)
         NotificationCenter.default.removeObserver(self, name: NSView.boundsDidChangeNotification, object: nil)
         NotificationCenter.default.removeObserver(self, name: .mindmapSettingsChanged, object: nil)
+        NotificationCenter.default.removeObserver(self, name: NSWindow.didBecomeKeyNotification, object: nil)
+        NotificationCenter.default.removeObserver(self, name: NSWindow.didResignKeyNotification, object: nil)
     }
 
     private var persistDebounce: DispatchWorkItem?
@@ -630,8 +663,12 @@ public final class MindMapView: NSView {
 
         // Selection overlay on top — secondary members of the multi-selection
         // first (lighter), primary on top.
+        // Selection emphasis degrades when the canvas isn't focused (general
+        // mindo focus-styling rule — see FocusStyle).
+        let focused = isSelectionFocused
+        let selColor = FocusStyle.degraded(theme.selectionColor, focused: focused)
         if !selectedTopics.isEmpty, let root = rootElement {
-            let secondary = theme.selectionColor.withAlphaComponent(0.45)
+            let secondary = selColor.withAlphaComponent(selColor.alphaComponent * 0.45)
             ctx.setLineWidth(max(1, theme.selectionWidth - 0.5))
             root.traverse { el in
                 guard selectedTopics.contains(ObjectIdentifier(el.topic)) else { return }
@@ -641,7 +678,7 @@ public final class MindMapView: NSView {
             }
         }
         if let sel = selectedElement {
-            ctx.setStrokeColor(theme.selectionColor.cgColor)
+            ctx.setStrokeColor(selColor.cgColor)
             ctx.setLineWidth(theme.selectionWidth)
             strokeRoundedOutline(around: sel.frame, inset: 3, into: ctx)
         }

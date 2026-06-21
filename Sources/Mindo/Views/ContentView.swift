@@ -1,6 +1,7 @@
 import SwiftUI
 import MindoBase
 import MindoCore
+import MindoModel
 import MindoMarkdown
 import MindoGenAI
 
@@ -327,16 +328,45 @@ struct ContentView: View {
                         .padding(.horizontal, 8).padding(.bottom, 2)
                     ForEach(results, id: \.path) { row in
                         Button { session.requestOutlineNavigation(target: row.path) } label: {
-                            Label(row.text, systemImage: "smallcircle.filled.circle")
-                                .font(.callout).lineLimit(1)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .contentShape(Rectangle())
-                                .padding(.horizontal, 8).padding(.vertical, 2)
+                            HStack(spacing: 6) {
+                                Label(row.text, systemImage: "smallcircle.filled.circle")
+                                    .font(.callout).lineLimit(1)
+                                if !row.markers.isEmpty {
+                                    Spacer(minLength: 4)
+                                    ForEach(Array(row.markers.enumerated()), id: \.offset) { _, marker in
+                                        Image(systemName: marker.symbolName)
+                                            .font(.caption2)
+                                            .foregroundStyle(markerTint(marker.role))
+                                    }
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
+                            .padding(.horizontal, 8).padding(.vertical, 2)
                         }
                         .buttonStyle(.plain)
                     }
                 }
             }
+        }
+    }
+
+    /// SwiftUI mirror of the canvas marker tints (MindMapView+Drawing) so the
+    /// results list reads consistently with the nodes it points at.
+    private func markerTint(_ role: PropertyMarker.Role) -> Color {
+        switch role {
+        case .priority(let p):
+            switch p {
+            case 1: return .red
+            case 2: return .orange
+            case 3: return .yellow
+            case 4: return .blue
+            default: return .gray
+            }
+        case .doneTrue:  return .green
+        case .doneFalse: return .secondary
+        case .tags:      return .secondary
+        case .progress:  return .blue
         }
     }
 

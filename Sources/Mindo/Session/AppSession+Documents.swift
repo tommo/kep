@@ -87,6 +87,21 @@ extension AppSession {
     func newCSV()      { newTextDocument(.csv) }
     func newTextFile() { newTextDocument(.plainText) }
 
+    /// New Research Notebook (.mnb) — a markdown-on-disk notebook seeded with a
+    /// heading so it's never zero-byte (mirrors newPlantUML's starter).
+    func newResearchNotebook() {
+        let starter = "# New Research Notebook\n"
+        if let folder = defaultCreationFolder() {
+            createDocumentOnDisk(extension: SupportedFileType.mindNotebook.rawValue,
+                                 in: folder, starter: Data(starter.utf8))
+        } else {
+            let doc = OpenDocument(kind: .text(starter, fileType: .mindNotebook), fileURL: nil,
+                                   title: "Untitled.\(SupportedFileType.mindNotebook.rawValue)")
+            openDocuments.append(doc)
+            activeDocumentID = doc.id
+        }
+    }
+
     /// New PlantUML doc — first present the template picker (javamind parity:
     /// 19 diagram scaffolds) instead of dropping the user into an empty file.
     func newPlantUML() { plantUMLTemplatePickerOpen = true }

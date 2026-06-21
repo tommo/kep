@@ -25,7 +25,13 @@ cp "$BIN_PATH" "$APP_DIR/Contents/MacOS/$APP_NAME"
 # Drag in localized resources + the Mindo SPM resource bundle.
 RES_BUNDLE_DIR="$(dirname "$BIN_PATH")"
 if [ -d "$RES_BUNDLE_DIR/Mindo_Mindo.bundle" ]; then
+    # Resources/ for open-launched apps; MacOS/ (next to the binary) so a
+    # direct `Contents/MacOS/Mindo` run also resolves the bundle.
     cp -R "$RES_BUNDLE_DIR/Mindo_Mindo.bundle" "$APP_DIR/Contents/Resources/"
+    cp -R "$RES_BUNDLE_DIR/Mindo_Mindo.bundle" "$APP_DIR/Contents/MacOS/"
+else
+    echo "ERROR: Mindo_Mindo.bundle not found in $RES_BUNDLE_DIR — aborting" >&2
+    exit 1
 fi
 
 # Drop in the .icns if it's been generated. Run Scripts/make-icon.sh first

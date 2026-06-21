@@ -22,10 +22,34 @@ extension NSView {
     }
 }
 
+/// The SPM resource bundle, resolved WITHOUT `Bundle.module`'s fatalError so a
+/// packaging/launch quirk degrades to English keys instead of crashing the app.
+/// `Bundle.module` only searches `Bundle.main.bundleURL` + the build dir; that
+/// misses `Contents/Resources/Mindo_Mindo.bundle` when the binary is launched
+/// directly (not via `open`), which trapped the whole app. We probe the real
+/// locations and fall back to `.main`.
+let mindoLocalizationBundle: Bundle = {
+    let name = "Mindo_Mindo.bundle"
+    let main = Bundle.main
+    let exeDir = URL(fileURLWithPath: CommandLine.arguments.first ?? main.bundlePath)
+        .deletingLastPathComponent()
+    let candidates: [URL?] = [
+        main.resourceURL?.appendingPathComponent(name),                 // Contents/Resources (open-launched)
+        main.bundleURL.appendingPathComponent(name),                    // .app root / exe dir
+        main.bundleURL.appendingPathComponent("Contents/Resources/\(name)"),
+        exeDir.appendingPathComponent(name),                            // next to the binary
+        exeDir.deletingLastPathComponent().appendingPathComponent("Resources/\(name)"), // Contents/Resources from MacOS
+    ]
+    for case let url? in candidates where (try? url.checkResourceIsReachable()) == true {
+        if let bundle = Bundle(url: url) { return bundle }
+    }
+    return .main
+}()
+
 /// Convenience: localized string lookup from the app's bundle (forwards to
 /// `String(localized:bundle:)` so we can write `L("key")` everywhere).
 @inline(__always) func L(_ key: String.LocalizationValue) -> String {
-    return String(localized: key, bundle: .module)
+    return String(localized: key, bundle: mindoLocalizationBundle)
 }
 
 /// AppKit delegate used to force regular-app activation when launched via
@@ -155,6 +179,7 @@ struct MindoApp: App {
                     .keyboardShortcut("n", modifiers: [.command, .shift])
                 Button(L("menu.file.new_csv")) { session.newCSV() }
                 Button(L("menu.file.new_plantuml")) { session.newPlantUML() }
+                Button(L("menu.file.new_notebook")) { session.newResearchNotebook() }
                 Button(L("menu.file.new_text")) { session.newTextFile() }
                 Divider()
                 Button(L("menu.file.quick_open")) { session.quickSwitcherOpen = true }

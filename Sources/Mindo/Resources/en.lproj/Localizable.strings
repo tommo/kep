@@ -8,6 +8,7 @@
 "menu.file.new_markdown" = "New Markdown";
 "menu.file.new_csv" = "New CSV";
 "menu.file.new_plantuml" = "New PlantUML";
+"menu.file.new_notebook" = "New Research Notebook";
 "menu.file.new_text" = "New Text File";
 "menu.file.open_workspace" = "Open Workspace…";
 "menu.file.open_file" = "Open File…";
@@ -172,6 +173,7 @@
 "sidebar.menu.new_file.markdown" = "Markdown (.md)";
 "sidebar.menu.new_file.plantuml" = "PlantUML (.puml)";
 "sidebar.menu.new_file.csv" = "CSV (.csv)";
+"sidebar.menu.new_file.notebook" = "Research Notebook (.mnb)";
 "sidebar.menu.new_file.text" = "Plain Text (.txt)";
 "sidebar.filter.clear" = "Clear filter";
 "sidebar.recently_opened" = "Recently opened";

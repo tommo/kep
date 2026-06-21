@@ -57,7 +57,7 @@ struct OpenDocument: Identifiable, Hashable {
                 map = m
             }
             return OpenDocument(kind: .mindMap(map), fileURL: url, title: title)
-        case .markdown, .plantUML, .csv, .plainText:
+        case .markdown, .plantUML, .csv, .plainText, .mindNotebook:
             let text = try String(contentsOf: url, encoding: .utf8)
             return OpenDocument(kind: .text(text, fileType: type), fileURL: url, title: title)
         case .jpeg, .png, .none:
@@ -83,7 +83,7 @@ struct OpenDocument: Identifiable, Hashable {
     var outlineItems: [OutlineItem] {
         switch kind {
         case .mindMap(let map): return Outline.fromMindMap(map)
-        case .text(let body, .markdown), .text(let body, .plantUML):
+        case .text(let body, .markdown), .text(let body, .plantUML), .text(let body, .mindNotebook):
             return Outline.fromMarkdown(body)
         case .text, .unsupported: return []
         }

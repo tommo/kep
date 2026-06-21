@@ -87,6 +87,7 @@ struct DocumentTabBar: View {
                     Button(L("menu.file.new_markdown")) { session.newMarkdown() }
                     Button(L("menu.file.new_csv")) { session.newCSV() }
                     Button(L("menu.file.new_plantuml")) { session.newPlantUML() }
+                    Button(L("menu.file.new_notebook")) { session.newResearchNotebook() }
                     Button(L("menu.file.new_text")) { session.newTextFile() }
                 } label: {
                     Image(systemName: "plus")

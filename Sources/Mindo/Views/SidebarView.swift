@@ -324,6 +324,7 @@ struct NodeRow: View {
                 Button(L("sidebar.menu.new_file.markdown")) { session.createFile(in: node, extension: "md") }
                 Button(L("sidebar.menu.new_file.plantuml")) { session.createFile(in: node, extension: "puml") }
                 Button(L("sidebar.menu.new_file.csv"))      { session.createFile(in: node, extension: "csv") }
+                Button(L("sidebar.menu.new_file.notebook")) { session.createFile(in: node, extension: "mnb") }
                 Button(L("sidebar.menu.new_file.text"))     { session.createFile(in: node, extension: "txt") }
             }
             Button(L("sidebar.menu.new_folder")) { session.createFolder(in: node) }

@@ -5,6 +5,7 @@
 "menu.file.new_markdown" = "新建 Markdown";
 "menu.file.new_csv" = "新建 CSV";
 "menu.file.new_plantuml" = "新建 PlantUML";
+"menu.file.new_notebook" = "新建研究笔记本";
 "menu.file.new_text" = "新建文本文件";
 "menu.file.open_workspace" = "打开工作区…";
 "menu.file.open_file" = "打开文件…";
@@ -169,6 +170,7 @@
 "sidebar.menu.new_file.markdown" = "Markdown (.md)";
 "sidebar.menu.new_file.plantuml" = "PlantUML (.puml)";
 "sidebar.menu.new_file.csv" = "CSV (.csv)";
+"sidebar.menu.new_file.notebook" = "研究笔记本 (.mnb)";
 "sidebar.menu.new_file.text" = "纯文本 (.txt)";
 "sidebar.filter.clear" = "清除筛选";
 "sidebar.recently_opened" = "最近打开";

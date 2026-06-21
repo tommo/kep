@@ -7,6 +7,7 @@ public enum SupportedFileType: String, CaseIterable, Codable, Sendable {
     case plantUML = "puml"
     case csv = "csv"
     case plainText = "txt"
+    case mindNotebook = "mnb"
     case jpeg = "jpg"
     case png = "png"
 
@@ -26,7 +27,7 @@ public enum SupportedFileType: String, CaseIterable, Codable, Sendable {
 
     public var isText: Bool {
         switch self {
-        case .mindMap, .markdown, .plantUML, .csv, .plainText: return true
+        case .mindMap, .markdown, .plantUML, .csv, .plainText, .mindNotebook: return true
         case .jpeg, .png: return false
         }
     }
@@ -40,6 +41,7 @@ public enum SupportedFileType: String, CaseIterable, Codable, Sendable {
         case .plantUML: return "rectangle.connected.to.line.below"
         case .csv: return "tablecells"
         case .plainText: return "doc.text"
+        case .mindNotebook: return "text.book.closed"
         case .jpeg, .png: return "photo"
         }
     }

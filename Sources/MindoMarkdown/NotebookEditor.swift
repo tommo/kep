@@ -316,6 +316,9 @@ public struct NotebookEditor: View {
         .onAppear { model.selectFirstIfNeeded(); focus = .command }
         .onChange(of: focus) { _, f in if case .edit(let id)? = f { model.selectedID = id } }
         .onChange(of: text) { _, new in model.reload(from: new) }
+        .onReceive(NotificationCenter.default.publisher(for: .focusNotebookCommand)) { _ in
+            model.selectFirstIfNeeded(); focus = .command
+        }
     }
 
     /// Command-mode keys (fire only when the notebook container — not a cell

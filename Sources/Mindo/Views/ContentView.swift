@@ -43,6 +43,17 @@ struct ContentView: View {
         Binding(get: { session.outlineOpen }, set: { session.outlineOpen = $0 })
     }
 
+    /// Accent border on the region that currently holds keyboard focus, so it's
+    /// always visible which region is active (⌘1/2/3/⌘\). The agent view lives
+    /// in the inspector, so it lights the inspector too.
+    @ViewBuilder private func regionRing(_ region: AppSession.FocusRegion) -> some View {
+        let active = session.activeRegion == region
+            || (region == .inspector && session.activeRegion == .agent)
+        RoundedRectangle(cornerRadius: 6)
+            .strokeBorder(active ? Color.accentColor : Color.clear, lineWidth: 2)
+            .allowsHitTesting(false)
+    }
+
     var body: some View {
         // Native SwiftUI three-pane layout: NavigationSplitView (sidebar |
         // document) + the purpose-built .inspector (right panel). Both resize and
@@ -55,13 +66,16 @@ struct ContentView: View {
                 onSelectionSource: { selectionSource = $0 },
                 onConfirm: confirmSelection
             )
+            .overlay(regionRing(.sidebar))
             .navigationSplitViewColumnWidth(min: 170, ideal: 220, max: 460)
         } detail: {
             DetailArea(session: $session)
+                .overlay(regionRing(.document))
         }
         .navigationSplitViewStyle(.balanced)
         .inspector(isPresented: inspectorPresented) {
             inspectorPane
+                .overlay(regionRing(.inspector))
                 .inspectorColumnWidth(min: 200, ideal: 280, max: 460)
         }
         .onChange(of: sidebarSelection) { _, new in

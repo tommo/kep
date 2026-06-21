@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 import MindoBase
 import MindoCore
+import MindoMarkdown
 import MindoMindMap
 import MindoModel
 
@@ -46,6 +47,7 @@ extension AppSession {
     /// text view). Used by the sidebar's Return key — the file is already open
     /// (browsing), Return commits focus to it.
     @MainActor func focusActiveEditor() {
+        activeRegion = .document
         guard let win = NSApp.keyWindow ?? NSApp.mainWindow, let content = win.contentView else { return }
         if let mv = content.firstSubview(ofType: NSScrollView.self, where: { $0.documentView is MindMapView })?
             .documentView as? MindMapView {
@@ -64,6 +66,7 @@ extension AppSession {
     /// Move keyboard focus to a region (revealing it first if collapsed). The
     /// keyboard-only navigation backbone — see [[feedback_keyboard_only_ux]].
     @MainActor func focusRegion(_ region: FocusRegion) {
+        activeRegion = region
         switch region {
         case .sidebar:
             sidebarVisible = true
@@ -73,7 +76,13 @@ extension AppSession {
                 }
             }
         case .document:
-            focusAfterReveal { _, _ in self.focusActiveEditor() }
+            // A notebook's "document focus" is its SwiftUI command mode, which an
+            // AppKit first-responder search can't reach — signal it directly.
+            if activeFileType == .mindNotebook {
+                NotificationCenter.default.post(name: .focusNotebookCommand, object: nil)
+            } else {
+                focusAfterReveal { _, _ in self.focusActiveEditor() }
+            }
         case .inspector:
             outlineOpen = true
             inspectorTab = .inspector

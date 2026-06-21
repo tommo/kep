@@ -26,3 +26,8 @@ public protocol NotebookAgentSink: AnyObject {
 /// Run the research agent for `question`, authoring cells into `sink`. Injected
 /// by the app (which owns the agent loop + MindoScript).
 public typealias NotebookAgentRunner = @MainActor (_ question: String, _ sink: NotebookAgentSink) async -> Void
+
+public extension Notification.Name {
+    /// App → notebook: take keyboard focus in command mode (⌘2 region focus).
+    static let focusNotebookCommand = Notification.Name("mindo.focusNotebookCommand")
+}

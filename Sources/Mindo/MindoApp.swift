@@ -460,6 +460,8 @@ final class AppSession {
     var aiGenerateOpen: Bool = false
     /// Which surface the right inspector shows — document outline or AI assistant.
     var inspectorTab: InspectorTab = .inspector
+    /// The window region with keyboard focus (drives the focus-ring indicator).
+    var activeRegion: AppSession.FocusRegion?
     var aiSupportedModes: [AIGeneratePane.InsertionMode] = [.append]
     var aiDefaultPrompt: String = ""
 

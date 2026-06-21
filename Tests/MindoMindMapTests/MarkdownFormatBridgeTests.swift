@@ -8,7 +8,16 @@ final class MarkdownFormatBridgeTests: XCTestCase {
         for c in MarkdownFormatBridge.Command.allCases {
             XCTAssertTrue(c.rawValue.hasPrefix("toolbar"), "\(c) → \(c.rawValue)")
         }
-        XCTAssertEqual(MarkdownFormatBridge.Command.allCases.count, 7)
+        XCTAssertEqual(MarkdownFormatBridge.Command.allCases.count, 8)
+    }
+
+    func testImageSnippetUsesRelativePathWhenDocKnown() {
+        let doc = URL(fileURLWithPath: "/ws/note.md")
+        let img = URL(fileURLWithPath: "/ws/assets/pic.png")
+        let s = MarkdownDropFormatter.snippet(for: [img], relativeToFileAt: doc)
+        XCTAssertEqual(s, "![pic](assets/pic.png)")
+        // No doc → absolute path (unchanged drop behavior).
+        XCTAssertEqual(MarkdownDropFormatter.snippet(for: [img]), "![pic](/ws/assets/pic.png)")
     }
 
     func testSanitizedTableSizeClampsAndDefaults() {

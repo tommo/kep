@@ -33,6 +33,7 @@
 "menu.format.hr" = "Horizontal Rule";
 "menu.format.comment" = "Comment Out";
 "menu.format.table" = "Insert Table…";
+"menu.format.image" = "Insert Image…";
 "switcher.empty.prompt" = "Start typing to find a file";
 "switcher.empty.nomatch" = "No matching files";
 "menu.file.save" = "Save";

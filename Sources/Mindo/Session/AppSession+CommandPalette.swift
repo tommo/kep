@@ -85,6 +85,8 @@ extension AppSession {
                 enabled: isMarkdown) { self.applyMarkdownFormat(.comment) },
             cmd("format.table", L("menu.format.table"), category: L("palette.cat.format"),
                 enabled: isMarkdown) { self.applyMarkdownFormat(.table) },
+            cmd("format.image", L("menu.format.image"), category: L("palette.cat.format"),
+                enabled: isMarkdown) { self.applyMarkdownFormat(.image) },
 
             // View
             cmd("view.zoomIn", L("menu.view.zoom_in"), category: L("palette.cat.view"),

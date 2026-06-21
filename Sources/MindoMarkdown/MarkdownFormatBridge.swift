@@ -17,6 +17,7 @@ public enum MarkdownFormatBridge {
         case horizontalRule = "toolbarHorizontalRule"
         case comment = "toolbarComment"
         case table = "toolbarTable"
+        case image = "toolbarImage"
     }
 
     /// Parse + clamp the rows/cols text from the table prompt to 1…20, with

@@ -338,19 +338,22 @@ public enum MarkdownDropFormatter {
         "sql", "log", "cfg", "ini", "csv"
     ]
 
-    public static func snippet(for urls: [URL]) -> String {
+    public static func snippet(for urls: [URL], relativeToFileAt docURL: URL? = nil) -> String {
         var parts: [String] = []
         for url in urls {
-            if let s = snippet(for: url) { parts.append(s) }
+            if let s = snippet(for: url, relativeToFileAt: docURL) { parts.append(s) }
         }
         return parts.joined(separator: "\n\n")
     }
 
-    public static func snippet(for url: URL) -> String? {
+    public static func snippet(for url: URL, relativeToFileAt docURL: URL? = nil) -> String? {
         let ext = url.pathExtension.lowercased()
+        // Relative to the document's folder when known (so the link survives the
+        // workspace moving); absolute otherwise.
+        let path = docURL.map { RelativePath.from(fileAt: $0, to: url) } ?? url.path
         if imageExtensions.contains(ext) {
             let alt = url.deletingPathExtension().lastPathComponent
-            return "![\(escapeAlt(alt))](\(escapeURL(url.path)))"
+            return "![\(escapeAlt(alt))](\(escapeURL(path)))"
         }
         if textExtensions.contains(ext) {
             // Inline the contents as a fenced code block. Skip silently on

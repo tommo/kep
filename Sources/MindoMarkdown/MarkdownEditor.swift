@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 import WebKit
 import Combine
+import UniformTypeIdentifiers
 import MindoBase
 import MindoCore
 
@@ -222,6 +223,22 @@ public struct MarkdownEditor: NSViewRepresentable {
         @objc func toolbarTable() {
             guard let (rows, cols) = promptTableSize() else { return }
             applyTransform { MarkdownFormatting.table($0, range: $1, rows: rows, cols: cols) }
+        }
+
+        @objc func toolbarImage() {
+            let panel = NSOpenPanel()
+            panel.allowsMultipleSelection = true
+            panel.canChooseDirectories = false
+            panel.allowedContentTypes = [.image]
+            guard panel.runModal() == .OK, !panel.urls.isEmpty else { return }
+            let snippet = MarkdownDropFormatter.snippet(for: panel.urls, relativeToFileAt: parent.documentURL)
+            guard !snippet.isEmpty else { return }
+            applyTransform { text, range in
+                let ns = text as NSString
+                let newText = ns.replacingCharacters(in: range, with: snippet)
+                let caret = NSRange(location: range.location + (snippet as NSString).length, length: 0)
+                return (newText, caret)
+            }
         }
 
         /// Rows/cols prompt for table insertion — two small fields in an

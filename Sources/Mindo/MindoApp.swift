@@ -608,9 +608,28 @@ final class AppSession {
         let key = "\(target.path)#\(workspaceContentVersion)"
         if let cache = linkedMentionsCache, cache.key == key { return cache.value }
         let (files, corpus) = workspaceCorpus()
-        let result = Backlinks.mentions(to: target, corpus: corpus, allFiles: files)
+        // Wiki-link mentions ([[name]]) + file-path references ([..](path)),
+        // merged per source so a file that links both ways lists once.
+        let wiki = Backlinks.mentions(to: target, corpus: corpus, allFiles: files)
+        let fileLinks = FileLinkSearch.referencing(target, corpus: corpus)
+        let result = Self.mergeMentions(wiki, fileLinks)
         linkedMentionsCache = (key, result)
         return result
+    }
+
+    /// Merge two mention lists by source file (wiki-link + file-path refs),
+    /// concatenating snippets, in stable path order. Pure helper.
+    static func mergeMentions(_ a: [LinkedMention], _ b: [LinkedMention]) -> [LinkedMention] {
+        var byPath: [String: (url: URL, snippets: [String])] = [:]
+        var order: [String] = []
+        for m in a + b {
+            let key = m.source.standardizedFileURL.path
+            if byPath[key] == nil { byPath[key] = (m.source, []); order.append(key) }
+            byPath[key]?.snippets.append(contentsOf: m.snippets)
+        }
+        return order.sorted()
+            .compactMap { byPath[$0] }
+            .map { LinkedMention(source: $0.url, snippets: $0.snippets) }
     }
     /// Whether the sidebar column is shown. Persisted (PrefKeys.sidebarVisible)
     /// so collapse state survives relaunch. Toggled from the View menu (⌃⌘S).

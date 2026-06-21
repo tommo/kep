@@ -70,10 +70,35 @@ public final class CSVGridView: NSView, NSTextFieldDelegate {
                                                 name: NSView.boundsDidChangeNotification, object: clip)
         NotificationCenter.default.addObserver(self, selector: #selector(csvFontChanged),
                                                 name: .csvFontChanged, object: nil)
+        // Degrade the selection when the grid loses focus (general focus-styling
+        // rule — see FocusStyle); redraw on key-window transitions.
+        if let window {
+            NotificationCenter.default.addObserver(self, selector: #selector(focusStateChanged),
+                                                    name: NSWindow.didBecomeKeyNotification, object: window)
+            NotificationCenter.default.addObserver(self, selector: #selector(focusStateChanged),
+                                                    name: NSWindow.didResignKeyNotification, object: window)
+        }
     }
 
     @objc private func clipBoundsChanged() { needsDisplay = true }
     @objc private func csvFontChanged() { needsDisplay = true }
+    @objc private func focusStateChanged() { needsDisplay = true }
+
+    // Redraw when first-responder status flips so the selection dims/undims
+    // immediately (e.g. clicking into the sidebar).
+    public override func becomeFirstResponder() -> Bool {
+        defer { needsDisplay = true }; return super.becomeFirstResponder()
+    }
+    public override func resignFirstResponder() -> Bool {
+        defer { needsDisplay = true }; return super.resignFirstResponder()
+    }
+
+    /// Accent colour for selection fills/strokes, faded when the grid isn't
+    /// focused. `alpha` is the focused fill strength; it's scaled down off-focus.
+    private func selectionAccent(_ alpha: CGFloat = 1) -> NSColor {
+        let focused = FocusStyle.isFocused(self)
+        return NSColor.controlAccentColor.withAlphaComponent(alpha * (focused ? 1 : FocusStyle.unfocusedAlpha))
+    }
 
     // MARK: - Reload
 
@@ -202,13 +227,12 @@ public final class CSVGridView: NSView, NSTextFieldDelegate {
     }
 
     private func drawSelection() {
-        let accent = NSColor.controlAccentColor
         let r = geometry.rangeRect(top: selection.top, left: selection.left,
                                    bottom: selection.bottom, right: selection.right)
-        accent.withAlphaComponent(0.12).setFill(); r.fill()
-        // Active-cell border.
+        selectionAccent(0.12).setFill(); r.fill()
+        // Active-cell border (the grid's "cursor").
         let active = geometry.cellRect(row: selection.active.row, col: selection.active.col)
-        accent.setStroke()
+        selectionAccent().setStroke()
         let border = NSBezierPath(rect: active.insetBy(dx: 0.5, dy: 0.5)); border.lineWidth = 2; border.stroke()
     }
 
@@ -226,7 +250,7 @@ public final class CSVGridView: NSView, NSTextFieldDelegate {
             let r = CGRect(x: geometry.columnX(col), y: y, width: columnWidths[col], height: headerHeight)
             let inSel = col >= selection.left && col <= selection.right
             if inSel {
-                NSColor.controlAccentColor.withAlphaComponent(col == selection.active.col ? 0.35 : 0.18).setFill()
+                selectionAccent(col == selection.active.col ? 0.35 : 0.18).setFill()
                 r.fill()
             }
             NSColor.gridColor.setStroke()
@@ -247,7 +271,7 @@ public final class CSVGridView: NSView, NSTextFieldDelegate {
             let r = CGRect(x: x, y: geometry.rowY(row), width: gutterWidth, height: rowHeight)
             let inSel = row >= selection.top && row <= selection.bottom
             if inSel {
-                NSColor.controlAccentColor.withAlphaComponent(row == selection.active.row ? 0.35 : 0.18).setFill()
+                selectionAccent(row == selection.active.row ? 0.35 : 0.18).setFill()
                 r.fill()
             }
             NSColor.gridColor.setStroke()
@@ -266,7 +290,7 @@ public final class CSVGridView: NSView, NSTextFieldDelegate {
         let para = NSMutableParagraphStyle(); para.alignment = .center
         let attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 10, weight: highlighted ? .bold : .regular),
-            .foregroundColor: highlighted ? NSColor.controlAccentColor : NSColor.secondaryLabelColor,
+            .foregroundColor: highlighted ? selectionAccent() : NSColor.secondaryLabelColor,
             .paragraphStyle: para,
         ]
         let h = (s as NSString).size(withAttributes: attrs).height

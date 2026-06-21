@@ -799,7 +799,18 @@ extension MindMapView {
         let clip = scroll.contentView
         let proposed = NSPoint(x: clip.bounds.origin.x - pan.dx,
                                y: clip.bounds.origin.y - pan.dy)
-        let origin = clip.constrainBoundsRect(NSRect(origin: proposed, size: clip.bounds.size)).origin
+        // Clamp to the DOCUMENT frame [0, docMax] — NOT the free-pan margin.
+        // A trackpad scroll gesture also drives NSScrollView's own live-scroll,
+        // which clamps to the document; pushing our origin OUTSIDE the document
+        // (the free-pan overscroll region, e.g. the top-left margin) makes the
+        // two fight and pins the corner — the "scroll locked at top-left" bug.
+        // Staying inside [0, docMax], where NSScrollView agrees, is smooth and
+        // never locks. (Drag-pan keeps the free-pan overscroll: it's a mouse
+        // drag, so it never engages NSScrollView's scroll machinery.)
+        let maxX = max(0, frame.width - clip.bounds.width)
+        let maxY = max(0, frame.height - clip.bounds.height)
+        let origin = NSPoint(x: min(max(proposed.x, 0), maxX),
+                             y: min(max(proposed.y, 0), maxY))
         clip.scroll(to: origin)
         scroll.reflectScrolledClipView(clip)
     }

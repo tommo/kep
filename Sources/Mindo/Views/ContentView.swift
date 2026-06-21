@@ -28,6 +28,7 @@ struct ContentView: View {
     /// Accordion section expansion in the "Inspector" mode (persisted).
     @AppStorage(PrefKeys.inspectorOutlineExpanded) private var outlineExpanded = true
     @AppStorage(PrefKeys.inspectorLinksExpanded) private var linksExpanded = false
+    @AppStorage(PrefKeys.inspectorPropertiesExpanded) private var propertiesExpanded = true
 
     /// Sidebar visibility bridged to `session.sidebarVisible` (toggled from the
     /// View menu / sidebar button). `.all` shows it, `.detailOnly` hides it.
@@ -272,13 +273,24 @@ struct ContentView: View {
                                         isExpanded: $outlineExpanded) {
                 outlineInspector
             }
+            // The typed-properties panel only applies to a selected mind-map
+            // node; hide it entirely for other doc types / no selection.
+            if session.selectedTopic != nil {
+                Divider()
+                CollapsibleInspectorSection(title: L("inspector.properties"),
+                                            systemImage: "tablecells",
+                                            isExpanded: $propertiesExpanded) {
+                    NodePropertiesView(session: $session,
+                                       properties: session.selectedNodeUserProperties)
+                }
+            }
             Divider()
             CollapsibleInspectorSection(title: L("inspector.linked_mentions"),
                                         systemImage: "link",
                                         isExpanded: $linksExpanded) {
                 linksInspector
             }
-            if !outlineExpanded && !linksExpanded { Spacer() }
+            if !outlineExpanded && !linksExpanded && !propertiesExpanded { Spacer() }
         }
     }
 

@@ -197,6 +197,56 @@ extension AppSession {
         return NodeProperties.from(topic: topic, path: path, map: map)
     }
 
+    // MARK: - Typed node properties (keystone #200 — inspector consumer)
+
+    /// The topic currently selected on the canvas, or nil. Pure model lookup.
+    var selectedTopic: Topic? {
+        guard case .mindMap(let map)? = activeDocument?.kind,
+              let path = selectedOutlineTarget else { return nil }
+        return map.topic(atOutlinePath: path)
+    }
+
+    /// User (typed) properties of the selected node, as an Equatable snapshot so
+    /// the inspector form refreshes on selection change (Topic is a reference
+    /// type SwiftUI can't observe directly).
+    var selectedNodeUserProperties: [NodePropertyRow] {
+        guard let topic = selectedTopic else { return [] }
+        return topic.propertyKeys.map {
+            NodePropertyRow(key: $0, value: topic.property($0) ?? .text(topic.attribute($0) ?? ""))
+        }
+    }
+
+    /// Set or clear (nil) a typed property on the selected node.
+    @MainActor func setSelectedNodeProperty(_ key: String, _ value: PropertyValue?) {
+        guard let topic = selectedTopic else { return }
+        topic.setProperty(key, value)
+        markActiveDocumentDirty()
+    }
+
+    /// Add a property whose type is inferred from the raw string. No-op for an
+    /// empty, reserved, or already-present key.
+    @MainActor func addSelectedNodeProperty(key rawKey: String, rawValue: String) {
+        let key = rawKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !key.isEmpty, !Topic.isReservedAttributeKey(key),
+              let topic = selectedTopic, topic.attribute(key) == nil else { return }
+        topic.setProperty(key, PropertyInference.infer(rawValue))
+        markActiveDocumentDirty()
+    }
+
+    @MainActor func removeSelectedNodeProperty(_ key: String) {
+        guard let topic = selectedTopic else { return }
+        topic.setProperty(key, nil)
+        markActiveDocumentDirty()
+    }
+
+    /// Flip the active doc to dirty (once) so a property edit is saved.
+    private func markActiveDocumentDirty() {
+        if let id = activeDocumentID, let idx = openDocuments.firstIndex(where: { $0.id == id }),
+           !openDocuments[idx].isDirty {
+            openDocuments[idx].isDirty = true
+        }
+    }
+
     // MARK: - Outline navigation
 
     /// Push a navigation target into the active editor. Tags the value with a

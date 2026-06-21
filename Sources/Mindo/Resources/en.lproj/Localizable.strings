@@ -102,6 +102,12 @@
 
 /* MARK: - Inspector */
 "inspector.linked_mentions" = "Linked Mentions";
+"inspector.properties" = "Properties";
+"inspector.properties.empty" = "No properties yet. Add one below.";
+"inspector.properties.name" = "name";
+"inspector.properties.value" = "value";
+"inspector.properties.add" = "Add property";
+"inspector.properties.remove" = "Remove property";
 "inspector.note" = "Note";
 "inspector.note.expand" = "Expand note editor";
 "inspector.note.title_fmt" = "Note — %@";

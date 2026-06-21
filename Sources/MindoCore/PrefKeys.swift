@@ -12,6 +12,7 @@ public enum PrefKeys {
     /// Right-inspector accordion section expansion state.
     public static let inspectorOutlineExpanded = "mindo.prefs.inspectorOutlineExpanded"
     public static let inspectorLinksExpanded = "mindo.prefs.inspectorLinksExpanded"
+    public static let inspectorPropertiesExpanded = "mindo.prefs.inspectorPropertiesExpanded"
     /// User-customized editor syntax colors (JSON of EditorTheme).
     public static let editorTheme = "mindo.prefs.editorTheme"
     /// User-customized mind-map canvas colors (JSON of CanvasThemeColors).

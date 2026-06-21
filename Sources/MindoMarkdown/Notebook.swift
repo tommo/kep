@@ -1,21 +1,25 @@
 import Foundation
 
 /// One cell of a Research Notebook (`.mnb`). Prose cells are markdown; code
-/// cells are executable (Lua today). The on-disk format is plain markdown —
-/// prose verbatim, code cells as ```` ```lang {exec id=…} ```` fences — so a
-/// `.mnb` stays diffable/mergeable and interoperable with the markdown tools.
+/// cells are executable (Lua today); agent cells are a first-class, attributed,
+/// re-runnable block — a research prompt plus the agent's authored result. The
+/// on-disk format is plain markdown — prose verbatim, code cells as
+/// ```` ```lang {exec id=…} ```` fences, agent cells as an HTML-comment-
+/// delimited region — so a `.mnb` stays diffable/mergeable.
 public enum NotebookCell: Equatable, Sendable, Identifiable {
     case prose(id: String, text: String)
     case code(id: String, language: String, code: String)
+    case agent(id: String, prompt: String, result: String)
 
     public var id: String {
         switch self {
         case .prose(let id, _): return id
         case .code(let id, _, _): return id
+        case .agent(let id, _, _): return id
         }
     }
 
-    /// Cache key for a code cell's output (nil for prose).
+    /// Cache key for a code cell's output (nil for prose/agent).
     public var outputHash: String? {
         if case .code(_, _, let code) = self { return MarkdownExecBlocks.hash(code) }
         return nil
@@ -31,21 +35,47 @@ public struct Notebook: Equatable, Sendable {
 
 /// Parse/serialize the markdown ⇄ Notebook cell model.
 public enum NotebookFormat {
+    static let agentOpenPrefix = "<!--mindo:agent "
+    static let agentClose = "<!--/mindo:agent-->"
 
     public static func parse(_ text: String) -> Notebook {
-        var prose = 0
-        let cells: [NotebookCell] = MarkdownExecBlocks.scan(text).map { seg in
-            switch seg {
-            case .prose(let t):
-                prose += 1
-                // Trim the blank lines that separated this run from adjacent
-                // fences so serialize→parse round-trips stably (cells are
-                // re-joined with a blank line).
-                return .prose(id: "prose-\(prose)", text: t.trimmingCharacters(in: .whitespacesAndNewlines))
-            case .exec(let b):
-                return .code(id: b.id, language: b.language, code: b.code)
+        var cells: [NotebookCell] = []
+        var proseN = 0, agentN = 0
+        let lines = text.components(separatedBy: "\n")
+
+        // Append prose/code cells for a plain (non-agent) markdown run.
+        func appendPlain(_ chunk: String) {
+            guard !chunk.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+            for seg in MarkdownExecBlocks.scan(chunk) {
+                switch seg {
+                case .prose(let t):
+                    proseN += 1
+                    cells.append(.prose(id: "prose-\(proseN)", text: t.trimmingCharacters(in: .whitespacesAndNewlines)))
+                case .exec(let b):
+                    cells.append(.code(id: b.id, language: b.language, code: b.code))
+                }
             }
         }
+
+        var plain: [String] = []
+        var i = 0
+        while i < lines.count {
+            let line = lines[i]
+            if line.hasPrefix(agentOpenPrefix), line.hasSuffix("-->") {
+                appendPlain(plain.joined(separator: "\n")); plain.removeAll()
+                let prompt = decodePrompt(from: line)
+                var body: [String] = []
+                var j = i + 1
+                while j < lines.count, lines[j] != agentClose { body.append(lines[j]); j += 1 }
+                agentN += 1
+                cells.append(.agent(id: "agent-\(agentN)", prompt: prompt,
+                                    result: body.joined(separator: "\n")))
+                i = (j < lines.count) ? j + 1 : j   // skip the close marker
+            } else {
+                plain.append(line); i += 1
+            }
+        }
+        appendPlain(plain.joined(separator: "\n"))
         return Notebook(cells: cells)
     }
 
@@ -57,7 +87,25 @@ public enum NotebookFormat {
             case .code(let id, let language, let code):
                 let lang = language.isEmpty ? "lua" : language
                 return "```\(lang) {exec id=\(id)}\n\(code)\n```"
+            case .agent(_, let prompt, let result):
+                return "\(agentOpenPrefix)\(encodePrompt(prompt))-->\n\(result)\n\(agentClose)"
             }
         }.joined(separator: "\n\n")
+    }
+
+    // MARK: - Agent prompt codec (JSON in the open comment — survives quotes/newlines)
+
+    private static func encodePrompt(_ prompt: String) -> String {
+        let data = (try? JSONSerialization.data(withJSONObject: ["prompt": prompt])) ?? Data()
+        return String(data: data, encoding: .utf8) ?? "{\"prompt\":\"\"}"
+    }
+    private static func decodePrompt(from openLine: String) -> String {
+        // strip "<!--mindo:agent " prefix and "-->" suffix → JSON object
+        var json = String(openLine.dropFirst(agentOpenPrefix.count))
+        if json.hasSuffix("-->") { json = String(json.dropLast(3)) }
+        guard let data = json.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let prompt = obj["prompt"] as? String else { return "" }
+        return prompt
     }
 }

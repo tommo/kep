@@ -35,22 +35,50 @@ final class NotebookModel: ObservableObject, NotebookAgentSink {
         self.outputs = documentURL.map { ExecOutputsStore.load(for: $0) } ?? ExecOutputs()
     }
 
-    // MARK: - Agent authoring (NotebookAgentSink)
+    // MARK: - Agent block (first-class, attributed, re-runnable)
 
-    func agentAddProse(_ text: String) {
-        cells.append(.prose(id: freshID("prose"), text: text))
+    /// The agent cell currently being authored into (set during runAgentCell).
+    private var activeAgentCell: String?
+
+    /// Run the agent for an agent cell's prompt — it authors its findings into
+    /// that block's result, streamed live. Re-running clears the prior result.
+    func runAgentCell(_ id: String) async {
+        guard let runAgent,
+              case .agent(_, let prompt, _)? = cells.first(where: { $0.id == id }),
+              !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        setAgentResult(id, "")
+        activeAgentCell = id
+        running.insert(id); agentBusy = true
+        await runAgent(prompt, self)
+        running.remove(id); agentBusy = false
+        activeAgentCell = nil
         flushNow()
+    }
+
+    private func setAgentResult(_ id: String, _ result: String) {
+        guard let i = index(of: id), case .agent(let cid, let prompt, _) = cells[i] else { return }
+        cells[i] = .agent(id: cid, prompt: prompt, result: result)
+    }
+    private func appendToAgentResult(_ id: String, _ markdown: String) {
+        let existing = agentResult(of: id)
+        setAgentResult(id, existing.isEmpty ? markdown : existing + "\n\n" + markdown)
+        flushNow()
+    }
+
+    // NotebookAgentSink — authored content lands in the active agent block.
+    func agentAddProse(_ text: String) {
+        guard let id = activeAgentCell else {
+            cells.append(.prose(id: freshID("prose"), text: text)); flushNow(); return
+        }
+        appendToAgentResult(id, text)
     }
     func agentAddCode(_ code: String, output: ExecOutput) {
-        cells.append(.code(id: freshID("code"), language: "lua", code: code))
-        outputs.set(output, forHash: MarkdownExecBlocks.hash(code))
-        flushNow()
-    }
-    func askAgent(_ question: String) async {
-        guard let runAgent, !question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        agentBusy = true
-        await runAgent(question, self)
-        agentBusy = false
+        let rendered = "```lua\n\(code)\n```\n→ " + (output.error ?? (output.text.isEmpty ? "(no output)" : output.text))
+        guard let id = activeAgentCell else {
+            cells.append(.code(id: freshID("code"), language: "lua", code: code))
+            outputs.set(output, forHash: MarkdownExecBlocks.hash(code)); flushNow(); return
+        }
+        appendToAgentResult(id, rendered)
     }
 
     private var ctx: NotebookRunContext { NotebookRunContext(documentURL: documentURL) }
@@ -72,8 +100,15 @@ final class NotebookModel: ObservableObject, NotebookAgentSink {
         switch cells.first(where: { $0.id == id }) {
         case .prose(_, let t): return t
         case .code(_, _, let c): return c
+        case .agent(_, let prompt, _): return prompt   // editable field is the prompt
         case .none: return ""
         }
+    }
+
+    /// The agent block's authored result (rendered read-only).
+    func agentResult(of id: String) -> String {
+        if case .agent(_, _, let r)? = cells.first(where: { $0.id == id }) { return r }
+        return ""
     }
 
     func updateText(_ id: String, _ newText: String) {
@@ -81,6 +116,7 @@ final class NotebookModel: ObservableObject, NotebookAgentSink {
         switch cells[i] {
         case .prose(let cid, _): cells[i] = .prose(id: cid, text: newText)
         case .code(let cid, let lang, _): cells[i] = .code(id: cid, language: lang, code: newText)
+        case .agent(let cid, _, let result): cells[i] = .agent(id: cid, prompt: newText, result: result)
         }
         scheduleSerialize()
     }
@@ -91,6 +127,10 @@ final class NotebookModel: ObservableObject, NotebookAgentSink {
     }
     func addProse(after id: String? = nil) {
         let cell = NotebookCell.prose(id: freshID("prose"), text: "")
+        insert(cell, after: id)
+    }
+    func addAgent(after id: String? = nil) {
+        let cell = NotebookCell.agent(id: freshID("agent"), prompt: "", result: "")
         insert(cell, after: id)
     }
     private func insert(_ cell: NotebookCell, after id: String?) {
@@ -164,8 +204,6 @@ public struct NotebookEditor: View {
     let isDarkMode: Bool
     @StateObject private var model: NotebookModel
 
-    @State private var agentPrompt = ""
-
     public init(text: Binding<String>, documentURL: URL?, isDarkMode: Bool,
                 runOne: @escaping NotebookRunOne, runAll: @escaping NotebookRunAll,
                 runAgent: NotebookAgentRunner? = nil) {
@@ -191,39 +229,8 @@ public struct NotebookEditor: View {
                 }
                 .padding(12)
             }
-            if model.runAgent != nil {
-                Divider()
-                agentBar
-            }
         }
         .onChange(of: text) { _, new in model.reload(from: new) }
-    }
-
-    /// The agentic surface: ask the agent to research a question; it authors
-    /// prose + code cells into this notebook using the knowledge base.
-    private var agentBar: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "sparkles").foregroundStyle(.purple)
-            TextField("Ask the agent to research… (it writes findings + queries into this notebook)", text: $agentPrompt)
-                .textFieldStyle(.roundedBorder)
-                .onSubmit(submitAgent)
-                .disabled(model.agentBusy)
-            if model.agentBusy {
-                ProgressView().controlSize(.small)
-            } else {
-                Button("Research", action: submitAgent)
-                    .keyboardShortcut(.return, modifiers: [])
-                    .disabled(agentPrompt.trimmingCharacters(in: .whitespaces).isEmpty)
-            }
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-    }
-
-    private func submitAgent() {
-        let q = agentPrompt
-        agentPrompt = ""
-        Task { await model.askAgent(q) }
     }
 
     private var toolbar: some View {
@@ -249,6 +256,9 @@ public struct NotebookEditor: View {
         HStack(spacing: 8) {
             Button { model.addProse() } label: { Label("Text", systemImage: "text.alignleft") }
             Button { model.addCode() } label: { Label("Code", systemImage: "chevron.left.forwardslash.chevron.right") }
+            if model.runAgent != nil {
+                Button { model.addAgent() } label: { Label("Agent", systemImage: "sparkles") }
+            }
             Spacer()
         }
         .buttonStyle(.bordered)
@@ -318,7 +328,46 @@ private struct NotebookCellRow: View {
                     .background(RoundedRectangle(cornerRadius: 6).fill(Color.gray.opacity(0.10)))
                 outputView
             }
+        case .agent:
+            agentCell
         }
+    }
+
+    /// First-class agent block: an attributed, re-runnable research prompt whose
+    /// authored result (prose + ran code) lives inside the block.
+    private var agentCell: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Image(systemName: "sparkles").foregroundStyle(.purple)
+                Text("Agent").font(.caption.weight(.semibold)).foregroundStyle(.purple)
+                Spacer()
+                if model.running.contains(cell.id) {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Button { Task { await model.runAgentCell(cell.id) } } label: {
+                        Image(systemName: model.agentResult(of: cell.id).isEmpty ? "play.fill" : "arrow.clockwise")
+                    }
+                    .buttonStyle(.borderless)
+                    .help(model.agentResult(of: cell.id).isEmpty ? "Run research" : "Re-run")
+                }
+                cellMenu
+            }
+            TextField("Research question for the agent…", text: binding, axis: .vertical)
+                .textFieldStyle(.plain)
+                .font(.body.weight(.medium))
+                .lineLimit(1...4)
+            let result = model.agentResult(of: cell.id)
+            if !result.isEmpty {
+                Divider()
+                ProseRenderedView(markdown: result)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else if model.running.contains(cell.id) {
+                Text("Researching…").font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .padding(8)
+        .background(RoundedRectangle(cornerRadius: 8).fill(Color.purple.opacity(0.06)))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.purple.opacity(0.18)))
     }
 
     @ViewBuilder private var outputView: some View {
@@ -413,11 +462,43 @@ private struct ProseRenderedView: View {
             Text("Empty — click to write…").foregroundStyle(.tertiary).italic()
         } else {
             VStack(alignment: .leading, spacing: 3) {
-                ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
-                    lineView(line)
+                // Group consecutive ``` fenced lines into a monospaced block;
+                // render everything else line-by-line.
+                let raw = markdown.components(separatedBy: "\n")
+                let groups = Self.group(raw)
+                ForEach(Array(groups.enumerated()), id: \.offset) { _, g in
+                    if g.isCode {
+                        Text(g.text)
+                            .font(.system(.callout, design: .monospaced))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(6)
+                            .background(RoundedRectangle(cornerRadius: 5).fill(Color.gray.opacity(0.10)))
+                            .textSelection(.enabled)
+                    } else {
+                        ForEach(Array(ProseMarkdown.lines(g.text).enumerated()), id: \.offset) { _, line in
+                            lineView(line)
+                        }
+                    }
                 }
             }
         }
+    }
+
+    /// Split markdown into prose vs fenced-code groups (drops the ``` fences).
+    static func group(_ lines: [String]) -> [(isCode: Bool, text: String)] {
+        var groups: [(Bool, String)] = []
+        var buf: [String] = []
+        var inCode = false
+        func flush(_ code: Bool) {
+            if !buf.isEmpty { groups.append((code, buf.joined(separator: "\n"))); buf.removeAll() }
+        }
+        for line in lines {
+            if line.trimmingCharacters(in: .whitespaces).hasPrefix("```") {
+                flush(inCode); inCode.toggle()
+            } else { buf.append(line) }
+        }
+        flush(inCode)
+        return groups
     }
 
     @ViewBuilder private func lineView(_ line: ProseLine) -> some View {

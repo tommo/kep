@@ -30,33 +30,35 @@ final class NotebookModelTests: XCTestCase {
         XCTAssertTrue(model.running.isEmpty)
     }
 
-    func testAgentAuthorsProseAndCodeCells() async {
+    func testAgentBlockAuthorsIntoItsOwnResult() async {
         var lastSerialized = ""
         let model = makeModel(text: "# Notes\n", serialized: { lastSerialized = $0 },
             runAgent: { _, sink in
                 sink.agentAddProse("Found that X relates to Y.")
                 sink.agentAddCode("return 42", output: ExecOutput(text: "42"))
             })
-        await model.askAgent("how do X and Y relate?")
+        model.addAgent()
+        let agentID = model.cells.last!.id
+        model.updateText(agentID, "how do X and Y relate?")
+        await model.runAgentCell(agentID)
 
-        // One starting prose cell + the two authored cells.
-        XCTAssertEqual(model.cells.count, 3)
-        let kinds = model.cells.map { if case .code = $0 { return "code" } else { return "prose" } }
-        XCTAssertEqual(kinds, ["prose", "prose", "code"])
-        // The authored code cell's output is cached + visible.
-        if case .code(_, _, let code) = model.cells[2] {
-            XCTAssertEqual(model.outputs.output(forHash: MarkdownExecBlocks.hash(code))?.text, "42")
-        } else { XCTFail("third cell should be code") }
-        // It persisted back to the document immediately.
-        XCTAssertTrue(lastSerialized.contains("Found that X relates to Y."))
-        XCTAssertTrue(lastSerialized.contains("return 42"))
+        // No new top-level cells — the agent's work lives INSIDE the block.
+        XCTAssertEqual(model.cells.count, 2)   // prose + agent
+        let result = model.agentResult(of: agentID)
+        XCTAssertTrue(result.contains("Found that X relates to Y."))
+        XCTAssertTrue(result.contains("return 42"))   // ran code captured in the block
+        XCTAssertTrue(lastSerialized.contains("mindo:agent"))
         XCTAssertFalse(model.agentBusy)
+        XCTAssertTrue(model.running.isEmpty)
     }
 
-    func testAskAgentNoopWithoutRunner() async {
+    func testAgentBlockNoopWithoutRunnerOrPrompt() async {
         let model = makeModel(text: "# Notes\n")   // runAgent nil
-        await model.askAgent("anything")
-        XCTAssertEqual(model.cells.count, 1)       // unchanged
+        model.addAgent()
+        let id = model.cells.last!.id
+        model.updateText(id, "anything")
+        await model.runAgentCell(id)               // no runner → no-op
+        XCTAssertEqual(model.agentResult(of: id), "")
         XCTAssertFalse(model.agentBusy)
     }
 

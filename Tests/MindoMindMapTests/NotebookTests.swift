@@ -55,6 +55,39 @@ final class NotebookTests: XCTestCase {
         XCTAssertEqual(round.codeCells.count, 2)
     }
 
+    func testAgentBlockRoundTrip() {
+        let md = """
+        Intro.
+
+        <!--mindo:agent {"prompt":"how do X and Y relate?"}-->
+        Found a link via doc A.
+
+        ```lua
+        return 42
+        ```
+        <!--/mindo:agent-->
+
+        Outro.
+        """
+        let nb = NotebookFormat.parse(md)
+        // prose, agent, prose
+        XCTAssertEqual(nb.cells.count, 3)
+        guard case .agent(_, let prompt, let result) = nb.cells[1] else { return XCTFail("cell1 agent") }
+        XCTAssertEqual(prompt, "how do X and Y relate?")
+        XCTAssertTrue(result.contains("Found a link via doc A."))
+        XCTAssertTrue(result.contains("return 42"))
+        // Round-trips (prompt + result preserved).
+        let round = NotebookFormat.parse(NotebookFormat.serialize(nb))
+        XCTAssertEqual(round.cells, nb.cells)
+    }
+
+    func testAgentPromptWithQuotesSurvives() {
+        let nb = Notebook(cells: [.agent(id: "agent-1", prompt: "what about \"quotes\" & \nnewlines?", result: "r")])
+        let round = NotebookFormat.parse(NotebookFormat.serialize(nb))
+        guard case .agent(_, let prompt, _) = round.cells.first else { return XCTFail("agent") }
+        XCTAssertEqual(prompt, "what about \"quotes\" & \nnewlines?")
+    }
+
     func testCodeCellOutputHashStable() {
         let nb = NotebookFormat.parse("```lua {exec id=x}\nreturn 1\n```")
         XCTAssertEqual(nb.cells[0].outputHash, MarkdownExecBlocks.hash("return 1"))

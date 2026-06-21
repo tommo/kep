@@ -117,7 +117,8 @@ struct EditorPane: View {
                 isDarkMode: colorScheme == .dark,
                 runOne: { src, ctx in await session.runNotebookCell(src, in: ctx) },
                 runAll: { nb, ctx in await session.runNotebookAll(nb, in: ctx) },
-                runAgent: { question, sink in await session.runNotebookAgent(question, into: sink) })
+                runAgent: { question, sink in await session.runNotebookAgent(question, into: sink) },
+                onOpenSource: { name in session.openWikiLink(target: name, heading: nil) })
         case .text(let body, _):
             ScrollView {
                 Text(body)

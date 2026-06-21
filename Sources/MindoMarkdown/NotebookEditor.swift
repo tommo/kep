@@ -269,15 +269,18 @@ public struct NotebookEditor: View {
     @Binding var text: String
     let documentURL: URL?
     let isDarkMode: Bool
+    let onOpenSource: ((String) -> Void)?
     @StateObject private var model: NotebookModel
     @FocusState private var focus: NotebookFocus?
 
     public init(text: Binding<String>, documentURL: URL?, isDarkMode: Bool,
                 runOne: @escaping NotebookRunOne, runAll: @escaping NotebookRunAll,
-                runAgent: NotebookAgentRunner? = nil) {
+                runAgent: NotebookAgentRunner? = nil,
+                onOpenSource: ((String) -> Void)? = nil) {
         _text = text
         self.documentURL = documentURL
         self.isDarkMode = isDarkMode
+        self.onOpenSource = onOpenSource
         _model = StateObject(wrappedValue: NotebookModel(
             text: text.wrappedValue, documentURL: documentURL,
             runOne: runOne, runAll: runAll, runAgent: runAgent,
@@ -293,7 +296,8 @@ public struct NotebookEditor: View {
                     LazyVStack(alignment: .leading, spacing: 10) {
                         ForEach(model.cells) { cell in
                             NotebookCellRow(model: model, cell: cell,
-                                            focus: $focus, isSelected: model.selectedID == cell.id)
+                                            focus: $focus, isSelected: model.selectedID == cell.id,
+                                            onOpenSource: onOpenSource)
                                 .id(cell.id)
                         }
                         addBar
@@ -333,12 +337,17 @@ public struct NotebookEditor: View {
         default: break
         }
         switch press.characters {
-        case "b": model.addAfterSelection { model.addCode(after: $0) }; return .handled
-        case "m": model.addAfterSelection { model.addProse(after: $0) }; return .handled
-        case "g" where model.runAgent != nil: model.addAfterSelection { model.addAgent(after: $0) }; return .handled
+        case "b": model.addAfterSelection { model.addCode(after: $0) }; editSelected(); return .handled
+        case "m": model.addAfterSelection { model.addProse(after: $0) }; editSelected(); return .handled
+        case "g" where model.runAgent != nil: model.addAfterSelection { model.addAgent(after: $0) }; editSelected(); return .handled
         case "r": Task { await model.runSelected() }; return .handled
         default: return .ignored
         }
+    }
+
+    /// Drop straight into editing the (just-added) selected cell.
+    private func editSelected() {
+        if let id = model.selectedID { focus = .edit(id) }
     }
 
     private var toolbar: some View {
@@ -381,6 +390,7 @@ private struct NotebookCellRow: View {
     let cell: NotebookCell
     var focus: FocusState<NotebookFocus?>.Binding
     let isSelected: Bool
+    var onOpenSource: ((String) -> Void)?
 
     private var isEditing: Bool { focus.wrappedValue == .edit(cell.id) }
 
@@ -494,10 +504,17 @@ private struct NotebookCellRow: View {
             }
             let sources = model.agentSources(of: cell.id)
             if !sources.isEmpty {
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                HStack(spacing: 4) {
                     Image(systemName: "book.closed").font(.caption2).foregroundStyle(.secondary)
-                    Text("Sources: ").font(.caption2).foregroundStyle(.secondary)
-                    + Text(sources.joined(separator: ", ")).font(.caption2).foregroundStyle(.secondary)
+                    Text("Sources:").font(.caption2).foregroundStyle(.secondary)
+                    ForEach(sources, id: \.self) { src in
+                        if let open = onOpenSource {
+                            Button(src) { open(src) }
+                                .buttonStyle(.link).font(.caption2)
+                        } else {
+                            Text(src).font(.caption2).foregroundStyle(.secondary)
+                        }
+                    }
                 }
                 .padding(.top, 2)
             }

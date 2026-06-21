@@ -217,6 +217,14 @@ public struct AIGeneratePane: View {
             Button("Continue", systemImage: "arrow.right.to.line") { continueResponse() }
                 .disabled(isRunning || output.isEmpty)
                 .help("Ask the model to continue from the current result")
+            Menu("Adjust") {
+                ForEach(AILengthAdjustment.allCases, id: \.self) { adj in
+                    Button(adj.label, systemImage: adj.systemImage) { adjust(adj) }
+                }
+            }
+            .fixedSize()
+            .disabled(isRunning || lastPromptUsed == nil)
+            .help("Re-run the prompt asking for a shorter or longer result")
             if isRunning {
                 Button("Stop") { cancel() }
             }
@@ -269,6 +277,14 @@ public struct AIGeneratePane: View {
             appendingToExisting: true,
             rememberAs: lastPromptUsed
         )
+    }
+
+    /// Reframe the last result shorter / longer by re-running the original
+    /// prompt with a length directive. Remembers the ORIGINAL prompt so a
+    /// follow-up Regenerate (or another Adjust) stays relative to the base.
+    private func adjust(_ adjustment: AILengthAdjustment) {
+        guard let last = lastPromptUsed else { return }
+        run(promptText: adjustment.applied(to: last), appendingToExisting: false, rememberAs: last)
     }
 
     /// Shared runner for Generate / Regenerate / Continue. `appendingToExisting`

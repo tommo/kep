@@ -463,6 +463,12 @@ final class AppSession {
     var inspectorTab: InspectorTab = .inspector
     /// The window region with keyboard focus (drives the focus-ring indicator).
     var activeRegion: AppSession.FocusRegion?
+    /// Region container views (tagged from ContentView via RegionContainerTagger)
+    /// + the event monitor that keeps `activeRegion` in sync with the REAL first
+    /// responder. Without this the highlight only tracked ⌘1/2/3; now clicking
+    /// (or Tab-ing) into a pane moves it too. See [[feedback_keyboard_only_ux]].
+    @ObservationIgnored var regionContainers: [FocusRegion: WeakViewBox] = [:]
+    @ObservationIgnored var regionFocusMonitor: Any?
     var aiSupportedModes: [AIGeneratePane.InsertionMode] = [.append]
     var aiDefaultPrompt: String = ""
 

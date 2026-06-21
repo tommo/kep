@@ -6,6 +6,13 @@ import MindoMarkdown
 import MindoMindMap
 import MindoModel
 
+/// Weak box so the session can hold region container views without keeping
+/// them (or the window) alive.
+final class WeakViewBox {
+    weak var view: NSView?
+    init(_ view: NSView) { self.view = view }
+}
+
 extension AppSession {
 
     // MARK: - Active document
@@ -91,6 +98,66 @@ extension AppSession {
             outlineOpen = true
             inspectorTab = .agent   // DialogView auto-focuses its input on appear
         }
+    }
+
+    // MARK: - Focus tracking (highlight follows the real first responder)
+
+    /// Record a region's container view, tagged by `RegionContainerTagger` in
+    /// ContentView. We classify the first responder by testing which container
+    /// it descends from, so the highlight follows clicks/Tab — not just ⌘1/2/3.
+    @MainActor func registerRegionContainer(_ view: NSView, as region: FocusRegion) {
+        regionContainers[region] = WeakViewBox(view)
+    }
+
+    /// Install (once) a local event monitor so any mouse click or Tab that
+    /// moves the first responder re-syncs `activeRegion` to the pane that now
+    /// holds focus. The monitor never consumes the event — it just observes.
+    @MainActor func startRegionFocusTracking() {
+        guard regionFocusMonitor == nil else { return }
+        regionFocusMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .keyDown]) { [weak self] event in
+            // Only Tab (48) among key events relocates focus across panes;
+            // ignore every other keystroke so typing stays cheap.
+            if event.type == .keyDown && event.keyCode != 48 { return event }
+            // First responder updates *after* the event is dispatched, so read
+            // it on the next runloop turn.
+            DispatchQueue.main.async { self?.syncActiveRegionToFirstResponder() }
+            return event
+        }
+    }
+
+    /// Map the window's current first responder to its region and update the
+    /// highlight. No-op when focus lands somewhere untagged (e.g. a toolbar) so
+    /// the indicator never flickers off mid-edit.
+    @MainActor func syncActiveRegionToFirstResponder() {
+        guard let win = NSApp.keyWindow ?? NSApp.mainWindow,
+              let responder = win.firstResponder as? NSView else { return }
+        let order: [FocusRegion] = [.document, .sidebar, .inspector]
+
+        // Primary: the responder lives inside a region's container subtree.
+        for region in order where containsResponder(region, responder, geometric: false) {
+            apply(region); return
+        }
+        // Fallback (robust to SwiftUI's view nesting): the responder's centre
+        // falls within a region container's on-screen frame.
+        for region in order where containsResponder(region, responder, geometric: true) {
+            apply(region); return
+        }
+        // Untagged focus (toolbar, etc.) — leave the highlight where it is.
+    }
+
+    @MainActor private func containsResponder(_ region: FocusRegion, _ responder: NSView, geometric: Bool) -> Bool {
+        guard let container = regionContainers[region]?.view else { return false }
+        if !geometric { return responder == container || responder.isDescendant(of: container) }
+        let r = responder.convert(responder.bounds, to: nil)
+        let c = container.convert(container.bounds, to: nil)
+        return c.contains(NSPoint(x: r.midX, y: r.midY))
+    }
+
+    @MainActor private func apply(_ region: FocusRegion) {
+        // The inspector pane hosts both the passive panels and the agent chat;
+        // reflect whichever tab is showing.
+        let resolved: FocusRegion = (region == .inspector && inspectorTab == .agent) ? .agent : region
+        if activeRegion != resolved { activeRegion = resolved }
     }
 
     /// Run `body` on the next runloop turns so a just-revealed column/panel has

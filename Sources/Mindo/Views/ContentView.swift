@@ -70,15 +70,18 @@ struct ContentView: View {
                 onSelectionSource: { selectionSource = $0 },
                 onConfirm: confirmSelection
             )
+            .background(RegionContainerTagger(session: session, region: .sidebar))
             .overlay(regionRing(.sidebar))
             .navigationSplitViewColumnWidth(min: 170, ideal: 220, max: 460)
         } detail: {
             DetailArea(session: $session)
+                .background(RegionContainerTagger(session: session, region: .document))
                 .overlay(regionRing(.document))
         }
         .navigationSplitViewStyle(.balanced)
         .inspector(isPresented: inspectorPresented) {
             inspectorPane
+                .background(RegionContainerTagger(session: session, region: .inspector))
                 .overlay(regionRing(.inspector))
                 .inspectorColumnWidth(min: 200, ideal: 280, max: 460)
         }
@@ -121,6 +124,9 @@ struct ContentView: View {
         // Initial sync: .onChange doesn't fire for the value restored at launch,
         // so seed the selection from the active document once the tree exists.
         .onAppear {
+            // Keep the focus highlight in sync with the real first responder so
+            // clicking (or Tab-ing) into a pane moves it — not only ⌘1/2/3.
+            session.startRegionFocusTracking()
             if sidebarSelection == nil,
                let url = session.activeDocument?.fileURL,
                let node = sidebarNode(for: url) {
@@ -352,6 +358,41 @@ struct ContentView: View {
             if let hit = findNode(in: child, matching: url) { return hit }
         }
         return nil
+    }
+}
+
+/// Invisible probe placed as a `.background` of each window region. Once in the
+/// view hierarchy it hands its enclosing container view to the session, which
+/// uses it to map the first responder back to a region (so the focus highlight
+/// follows mouse clicks and Tab, not just the ⌘1/2/3 shortcuts).
+private struct RegionContainerTagger: NSViewRepresentable {
+    let session: AppSession
+    let region: AppSession.FocusRegion
+
+    func makeNSView(context: Context) -> TaggerNSView {
+        let v = TaggerNSView()
+        v.onAttach = { container in
+            session.registerRegionContainer(container, as: region)
+        }
+        return v
+    }
+
+    func updateNSView(_ nsView: TaggerNSView, context: Context) {
+        // Re-assert in case SwiftUI re-parents the region's host view.
+        if let container = nsView.superview {
+            session.registerRegionContainer(container, as: region)
+        }
+    }
+
+    final class TaggerNSView: NSView {
+        var onAttach: ((NSView) -> Void)?
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            // `.background` makes this a sibling of the region content under a
+            // shared container — our superview — which is therefore an ancestor
+            // of whatever responder the user clicks inside the region.
+            if window != nil, let container = superview { onAttach?(container) }
+        }
     }
 }
 

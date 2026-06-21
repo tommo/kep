@@ -229,6 +229,14 @@ extension AppSession {
         activeMindMapView?.selectTopics(MindMapTags.topicsWithTag(tag, in: map))
     }
 
+    /// Matching topics for `query` as (outline-path, text) rows — the results
+    /// "view" for the inspector. Empty for a blank query / non-mindmap.
+    func queryResults(_ query: String) -> [(path: String, text: String)] {
+        let q = query.trimmingCharacters(in: .whitespaces)
+        guard !q.isEmpty, case .mindMap(let map)? = activeDocument?.kind else { return [] }
+        return TopicQuery.evaluate(q, in: map).map { (path: $0.outlinePath, text: $0.text.isEmpty ? "·" : $0.text) }
+    }
+
     /// Select every topic in the active map matching the query (TopicQuery
     /// mini-language: `key:value`, `#tag`, bare text; space = AND). Returns the
     /// match count so the UI can report it; no-op for a blank query.

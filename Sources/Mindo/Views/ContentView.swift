@@ -301,7 +301,42 @@ struct ContentView: View {
                 .help(L("inspector.query.saved_help"))
             }
             .padding(.horizontal, 8).padding(.top, 4)
-            tagList(tags)
+            // While a query is typed, show its results (Bases-style view); else
+            // the tag list.
+            if tagQuery.trimmingCharacters(in: .whitespaces).isEmpty {
+                tagList(tags)
+            } else {
+                queryResults
+            }
+        }
+    }
+
+    /// Live results of the inspector query: matching nodes as clickable rows
+    /// (click navigates the canvas to that node). #203 query view.
+    private var queryResults: some View {
+        let results = session.queryResults(tagQuery)
+        return Group {
+            if results.isEmpty {
+                Text(L("inspector.query.no_results"))
+                    .font(.caption).foregroundStyle(.secondary)
+                    .padding(.horizontal, 8).padding(.vertical, 4)
+            } else {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(String(format: L("inspector.query.count_fmt"), results.count))
+                        .font(.caption2).foregroundStyle(.secondary)
+                        .padding(.horizontal, 8).padding(.bottom, 2)
+                    ForEach(results, id: \.path) { row in
+                        Button { session.requestOutlineNavigation(target: row.path) } label: {
+                            Label(row.text, systemImage: "smallcircle.filled.circle")
+                                .font(.callout).lineLimit(1)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
+                                .padding(.horizontal, 8).padding(.vertical, 2)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
         }
     }
 

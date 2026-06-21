@@ -111,6 +111,8 @@
 "inspector.query.remove" = "Remove";
 "inspector.query.none" = "No saved queries";
 "inspector.query.saved_help" = "Saved queries";
+"inspector.query.no_results" = "No matching nodes.";
+"inspector.query.count_fmt" = "%d matching";
 "inspector.tags.empty" = "No tags yet. Add a tags property to a node.";
 "inspector.tags.select_help" = "Select every node with this tag";
 "inspector.properties.empty" = "No properties yet. Add one below.";

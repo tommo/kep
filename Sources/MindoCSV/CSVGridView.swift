@@ -1,4 +1,6 @@
 import AppKit
+import MindoBase
+import MindoCore
 
 /// The custom spreadsheet grid (chosen over NSTableView by the design workflow:
 /// NSTableView selection is row/column-exclusive and can't hold an active cell
@@ -66,9 +68,12 @@ public final class CSVGridView: NSView, NSTextFieldDelegate {
         clip.postsBoundsChangedNotifications = true
         NotificationCenter.default.addObserver(self, selector: #selector(clipBoundsChanged),
                                                 name: NSView.boundsDidChangeNotification, object: clip)
+        NotificationCenter.default.addObserver(self, selector: #selector(csvFontChanged),
+                                                name: .csvFontChanged, object: nil)
     }
 
     @objc private func clipBoundsChanged() { needsDisplay = true }
+    @objc private func csvFontChanged() { needsDisplay = true }
 
     // MARK: - Reload
 
@@ -173,7 +178,7 @@ public final class CSVGridView: NSView, NSTextFieldDelegate {
     }
 
     private func drawText(_ text: String, in rect: CGRect, style: CSVCellStyle?) {
-        var font = NSFont.systemFont(ofSize: 12)
+        var font = CSVFont.cell()
         if let s = style, s.bold || s.italic {
             var traits: NSFontTraitMask = []
             if s.bold { traits.insert(.boldFontMask) }
@@ -470,7 +475,7 @@ public final class CSVGridView: NSView, NSTextFieldDelegate {
         let tf = NSTextField(frame: geometry.cellRect(row: ref.row, col: ref.col))
         tf.isBordered = true
         tf.focusRingType = .none
-        tf.font = .systemFont(ofSize: 12)
+        tf.font = CSVFont.cell()
         // Edit the formula SOURCE if present, else the baked value; a seed
         // (type-to-edit) replaces the content entirely.
         tf.stringValue = seed ?? sheet.formula(at: ref) ?? value(ref)

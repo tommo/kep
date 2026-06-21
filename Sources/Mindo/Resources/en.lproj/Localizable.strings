@@ -271,6 +271,8 @@
 "prefs.editor.split.top_bottom" = "Top / bottom";
 "prefs.editor.split.note" = "Applies to editors opened after the change.";
 "prefs.editor.section.plantuml" = "PlantUML";
+"prefs.editor.section.csv" = "CSV";
+"prefs.editor.csv_font" = "CSV grid font";
 "prefs.editor.section.colors" = "Editor Colors";
 "prefs.editor.customize_colors" = "Customize editor colors";
 "prefs.editor.colors_editing_fmt" = "Editing %@ colors (follows the app appearance)";

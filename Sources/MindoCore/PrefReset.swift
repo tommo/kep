@@ -39,6 +39,8 @@ public enum PrefResetGroup: String, CaseIterable, Sendable {
                 PrefKeys.plantumlSplitVertical,
                 PrefKeys.plantumlGraphvizPath,
                 PrefKeys.editorTheme,
+                PrefKeys.csvFontFamily,
+                PrefKeys.csvFontSize,
             ]
         case .mindmap:
             return [

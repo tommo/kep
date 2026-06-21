@@ -16,6 +16,9 @@ public enum PrefKeys {
     public static let editorTheme = "mindo.prefs.editorTheme"
     /// User-customized mind-map canvas colors (JSON of CanvasThemeColors).
     public static let canvasTheme = "mindo.prefs.canvasTheme"
+    /// CSV grid cell font (family empty = system; size clamped 9…16).
+    public static let csvFontFamily = "mindo.prefs.csvFontFamily"
+    public static let csvFontSize = "mindo.prefs.csvFontSize"
     public static let outlineOpenByDefault = "mindo.prefs.outlineOpenByDefault"
     public static let editorFontSize = "mindo.prefs.editorFontSize"
     /// Show dotfiles + hidden directories in the workspace sidebar.

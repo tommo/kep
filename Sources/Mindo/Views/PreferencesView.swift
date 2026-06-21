@@ -4,6 +4,7 @@ import MindoBase
 import MindoCore
 import MindoGenAI
 import MindoMindMap
+import MindoCSV
 
 /// Tabbed preferences sheet wired into SwiftUI's Settings scene (⌘,).
 /// Persists via @AppStorage so editors that observe the same keys
@@ -96,6 +97,8 @@ private struct EditorPrefs: View {
     @AppStorage(PrefKeys.plantumlGraphvizPath) private var graphvizPath: String = ""
     @AppStorage(PrefKeys.markdownPreviewFont) private var previewFont: String = ""
     @AppStorage(PrefKeys.markdownPreviewMonoFont) private var previewMonoFont: String = ""
+    @AppStorage(PrefKeys.csvFontFamily) private var csvFontFamily: String = ""
+    @AppStorage(PrefKeys.csvFontSize) private var csvFontSize: Double = 12
 
     var body: some View {
         Form {
@@ -140,6 +143,17 @@ private struct EditorPrefs: View {
                     Button(L("prefs.editor.plantuml.dotpath_pick")) { pickGraphvizPath() }
                 }
                 Text(L("prefs.editor.plantuml.dotpath_note")).font(.caption).foregroundStyle(.secondary)
+            }
+            Section(L("prefs.editor.section.csv")) {
+                Picker(L("prefs.editor.csv_font"), selection: $csvFontFamily) {
+                    Text(L("prefs.editor.font_family.system")).tag("")
+                    ForEach(EditorFont.pickerFamilies, id: \.self) { name in Text(name).tag(name) }
+                }
+                .onChange(of: csvFontFamily) { _, _ in NotificationCenter.default.post(name: .csvFontChanged, object: nil) }
+                Stepper(value: $csvFontSize, in: 9...16, step: 1) {
+                    Text(String(format: L("prefs.editor.font_size_value"), Int(csvFontSize)))
+                }
+                .onChange(of: csvFontSize) { _, _ in NotificationCenter.default.post(name: .csvFontChanged, object: nil) }
             }
             EditorColorPrefs()
             RestoreDefaultsRow(group: .editor)

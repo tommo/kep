@@ -260,7 +260,7 @@ private struct MindMapPrefs: View {
     @AppStorage(PrefKeys.mindmapSmartTextPaste) private var smartTextPaste: Bool = true
     @AppStorage(PrefKeys.mindmapCornerRadius) private var cornerRadius: Double = 0
     @AppStorage(PrefKeys.mindmapBorderWidth) private var borderWidth: Double = 0
-    @AppStorage(PrefKeys.mindmapHighlightPath) private var highlightPath: Bool = false
+    @AppStorage(PrefKeys.mindmapHighlightPath) private var highlightPath: Bool = true
 
     var body: some View {
         Form {

@@ -573,7 +573,7 @@ public final class MindMapView: NSView {
 
         // Optional: route from the root to the selected node, so the focused
         // node's lineage stands out. PrefKey-gated (defaults off).
-        if PrefKeys.bool(PrefKeys.mindmapHighlightPath, fallback: false),
+        if PrefKeys.bool(PrefKeys.mindmapHighlightPath, fallback: true),
            let sel = selectedElement {
             highlightedPathIDs = Set(sel.topic.ancestorsToRoot.map(ObjectIdentifier.init))
         } else {

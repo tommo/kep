@@ -27,9 +27,10 @@ private extension PropertyType {
 
 /// The inspector's Properties panel — the visible consumer of the typed-node-
 /// property model (keystone #200). Lists the selected node's user properties
-/// with type-appropriate editing (checkbox → Toggle; everything else → a text
-/// field whose committed value is re-inferred through PropertyCodec/Inference),
-/// plus add / remove. Built-in/extra attributes never appear (reserved keys).
+/// with type-appropriate editing (checkbox → Toggle; number → field + Stepper;
+/// date → DatePicker; text/list/topicRef → a field whose committed value is
+/// re-inferred through PropertyCodec/Inference), plus add / remove. Built-in/
+/// extra attributes never appear (reserved keys).
 struct NodePropertiesView: View {
     @Binding var session: AppSession
     let properties: [NodePropertyRow]
@@ -106,16 +107,50 @@ private struct NodePropertyRowView: View {
     }
 
     @ViewBuilder private var editor: some View {
-        if case .checkbox(let on) = row.value {
+        switch row.value {
+        case .checkbox(let on):
             Toggle("", isOn: Binding(get: { on }, set: { onCommit(.checkbox($0)) }))
                 .labelsHidden()
-        } else {
+        case .number(let n):
+            HStack(spacing: 2) {
+                TextField("", text: $draft)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(maxWidth: 64)
+                    .multilineTextAlignment(.trailing)
+                    .onSubmit { onCommit(PropertyInference.infer(draft)) }
+                Stepper("", value: Binding(
+                    get: { Double(draft) ?? n },
+                    set: { v in draft = PropertyCodec.encode(.number(v)); onCommit(.number(v)) }
+                ), step: 1)
+                .labelsHidden()
+            }
+        case .date(let d):
+            // Edit/display in UTC so a date-only value round-trips to UTC
+            // midnight (matching PropertyCodec) with no off-by-one in local TZs.
+            DatePicker("", selection: Binding(
+                get: { d },
+                set: { picked in onCommit(.date(Self.utcStartOfDay(picked))) }
+            ), displayedComponents: .date)
+                .labelsHidden()
+                .datePickerStyle(.field)
+                .environment(\.timeZone, NodePropertyRowView.utc)
+        default:
             TextField("", text: $draft)
                 .textFieldStyle(.roundedBorder)
                 .frame(maxWidth: 130)
                 .multilineTextAlignment(.trailing)
                 .onSubmit { onCommit(PropertyInference.infer(draft)) }
         }
+    }
+
+    private static let utc = TimeZone(identifier: "UTC")!
+
+    /// Normalize a picked instant to UTC midnight of its UTC calendar day, so the
+    /// committed value encodes as a clean date-only string.
+    private static func utcStartOfDay(_ date: Date) -> Date {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = utc
+        return cal.startOfDay(for: date)
     }
 }
 

@@ -55,6 +55,12 @@ extension MindMapView {
         if hasEmoticon {
             menu.addItem(makeContextItem(title: "Remove Icon", action: #selector(contextRemoveEmoticon(_:)), payload: element))
         }
+        // Task done toggle — flips the well-known `done` checkbox property, which
+        // shows the canvas task marker (✓ / ○). Inspector can clear it entirely.
+        let isDone = element.topic.property(PropertyMarkers.doneKey) == .checkbox(true)
+        menu.addItem(makeContextItem(
+            title: isDone ? "Mark as Not Done" : "Mark as Done",
+            action: #selector(contextToggleDone(_:)), payload: element))
         menu.addItem(NSMenuItem.separator())
         // Clone (only meaningful for non-root topics — root has no parent slot
         // to insert a sibling into).
@@ -382,6 +388,15 @@ extension MindMapView {
     @objc func contextRemoveEmoticon(_ sender: NSMenuItem) {
         guard let element = sender.representedObject as? MindMapElement else { return }
         undoableSetAttribute(element.topic, key: TopicAttribute.emoticon, value: nil)
+    }
+
+    /// Toggle the node's task-done state (the `done` checkbox property → canvas
+    /// task marker). Undoable like every other attribute mutation.
+    @objc func contextToggleDone(_ sender: NSMenuItem) {
+        guard let element = sender.representedObject as? MindMapElement else { return }
+        let isDone = element.topic.property(PropertyMarkers.doneKey) == .checkbox(true)
+        undoableSetAttribute(element.topic, key: PropertyMarkers.doneKey,
+                             value: isDone ? "false" : "true")
     }
 
     @objc func contextResetColors(_ sender: NSMenuItem) {

@@ -216,6 +216,19 @@ extension AppSession {
         }
     }
 
+    /// Distinct tags in the active mind map, with per-tag topic counts.
+    var activeMindMapTagCounts: [(tag: String, count: Int)] {
+        guard case .mindMap(let map)? = activeDocument?.kind else { return [] }
+        return MindMapTags.tagCounts(in: map)
+    }
+
+    /// Select every topic in the active map carrying `tag` (the inspector tag
+    /// filter). Reuses the canvas multi-selection.
+    @MainActor func selectTopicsWithTag(_ tag: String) {
+        guard case .mindMap(let map)? = activeDocument?.kind else { return }
+        activeMindMapView?.selectTopics(MindMapTags.topicsWithTag(tag, in: map))
+    }
+
     /// Well-known keys that render a canvas marker — editing one must relayout
     /// the canvas so the marker strip appears/updates.
     private var markerKeys: Set<String> {

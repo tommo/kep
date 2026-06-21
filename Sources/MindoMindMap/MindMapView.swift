@@ -788,6 +788,20 @@ public final class MindMapView: NSView {
         onSelectionChange?()
     }
 
+    /// Select every topic in `topics` (multi-selection), the first becoming the
+    /// primary (for arrow-nav + scroll). No-op for an empty set. Used by the
+    /// inspector's tag filter ("select all with this tag").
+    public func selectTopics(_ topics: [Topic]) {
+        guard !topics.isEmpty else { return }
+        selectedTopics = Set(topics.map(ObjectIdentifier.init))
+        if let first = element(forTopic: topics[0]) {
+            selectedElement = first
+            scrollToVisible(first.frame.insetBy(dx: -32, dy: -32))
+        }
+        needsDisplay = true
+        onSelectionChange?()
+    }
+
     /// After a fold that may have hidden the primary selection, move it up to
     /// the nearest still-visible ancestor (the shallowest collapsed ancestor),
     /// and re-resolve it to the freshly-rebuilt element so the highlight and

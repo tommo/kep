@@ -29,6 +29,7 @@ struct ContentView: View {
     @AppStorage(PrefKeys.inspectorOutlineExpanded) private var outlineExpanded = true
     @AppStorage(PrefKeys.inspectorLinksExpanded) private var linksExpanded = false
     @AppStorage(PrefKeys.inspectorPropertiesExpanded) private var propertiesExpanded = true
+    @AppStorage(PrefKeys.inspectorTagsExpanded) private var tagsExpanded = false
 
     /// Sidebar visibility bridged to `session.sidebarVisible` (toggled from the
     /// View menu / sidebar button). `.all` shows it, `.detailOnly` hides it.
@@ -262,6 +263,36 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    /// Tag list for the active mind map: each distinct tag + how many nodes
+    /// carry it; clicking selects all of them on the canvas.
+    private var tagsInspector: some View {
+        let tags = session.activeMindMapTagCounts
+        return Group {
+            if tags.isEmpty {
+                Text(L("inspector.tags.empty"))
+                    .font(.caption).foregroundStyle(.secondary)
+                    .padding(.horizontal, 8).padding(.vertical, 4)
+            } else {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(tags, id: \.tag) { entry in
+                        Button { session.selectTopicsWithTag(entry.tag) } label: {
+                            HStack(spacing: 6) {
+                                Label(entry.tag, systemImage: "tag")
+                                    .font(.callout).lineLimit(1)
+                                Spacer()
+                                Text("\(entry.count)").font(.caption).foregroundStyle(.secondary)
+                            }
+                            .contentShape(Rectangle())
+                            .padding(.horizontal, 8).padding(.vertical, 3)
+                        }
+                        .buttonStyle(.plain)
+                        .help(L("inspector.tags.select_help"))
+                    }
+                }
+            }
+        }
+    }
+
     /// "Inspector" mode: an accordion of the two passive nav panes — the
     /// document Outline and the Linked Mentions — each independently
     /// collapsible so both can be visible at once (Obsidian-style), unlike the
@@ -284,13 +315,23 @@ struct ContentView: View {
                                        properties: session.selectedNodeUserProperties)
                 }
             }
+            // Document-wide tag list (mind maps): click a tag to select every
+            // node carrying it.
+            if session.activeFileType == .mindMap {
+                Divider()
+                CollapsibleInspectorSection(title: L("inspector.tags"),
+                                            systemImage: "tag",
+                                            isExpanded: $tagsExpanded) {
+                    tagsInspector
+                }
+            }
             Divider()
             CollapsibleInspectorSection(title: L("inspector.linked_mentions"),
                                         systemImage: "link",
                                         isExpanded: $linksExpanded) {
                 linksInspector
             }
-            if !outlineExpanded && !linksExpanded && !propertiesExpanded { Spacer() }
+            if !outlineExpanded && !linksExpanded && !propertiesExpanded && !tagsExpanded { Spacer() }
         }
     }
 

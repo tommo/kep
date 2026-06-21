@@ -24,6 +24,7 @@ public enum PrefResetGroup: String, CaseIterable, Sendable {
                 PrefKeys.hideFileExtensions,
                 PrefKeys.confirmBeforeQuit,
                 PrefKeys.openLastFiles,
+                PrefKeys.privacyBlockRemoteContent,
                 PrefKeys.sidebarVisible,
             ]
         case .editor:

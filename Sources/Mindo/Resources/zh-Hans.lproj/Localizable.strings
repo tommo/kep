@@ -251,6 +251,9 @@
 "prefs.general.section.behavior" = "退出行为";
 "prefs.general.confirm_before_quit" = "退出前确认";
 "prefs.general.open_last_files" = "启动时重新打开上次的文件";
+"prefs.general.section.privacy" = "隐私";
+"prefs.general.block_remote_content" = "在文档预览中屏蔽远程内容";
+"prefs.general.block_remote_content.help" = "阻止笔记、Markdown 与 PlantUML 预览加载远程图片、脚本或跟踪像素。本地图片仍可正常显示。对此更改之后打开的文档生效。";
 "quit.confirm.title" = "退出 Mindo？";
 "quit.confirm.message" = "已打开标签页中的未保存改动可能会丢失。";
 "quit.confirm.quit" = "退出";

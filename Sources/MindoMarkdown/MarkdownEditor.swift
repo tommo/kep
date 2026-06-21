@@ -103,7 +103,7 @@ public struct MarkdownEditor: NSViewRepresentable {
 
         // Right: WKWebView preview with a JS bridge that reports user scrolls
         // back to the host so we can echo them into the code area.
-        let webConfig = WKWebViewConfiguration()
+        let webConfig = PreviewWebSecurity.hardenedConfiguration()
         webConfig.userContentController.add(context.coordinator, name: "previewScroll")
         webConfig.userContentController.add(context.coordinator, name: "previewAnchor")
         let web = MarkdownPreviewWebView(frame: .zero, configuration: webConfig)

@@ -1,6 +1,7 @@
 import Foundation
 import WebKit
 import AppKit
+import MindoCore
 
 /// Exports Markdown documents to disk in a couple of static formats.
 ///
@@ -73,7 +74,7 @@ private final class OffscreenRenderBridge: NSObject, WKNavigationDelegate {
             self.continuation = cont
             self.destinationURL = url
 
-            let config = WKWebViewConfiguration()
+            let config = PreviewWebSecurity.hardenedConfiguration()
             // 8.5 x 11 inches at 96 DPI ≈ 816 x 1056 pt. Generous height so
             // long documents render in a single PDF page (createPDF auto-paginates
             // when the rect is the page rect; we use the default).

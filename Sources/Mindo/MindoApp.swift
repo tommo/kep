@@ -61,6 +61,7 @@ final class MindoAppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         AppAppearance.applyCurrent()   // honor the saved Light/Dark/System override
+        PreviewWebSecurity.warmUp()    // compile the remote-content block before any preview loads
     }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 

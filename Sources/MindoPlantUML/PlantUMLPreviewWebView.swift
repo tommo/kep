@@ -9,6 +9,13 @@ final class PlantUMLPreviewWebView: WKWebView {
     var menuItemsProvider: (() -> [PreviewMenuItem])?
     var onMenuAction: ((PreviewMenuAction) -> Void)?
 
+    init() {
+        super.init(frame: .zero, configuration: PreviewWebSecurity.hardenedConfiguration())
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
     override func willOpenMenu(_ menu: NSMenu, with event: NSEvent) {
         super.willOpenMenu(menu, with: event)
         guard let items = menuItemsProvider?(), !items.isEmpty else { return }

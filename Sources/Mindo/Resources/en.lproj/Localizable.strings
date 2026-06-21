@@ -254,6 +254,9 @@
 "prefs.general.section.behavior" = "Quit behavior";
 "prefs.general.confirm_before_quit" = "Confirm before quitting";
 "prefs.general.open_last_files" = "Reopen last files on launch";
+"prefs.general.section.privacy" = "Privacy";
+"prefs.general.block_remote_content" = "Block remote content in document previews";
+"prefs.general.block_remote_content.help" = "Stops note, Markdown, and PlantUML previews from loading remote images, scripts, or tracking pixels. Local images still work. Applies to documents opened after this change.";
 "quit.confirm.title" = "Quit Mindo?";
 "quit.confirm.message" = "Any unsaved changes in open tabs may be lost.";
 "quit.confirm.quit" = "Quit";

@@ -103,6 +103,14 @@ public enum PrefKeys {
     /// standard Homebrew prefixes / Nix profiles / portable installs
     /// still resolve. Mirrors mindolph's `plantuml.dotpath`.
     public static let plantumlGraphvizPath = "mindo.prefs.plantumlGraphvizPath"
+    /// Block remote (http/https) subresource loads — remote images, CSS,
+    /// scripts, tracking pixels — inside the document preview web views
+    /// (markdown / PlantUML / note hover / PDF export). Default ON: a
+    /// local-first app should never silently phone home when you preview a
+    /// note. Turn off only if you deliberately want remote images. Local
+    /// `file:`/`data:` resources always load; the data store is always
+    /// non-persistent regardless of this flag.
+    public static let privacyBlockRemoteContent = "mindo.prefs.privacyBlockRemoteContent"
 
     /// Convenience: pulls a Double from UserDefaults, returning `fallback`
     /// when the key is unset or stored as a non-positive value.

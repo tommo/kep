@@ -1,5 +1,6 @@
 import AppKit
 import WebKit
+import MindoCore
 import MindoMarkdown
 
 /// Content for the note hover popover: the node's note is Markdown, so render
@@ -47,7 +48,7 @@ final class NoteHoverController: NSViewController {
     }
 
     override func loadView() {
-        let web = WKWebView(frame: NSRect(x: 0, y: 0, width: Self.width, height: Self.height))
+        let web = WKWebView(frame: NSRect(x: 0, y: 0, width: Self.width, height: Self.height), configuration: PreviewWebSecurity.hardenedConfiguration())
         web.setValue(false, forKey: "drawsBackground")   // transparent → popover chrome shows
         web.loadHTMLString(Self.html(for: markdown), baseURL: nil)
         view = web

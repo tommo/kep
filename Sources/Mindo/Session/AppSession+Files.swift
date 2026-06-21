@@ -139,6 +139,11 @@ extension AppSession {
         do {
             try FileManager.default.copyItem(at: node.url, to: target)
             reloadWorkspace(containing: node)
+            // Start an inline rename on the copy so the user can name it instead
+            // of being stuck with "… copy" (mirrors create-from-template).
+            DispatchQueue.main.async { [weak self] in
+                if let new = self?.nodeForURL(target) { self?.renamingNodeID = new.id }
+            }
         } catch {
             lastError = String(format: L("error.create_failed"), error.localizedDescription)
         }

@@ -64,6 +64,16 @@ extension MindMapView {
                 menu.addItem(makeContextItem(title: "Clone with Subtree", action: #selector(contextCloneTopicDeep(_:)), payload: element))
             }
         }
+        // Convert a leaf topic into the parent's note (or link). Only for a
+        // non-root leaf — javamind's ConvertTopicExtension semantics.
+        if element.topic.parent != nil, element.topic.children.isEmpty {
+            menu.addItem(makeContextItem(title: "Convert to Parent Note",
+                                         action: #selector(contextConvertToNote(_:)), payload: element))
+            if TopicConvert.isLinkURI(element.topic.text) {
+                menu.addItem(makeContextItem(title: "Convert to Parent Link",
+                                             action: #selector(contextConvertToLink(_:)), payload: element))
+            }
+        }
         // Convert multiline → subtree. Only show when the text actually
         // splits into 2+ non-empty lines so the menu entry isn't a no-op.
         if ConvertMultiline.split(element.topic.text).count >= 2 {
@@ -167,6 +177,34 @@ extension MindMapView {
     @objc func contextConvertToSubtree(_ sender: NSMenuItem) {
         guard let element = sender.representedObject as? MindMapElement else { return }
         undoableConvertMultilineToChildren(element.topic)
+    }
+
+    /// Fold a leaf topic's text into its parent's note, then delete the topic —
+    /// one undo step. Parity with ConvertTopicExtension's convert-to-note.
+    @objc func contextConvertToNote(_ sender: NSMenuItem) {
+        guard let element = sender.representedObject as? MindMapElement,
+              let parent = element.topic.parent else { return }
+        let existing = (parent.extra(.note) as? ExtraNote)?.text
+        let merged = TopicConvert.mergedNoteText(existing: existing, adding: element.topic.text)
+        groupedUndo(name: "Convert to Note") {
+            undoableSetExtra(parent, .note, value: ExtraNote(text: merged))
+            undoableRemove(element.topic)
+        }
+        if let pe = self.element(forTopic: parent) { selectElement(pe) }
+    }
+
+    /// Turn a leaf topic whose text is a URI into the parent's link, then delete
+    /// the topic — one undo step. Parity with convert-to-URI.
+    @objc func contextConvertToLink(_ sender: NSMenuItem) {
+        guard let element = sender.representedObject as? MindMapElement,
+              let parent = element.topic.parent else { return }
+        let uri = element.topic.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard TopicConvert.isLinkURI(uri) else { return }
+        groupedUndo(name: "Convert to Link") {
+            undoableSetExtra(parent, .link, value: ExtraLink(uri: uri))
+            undoableRemove(element.topic)
+        }
+        if let pe = self.element(forTopic: parent) { selectElement(pe) }
     }
 
     @objc func contextEditText(_ sender: NSMenuItem) {

@@ -213,6 +213,12 @@ public struct MarkdownEditor: NSViewRepresentable {
             guard let url = promptString(title: "Insert Link", message: "URL:", initial: "https://") else { return }
             applyTransform { MarkdownFormatting.link($0, range: $1, url: url) }
         }
+        @objc func toolbarHeading1()      { applyTransform { MarkdownFormatting.heading($0, range: $1, level: 1) } }
+        @objc func toolbarHeading2()      { applyTransform { MarkdownFormatting.heading($0, range: $1, level: 2) } }
+        @objc func toolbarHeading3()      { applyTransform { MarkdownFormatting.heading($0, range: $1, level: 3) } }
+        @objc func toolbarQuote()         { applyTransform(MarkdownFormatting.blockquote) }
+        @objc func toolbarHorizontalRule() { applyTransform(MarkdownFormatting.horizontalRule) }
+        @objc func toolbarComment()       { applyTransform(MarkdownFormatting.comment) }
 
         /// Show/hide the editor and preview panes for `mode`. NSSplitView
         /// honours `isHidden` on its arranged subviews, collapsing the hidden

@@ -257,6 +257,16 @@ public final class MarkdownDropTextView: NSTextView {
                 return true
             }
         }
+        // ⌥⌘1/2/3 → Heading 1/2/3 (number shortcuts; option-modified to avoid
+        // clashing with ⌘1.. tab/zoom bindings).
+        let commandOption = event.modifierFlags
+            .intersection([.command, .option, .control, .shift]) == [.command, .option]
+        if commandOption, let action = Self.headingShortcuts[chars] {
+            if let target = delegate, target.responds(to: action) {
+                _ = target.perform(action)
+                return true
+            }
+        }
         return super.performKeyEquivalent(with: event)
     }
 
@@ -267,6 +277,14 @@ public final class MarkdownDropTextView: NSTextView {
         "i": Selector(("toolbarItalic")),
         "e": Selector(("toolbarInlineCode")),
         "k": Selector(("toolbarLink")),
+    ]
+
+    /// ⌥⌘<n> → Heading <n>. Separate map since these fire only with the
+    /// command+option combo (see performKeyEquivalent).
+    static let headingShortcuts: [String: Selector] = [
+        "1": Selector(("toolbarHeading1")),
+        "2": Selector(("toolbarHeading2")),
+        "3": Selector(("toolbarHeading3")),
     ]
 
     /// Tab indents the line(s) covered by the current selection — one

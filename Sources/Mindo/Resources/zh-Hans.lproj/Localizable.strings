@@ -22,6 +22,13 @@
 "palette.cat.file" = "文件";
 "palette.cat.edit" = "编辑";
 "palette.cat.view" = "视图";
+"palette.cat.format" = "格式";
+"menu.format.heading1" = "标题 1";
+"menu.format.heading2" = "标题 2";
+"menu.format.heading3" = "标题 3";
+"menu.format.quote" = "块引用";
+"menu.format.hr" = "分隔线";
+"menu.format.comment" = "注释掉";
 "switcher.empty.prompt" = "开始输入以查找文件";
 "switcher.empty.nomatch" = "没有匹配的文件";
 "menu.file.save" = "保存";

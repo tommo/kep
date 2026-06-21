@@ -25,6 +25,13 @@
 "palette.cat.file" = "File";
 "palette.cat.edit" = "Edit";
 "palette.cat.view" = "View";
+"palette.cat.format" = "Format";
+"menu.format.heading1" = "Heading 1";
+"menu.format.heading2" = "Heading 2";
+"menu.format.heading3" = "Heading 3";
+"menu.format.quote" = "Block Quote";
+"menu.format.hr" = "Horizontal Rule";
+"menu.format.comment" = "Comment Out";
 "switcher.empty.prompt" = "Start typing to find a file";
 "switcher.empty.nomatch" = "No matching files";
 "menu.file.save" = "Save";

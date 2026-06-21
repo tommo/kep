@@ -1,7 +1,15 @@
 import Foundation
 import MindoCore
+import MindoMarkdown
 
 extension AppSession {
+
+    /// Apply a markdown formatting command to the focused markdown editor
+    /// (no-op when a markdown editor isn't focused).
+    @MainActor
+    func applyMarkdownFormat(_ command: MarkdownFormatBridge.Command) {
+        MarkdownFormatBridge.perform(command)
+    }
 
     /// The catalog of global actions surfaced in the ⌘⇧P command palette.
     /// Each entry pairs a pure `AppCommand` (id/title/enabled — what the
@@ -13,6 +21,7 @@ extension AppSession {
         let hasDoc = activeDocument != nil
         let hasWorkspaces = !workspaceRoots.isEmpty
         let isMindMap = activeFileType == .mindMap
+        let isMarkdown = activeFileType == .markdown
 
         func cmd(_ id: String, _ title: String, category: String,
                  shortcut: String? = nil, enabled: Bool = true,
@@ -59,6 +68,21 @@ extension AppSession {
                 shortcut: "⇧⌘F", enabled: hasWorkspaces) { self.findInFilesOpen = true },
             cmd("edit.insertSnippet", L("menu.edit.insert_snippet"), category: L("palette.cat.edit"),
                 shortcut: "⇧⌘J", enabled: hasDoc) { self.snippetPickerOpen = true },
+
+            // Markdown formatting — operate on the focused markdown editor's
+            // selection (palette-first, per the project UX direction).
+            cmd("format.heading1", L("menu.format.heading1"), category: L("palette.cat.format"),
+                shortcut: "⌥⌘1", enabled: isMarkdown) { self.applyMarkdownFormat(.heading1) },
+            cmd("format.heading2", L("menu.format.heading2"), category: L("palette.cat.format"),
+                shortcut: "⌥⌘2", enabled: isMarkdown) { self.applyMarkdownFormat(.heading2) },
+            cmd("format.heading3", L("menu.format.heading3"), category: L("palette.cat.format"),
+                shortcut: "⌥⌘3", enabled: isMarkdown) { self.applyMarkdownFormat(.heading3) },
+            cmd("format.quote", L("menu.format.quote"), category: L("palette.cat.format"),
+                enabled: isMarkdown) { self.applyMarkdownFormat(.quote) },
+            cmd("format.horizontalRule", L("menu.format.hr"), category: L("palette.cat.format"),
+                enabled: isMarkdown) { self.applyMarkdownFormat(.horizontalRule) },
+            cmd("format.comment", L("menu.format.comment"), category: L("palette.cat.format"),
+                enabled: isMarkdown) { self.applyMarkdownFormat(.comment) },
 
             // View
             cmd("view.zoomIn", L("menu.view.zoom_in"), category: L("palette.cat.view"),

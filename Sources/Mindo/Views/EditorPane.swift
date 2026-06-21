@@ -116,7 +116,8 @@ struct EditorPane: View {
                 documentURL: session.openDocuments.first(where: { $0.id == documentID })?.fileURL,
                 isDarkMode: colorScheme == .dark,
                 runOne: { src, ctx in await session.runNotebookCell(src, in: ctx) },
-                runAll: { nb, ctx in await session.runNotebookAll(nb, in: ctx) })
+                runAll: { nb, ctx in await session.runNotebookAll(nb, in: ctx) },
+                runAgent: { question, sink in await session.runNotebookAgent(question, into: sink) })
         case .text(let body, _):
             ScrollView {
                 Text(body)

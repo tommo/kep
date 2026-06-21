@@ -19,6 +19,12 @@ public final class AgentToolEffects {
     /// a value/formula at an A1 ref and persists, returning success.
     public var csvCellValue: ((URL, String) -> String?)?
     public var csvSetCell: ((URL, String, String) -> Bool)?
+    /// Host-provided Research-Notebook authoring (the notebook model lives in the
+    /// app/MindoMarkdown layer). `notebookAddProse` appends a prose cell;
+    /// `notebookRunCode` appends a Lua code cell, runs it, and returns its output
+    /// so the agent sees the result and can reason about it.
+    public var notebookAddProse: ((String) -> Void)?
+    public var notebookRunCode: ((String) -> String)?
     public init() {}
 }
 
@@ -83,6 +89,7 @@ public struct MindoAgentTools {
             + mindmapEditDescriptors
             + topicExtrasDescriptors
             + csvDescriptors
+            + notebookDescriptors
     }
 
     static let coreDescriptors: [(name: String, description: String, parametersJSON: String)] = [
@@ -131,6 +138,7 @@ public struct MindoAgentTools {
             ?? handleMindmapEdit(name, a)
             ?? handleTopicExtras(name, a)
             ?? handleCSV(name, a)
+            ?? handleNotebook(name, a)
             ?? "error: unknown tool '\(name)'"
     }
 

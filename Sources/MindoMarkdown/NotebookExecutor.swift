@@ -12,3 +12,15 @@ public typealias NotebookRunOne = @MainActor (_ source: String, _ ctx: NotebookR
 
 /// Run every code cell against a shared VM; returns the full outputs map.
 public typealias NotebookRunAll = @MainActor (_ notebook: Notebook, _ ctx: NotebookRunContext) async -> ExecOutputs
+
+/// What the research agent writes into the notebook as it works. The notebook
+/// model conforms; the app's agent runner authors through it.
+@MainActor
+public protocol NotebookAgentSink: AnyObject {
+    func agentAddProse(_ text: String)
+    func agentAddCode(_ code: String, output: ExecOutput)
+}
+
+/// Run the research agent for `question`, authoring cells into `sink`. Injected
+/// by the app (which owns the agent loop + MindoScript).
+public typealias NotebookAgentRunner = @MainActor (_ question: String, _ sink: NotebookAgentSink) async -> Void

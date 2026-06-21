@@ -6,14 +6,16 @@ import MindoBase
 /// debounce-serialize back to the document text. Lives in MindoMarkdown (pure);
 /// execution is injected by the app.
 @MainActor
-final class NotebookModel: ObservableObject {
+final class NotebookModel: ObservableObject, NotebookAgentSink {
     @Published var cells: [NotebookCell]
     @Published var outputs: ExecOutputs
     @Published var running: Set<String> = []
+    @Published var agentBusy = false
 
     let documentURL: URL?
     let runOne: NotebookRunOne
     let runAll: NotebookRunAll
+    let runAgent: NotebookAgentRunner?
     private let onSerialize: (String) -> Void
     private var lastSerialized: String
     private let debouncer = Debouncer()
@@ -21,14 +23,34 @@ final class NotebookModel: ObservableObject {
 
     init(text: String, documentURL: URL?,
          runOne: @escaping NotebookRunOne, runAll: @escaping NotebookRunAll,
+         runAgent: NotebookAgentRunner? = nil,
          onSerialize: @escaping (String) -> Void) {
         self.documentURL = documentURL
         self.runOne = runOne
         self.runAll = runAll
+        self.runAgent = runAgent
         self.onSerialize = onSerialize
         self.cells = NotebookFormat.parse(text).cells
         self.lastSerialized = text
         self.outputs = documentURL.map { ExecOutputsStore.load(for: $0) } ?? ExecOutputs()
+    }
+
+    // MARK: - Agent authoring (NotebookAgentSink)
+
+    func agentAddProse(_ text: String) {
+        cells.append(.prose(id: freshID("prose"), text: text))
+        flushNow()
+    }
+    func agentAddCode(_ code: String, output: ExecOutput) {
+        cells.append(.code(id: freshID("code"), language: "lua", code: code))
+        outputs.set(output, forHash: MarkdownExecBlocks.hash(code))
+        flushNow()
+    }
+    func askAgent(_ question: String) async {
+        guard let runAgent, !question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        agentBusy = true
+        await runAgent(question, self)
+        agentBusy = false
     }
 
     private var ctx: NotebookRunContext { NotebookRunContext(documentURL: documentURL) }
@@ -97,6 +119,8 @@ final class NotebookModel: ObservableObject {
         lastSerialized = s
         onSerialize(s)
     }
+    /// Serialize immediately (agent edits — don't wait for the debounce).
+    private func flushNow() { flush() }
 
     // MARK: - Execution
 
@@ -140,14 +164,17 @@ public struct NotebookEditor: View {
     let isDarkMode: Bool
     @StateObject private var model: NotebookModel
 
+    @State private var agentPrompt = ""
+
     public init(text: Binding<String>, documentURL: URL?, isDarkMode: Bool,
-                runOne: @escaping NotebookRunOne, runAll: @escaping NotebookRunAll) {
+                runOne: @escaping NotebookRunOne, runAll: @escaping NotebookRunAll,
+                runAgent: NotebookAgentRunner? = nil) {
         _text = text
         self.documentURL = documentURL
         self.isDarkMode = isDarkMode
         _model = StateObject(wrappedValue: NotebookModel(
             text: text.wrappedValue, documentURL: documentURL,
-            runOne: runOne, runAll: runAll,
+            runOne: runOne, runAll: runAll, runAgent: runAgent,
             onSerialize: { text.wrappedValue = $0 }))
     }
 
@@ -164,8 +191,39 @@ public struct NotebookEditor: View {
                 }
                 .padding(12)
             }
+            if model.runAgent != nil {
+                Divider()
+                agentBar
+            }
         }
         .onChange(of: text) { _, new in model.reload(from: new) }
+    }
+
+    /// The agentic surface: ask the agent to research a question; it authors
+    /// prose + code cells into this notebook using the knowledge base.
+    private var agentBar: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "sparkles").foregroundStyle(.purple)
+            TextField("Ask the agent to research… (it writes findings + queries into this notebook)", text: $agentPrompt)
+                .textFieldStyle(.roundedBorder)
+                .onSubmit(submitAgent)
+                .disabled(model.agentBusy)
+            if model.agentBusy {
+                ProgressView().controlSize(.small)
+            } else {
+                Button("Research", action: submitAgent)
+                    .keyboardShortcut(.return, modifiers: [])
+                    .disabled(agentPrompt.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+    }
+
+    private func submitAgent() {
+        let q = agentPrompt
+        agentPrompt = ""
+        Task { await model.askAgent(q) }
     }
 
     private var toolbar: some View {

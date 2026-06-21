@@ -16,6 +16,16 @@ public enum MarkdownFormatBridge {
         case quote = "toolbarQuote"
         case horizontalRule = "toolbarHorizontalRule"
         case comment = "toolbarComment"
+        case table = "toolbarTable"
+    }
+
+    /// Parse + clamp the rows/cols text from the table prompt to 1…20, with
+    /// sensible defaults. Pure so the clamping is unit-testable.
+    public static func sanitizedTableSize(rows: String, cols: String) -> (rows: Int, cols: Int) {
+        func clamp(_ s: String, _ fallback: Int) -> Int {
+            max(1, min(20, Int(s.trimmingCharacters(in: .whitespaces)) ?? fallback))
+        }
+        return (clamp(rows, 2), clamp(cols, 3))
     }
 
     /// Apply `command` to the focused markdown editor. Returns false (no-op)

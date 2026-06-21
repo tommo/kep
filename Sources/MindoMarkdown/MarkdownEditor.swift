@@ -219,6 +219,37 @@ public struct MarkdownEditor: NSViewRepresentable {
         @objc func toolbarQuote()         { applyTransform(MarkdownFormatting.blockquote) }
         @objc func toolbarHorizontalRule() { applyTransform(MarkdownFormatting.horizontalRule) }
         @objc func toolbarComment()       { applyTransform(MarkdownFormatting.comment) }
+        @objc func toolbarTable() {
+            guard let (rows, cols) = promptTableSize() else { return }
+            applyTransform { MarkdownFormatting.table($0, range: $1, rows: rows, cols: cols) }
+        }
+
+        /// Rows/cols prompt for table insertion — two small fields in an
+        /// NSAlert accessory. Returns nil on Cancel; values clamped to 1…20.
+        private func promptTableSize() -> (rows: Int, cols: Int)? {
+            let alert = NSAlert()
+            alert.messageText = "Insert Table"
+            alert.informativeText = "Number of rows and columns:"
+            let rows = NSTextField(string: "2")
+            let cols = NSTextField(string: "3")
+            for f in [rows, cols] { f.alignment = .center; f.translatesAutoresizingMaskIntoConstraints = false }
+            func label(_ s: String) -> NSTextField {
+                let l = NSTextField(labelWithString: s)
+                l.translatesAutoresizingMaskIntoConstraints = false
+                return l
+            }
+            let stack = NSStackView(views: [label("Rows"), rows, label("Cols"), cols])
+            stack.orientation = .horizontal
+            stack.spacing = 8
+            stack.frame = NSRect(x: 0, y: 0, width: 260, height: 26)
+            NSLayoutConstraint.activate([rows.widthAnchor.constraint(equalToConstant: 48),
+                                         cols.widthAnchor.constraint(equalToConstant: 48)])
+            alert.accessoryView = stack
+            alert.addButton(withTitle: "Insert")
+            alert.addButton(withTitle: "Cancel")
+            guard alert.runModal() == .alertFirstButtonReturn else { return nil }
+            return MarkdownFormatBridge.sanitizedTableSize(rows: rows.stringValue, cols: cols.stringValue)
+        }
 
         /// Show/hide the editor and preview panes for `mode`. NSSplitView
         /// honours `isHidden` on its arranged subviews, collapsing the hidden

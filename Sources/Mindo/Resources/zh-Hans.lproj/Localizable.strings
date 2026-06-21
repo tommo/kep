@@ -29,6 +29,7 @@
 "menu.format.quote" = "块引用";
 "menu.format.hr" = "分隔线";
 "menu.format.comment" = "注释掉";
+"menu.format.table" = "插入表格…";
 "switcher.empty.prompt" = "开始输入以查找文件";
 "switcher.empty.nomatch" = "没有匹配的文件";
 "menu.file.save" = "保存";

@@ -8,7 +8,17 @@ final class MarkdownFormatBridgeTests: XCTestCase {
         for c in MarkdownFormatBridge.Command.allCases {
             XCTAssertTrue(c.rawValue.hasPrefix("toolbar"), "\(c) → \(c.rawValue)")
         }
-        XCTAssertEqual(MarkdownFormatBridge.Command.allCases.count, 6)
+        XCTAssertEqual(MarkdownFormatBridge.Command.allCases.count, 7)
+    }
+
+    func testSanitizedTableSizeClampsAndDefaults() {
+        XCTAssertEqual(MarkdownFormatBridge.sanitizedTableSize(rows: "4", cols: "5").rows, 4)
+        XCTAssertEqual(MarkdownFormatBridge.sanitizedTableSize(rows: "4", cols: "5").cols, 5)
+        // Defaults on garbage, clamp to 1…20.
+        XCTAssertEqual(MarkdownFormatBridge.sanitizedTableSize(rows: "x", cols: "").rows, 2)
+        XCTAssertEqual(MarkdownFormatBridge.sanitizedTableSize(rows: "x", cols: "").cols, 3)
+        XCTAssertEqual(MarkdownFormatBridge.sanitizedTableSize(rows: "0", cols: "999").rows, 1)
+        XCTAssertEqual(MarkdownFormatBridge.sanitizedTableSize(rows: "0", cols: "999").cols, 20)
     }
 
     func testHeadingShortcutsMatchHeadingCommands() {

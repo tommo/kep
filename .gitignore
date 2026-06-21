@@ -10,3 +10,9 @@ Package.resolved
 .claude/scheduled_tasks.lock
 .claude/scheduled_tasks/
 build/
+# User data / secrets — guard against committing them if a workspace or the
+# app's config ever lives inside the repo tree (privacy).
+llm_config.json
+*.outputs.json
+.*.outputs.json
+.*.sheet.json

@@ -120,6 +120,7 @@
 "inspector.properties.value" = "value";
 "inspector.properties.add" = "Add property";
 "inspector.properties.remove" = "Remove property";
+"inspector.properties.apply_template" = "Apply template";
 "inspector.note" = "Note";
 "inspector.note.expand" = "Expand note editor";
 "inspector.note.title_fmt" = "Note — %@";

@@ -117,6 +117,7 @@
 "inspector.properties.value" = "值";
 "inspector.properties.add" = "添加属性";
 "inspector.properties.remove" = "移除属性";
+"inspector.properties.apply_template" = "套用模板";
 "inspector.note" = "笔记";
 "inspector.note.expand" = "展开笔记编辑器";
 "inspector.note.title_fmt" = "笔记 — %@";

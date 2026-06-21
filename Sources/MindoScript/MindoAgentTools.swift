@@ -119,6 +119,10 @@ public struct MindoAgentTools {
          #"{"type":"object","properties":{"key":{"type":"string"},"value":{"type":"string"}},"required":["key"]}"#),
         ("set_topic_property", "Set a typed user property (e.g. priority=3, done=true, status=active, tags=[\"a\",\"b\"]) on a topic targeted by `path` or `query`. The value's type is inferred (number/checkbox/date/JSON list/text). Omit `value` to clear it. Built-in/reserved keys are rejected — use set_topic_attr for those.",
          #"{"type":"object","properties":{"query":{"type":"string"},"path":{"type":"string"},"key":{"type":"string"},"value":{"type":"string"}},"required":["key"]}"#),
+        ("list_supertags", "List the available supertag templates (named sets of typed properties) and the fields each one stamps.",
+         #"{"type":"object","properties":{}}"#),
+        ("apply_supertag", "Apply a supertag template (a named set of typed properties) to a topic targeted by `path` or `query`. `name` is the template (e.g. Task, Tracked, Note); missing fields are filled with typed defaults and existing values are kept. Use list_supertags to discover templates.",
+         #"{"type":"object","properties":{"query":{"type":"string"},"path":{"type":"string"},"name":{"type":"string"}},"required":["name"]}"#),
         ("run_lua", "Run a Lua script against the mind map via the `mindo` API; returns its result.",
          #"{"type":"object","properties":{"script":{"type":"string"}},"required":["script"]}"#),
     ]
@@ -130,6 +134,7 @@ public struct MindoAgentTools {
         "add_child_topic", "rename_topic", "remove_topic", "set_topic_attr", "run_lua",
         "add_sibling_topic", "move_topic", "build_subtree", "sort_children",
         "set_topic_note", "link_topics", "set_topic_collapsed", "set_topic_property",
+        "apply_supertag",
     ]
 
     /// Execute a tool by name. Unknown tools and bad arguments return an error
@@ -269,6 +274,24 @@ public struct MindoAgentTools {
             t.setProperty(key, nil)
             effects.mapMutated = true
             return "cleared property \(key) on \"\(t.text)\""
+
+        case "list_supertags":
+            return SupertagCatalog.all.map { tag in
+                tag.name + ": " + tag.fields
+                    .map { "\($0.key)=\(PropertyCodec.encode($0.defaultValue))" }
+                    .joined(separator: ", ")
+            }.joined(separator: "\n")
+
+        case "apply_supertag":
+            guard let name = a.str("name") else { return "error: missing 'name'" }
+            guard let tag = SupertagCatalog.named(name) else {
+                return "error: unknown supertag '\(name)' — use list_supertags"
+            }
+            guard let t = resolveTopic(a) else { return "error: no topic matches the given path/query" }
+            let added = tag.apply(to: t)
+            guard !added.isEmpty else { return "\"\(t.text)\" already has all \(tag.name) fields" }
+            effects.mapMutated = true
+            return "applied \(tag.name) to \"\(t.text)\" — added \(added.joined(separator: ", "))"
 
         case "run_lua":
             guard let script = a.str("script") else { return "error: missing 'script'" }

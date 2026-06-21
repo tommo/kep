@@ -279,6 +279,20 @@ extension AppSession {
         if markerKeys.contains(key) { activeMindMapView?.rebuildElementsPublic() }
     }
 
+    /// Apply a built-in supertag template (keystone #200) to the selected node,
+    /// stamping any missing typed properties with their defaults. Returns the
+    /// keys that were added (empty if none/no selection/unknown template).
+    @MainActor @discardableResult func applySupertag(named name: String) -> [String] {
+        guard let topic = selectedTopic, let tag = SupertagCatalog.named(name) else { return [] }
+        let added = tag.apply(to: topic)
+        guard !added.isEmpty else { return [] }
+        markActiveDocumentDirty()
+        if added.contains(where: { markerKeys.contains($0) }) {
+            activeMindMapView?.rebuildElementsPublic()
+        }
+        return added
+    }
+
     @MainActor func removeSelectedNodeProperty(_ key: String) {
         guard let topic = selectedTopic else { return }
         topic.setProperty(key, nil)

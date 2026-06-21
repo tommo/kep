@@ -55,6 +55,17 @@ struct NodePropertiesView: View {
                 }
             }
             Divider().padding(.vertical, 2)
+            Menu {
+                ForEach(SupertagCatalog.all) { tag in
+                    Button(tag.name) { session.applySupertag(named: tag.name) }
+                }
+            } label: {
+                Label(L("inspector.properties.apply_template"), systemImage: "tag.circle")
+                    .font(.caption)
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            .padding(.horizontal, 8)
             HStack(spacing: 6) {
                 TextField(L("inspector.properties.name"), text: $draftKey)
                     .textFieldStyle(.roundedBorder)

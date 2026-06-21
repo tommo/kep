@@ -34,7 +34,7 @@ public enum MindoScriptRunner {
     }
 
     /// Human-readable rendering of a Lua return value for the runner's output pane.
-    static func describe(_ v: LuaValue) -> String {
+    public static func describe(_ v: LuaValue) -> String {
         switch v {
         case .nil: return "(no result)"
         case .bool(let b): return b ? "true" : "false"

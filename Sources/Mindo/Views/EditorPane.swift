@@ -107,6 +107,16 @@ struct EditorPane: View {
             CSVEditor(text: textBinding(for: documentID),
                       findBarVisible: $session.csvFindOpen,
                       documentURL: session.openDocuments.first(where: { $0.id == documentID })?.fileURL)
+        case .text(_, .mindNotebook):
+            // LOAD-BEARING: must precede the `.text(let body, _)` catch-all
+            // below — Swift matches top-down, else .mnb falls through to the
+            // read-only view.
+            NotebookEditor(
+                text: textBinding(for: documentID),
+                documentURL: session.openDocuments.first(where: { $0.id == documentID })?.fileURL,
+                isDarkMode: colorScheme == .dark,
+                runOne: { src, ctx in await session.runNotebookCell(src, in: ctx) },
+                runAll: { nb, ctx in await session.runNotebookAll(nb, in: ctx) })
         case .text(let body, _):
             ScrollView {
                 Text(body)

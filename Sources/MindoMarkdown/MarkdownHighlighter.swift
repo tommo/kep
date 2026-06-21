@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import MindoBase
 
 /// Live-styling Markdown renderer for the single-pane editor (Obsidian "Live
 /// Preview" flavour, on TextKit): headings are sized by level, emphasis is
@@ -30,33 +31,35 @@ public final class MarkdownHighlighter {
         public var defaultStyle: Style
         public var marker: NSColor   // dimmed markup punctuation
 
-        public static let light = Theme(
-            heading: Style(color: NSColor(red: 0.10, green: 0.36, blue: 0.66, alpha: 1), bold: true),
-            bold: Style(color: NSColor(white: 0.10, alpha: 1), bold: true),
-            italic: Style(color: NSColor(white: 0.10, alpha: 1), italic: true),
-            code: Style(color: NSColor(red: 0.55, green: 0.18, blue: 0.40, alpha: 1), monospace: true),
-            codeBlock: Style(color: NSColor(red: 0.30, green: 0.30, blue: 0.30, alpha: 1), monospace: true),
-            quote: Style(color: NSColor(red: 0.40, green: 0.40, blue: 0.42, alpha: 1), italic: true),
-            url: Style(color: NSColor(red: 0.05, green: 0.42, blue: 0.85, alpha: 1)),
-            list: Style(color: NSColor(red: 0.20, green: 0.50, blue: 0.20, alpha: 1), bold: true),
-            horizontalRule: Style(color: NSColor(white: 0.50, alpha: 1)),
-            defaultStyle: Style(color: NSColor(white: 0.10, alpha: 1)),
-            marker: NSColor(white: 0.66, alpha: 1)
-        )
+        public static let light = make(palette: .light,
+            list: NSColor(red: 0.20, green: 0.50, blue: 0.20, alpha: 1),
+            horizontalRule: NSColor(white: 0.50, alpha: 1),
+            marker: NSColor(white: 0.66, alpha: 1))
 
-        public static let dark = Theme(
-            heading: Style(color: NSColor(red: 0.45, green: 0.74, blue: 1.00, alpha: 1), bold: true),
-            bold: Style(color: NSColor(white: 0.95, alpha: 1), bold: true),
-            italic: Style(color: NSColor(white: 0.95, alpha: 1), italic: true),
-            code: Style(color: NSColor(red: 1.00, green: 0.65, blue: 0.85, alpha: 1), monospace: true),
-            codeBlock: Style(color: NSColor(white: 0.85, alpha: 1), monospace: true),
-            quote: Style(color: NSColor(white: 0.65, alpha: 1), italic: true),
-            url: Style(color: NSColor(red: 0.42, green: 0.78, blue: 1.00, alpha: 1)),
-            list: Style(color: NSColor(red: 0.55, green: 0.85, blue: 0.55, alpha: 1), bold: true),
-            horizontalRule: Style(color: NSColor(white: 0.55, alpha: 1)),
-            defaultStyle: Style(color: NSColor(white: 0.92, alpha: 1)),
-            marker: NSColor(white: 0.45, alpha: 1)
-        )
+        public static let dark = make(palette: .dark,
+            list: NSColor(red: 0.55, green: 0.85, blue: 0.55, alpha: 1),
+            horizontalRule: NSColor(white: 0.55, alpha: 1),
+            marker: NSColor(white: 0.45, alpha: 1))
+
+        /// Build a theme from the shared [SyntaxPalette] for the common roles,
+        /// plus the markdown-specific colors (list / rule / dim marker) that
+        /// have no palette equivalent.
+        static func make(palette p: SyntaxPalette, list: NSColor,
+                         horizontalRule: NSColor, marker: NSColor) -> Theme {
+            Theme(
+                heading: Style(color: p.keyword, bold: true),
+                bold: Style(color: p.text, bold: true),
+                italic: Style(color: p.text, italic: true),
+                code: Style(color: p.string, monospace: true),
+                codeBlock: Style(color: p.punctuation, monospace: true),
+                quote: Style(color: p.comment, italic: true),
+                url: Style(color: p.link),
+                list: Style(color: list, bold: true),
+                horizontalRule: Style(color: horizontalRule),
+                defaultStyle: Style(color: p.text),
+                marker: marker
+            )
+        }
     }
 
     /// Heading point-size multipliers, H1…H6.

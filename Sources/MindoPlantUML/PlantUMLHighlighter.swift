@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import MindoBase
 
 /// Lightweight syntax highlighter for PlantUML code areas. Doesn't attempt
 /// full grammar — recognizes the most common keywords, comments, strings,
@@ -13,22 +14,23 @@ public final class PlantUMLHighlighter {
         public var bracket: NSColor
         public var defaultColor: NSColor
 
-        public static let light = Theme(
-            keyword: NSColor(red: 0.10, green: 0.30, blue: 0.65, alpha: 1),
-            comment: NSColor(white: 0.45, alpha: 1),
-            string: NSColor(red: 0.55, green: 0.20, blue: 0.40, alpha: 1),
-            arrow: NSColor(red: 0.75, green: 0.40, blue: 0.10, alpha: 1),
-            bracket: NSColor(white: 0.30, alpha: 1),
-            defaultColor: NSColor(white: 0.10, alpha: 1)
-        )
-        public static let dark = Theme(
-            keyword: NSColor(red: 0.50, green: 0.75, blue: 1.00, alpha: 1),
-            comment: NSColor(white: 0.55, alpha: 1),
-            string: NSColor(red: 1.00, green: 0.70, blue: 0.85, alpha: 1),
-            arrow: NSColor(red: 1.00, green: 0.75, blue: 0.45, alpha: 1),
-            bracket: NSColor(white: 0.85, alpha: 1),
-            defaultColor: NSColor(white: 0.92, alpha: 1)
-        )
+        public static let light = make(palette: .light,
+            arrow: NSColor(red: 0.75, green: 0.40, blue: 0.10, alpha: 1))
+        public static let dark = make(palette: .dark,
+            arrow: NSColor(red: 1.00, green: 0.75, blue: 0.45, alpha: 1))
+
+        /// Build from the shared [SyntaxPalette]; `arrow` (the relation accent)
+        /// has no palette equivalent so it stays PlantUML-specific.
+        static func make(palette p: SyntaxPalette, arrow: NSColor) -> Theme {
+            Theme(
+                keyword: p.keyword,
+                comment: p.comment,
+                string: p.string,
+                arrow: arrow,
+                bracket: p.punctuation,
+                defaultColor: p.text
+            )
+        }
     }
 
     public var theme: Theme

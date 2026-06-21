@@ -38,6 +38,7 @@ public final class CSVGridView: NSView, NSTextFieldDelegate {
 
     private var columnWidths: [CGFloat] = []
     private let defaultColumnWidth: CGFloat = 100
+    private let minColumnWidth: CGFloat = 36
     private let rowHeight: CGFloat = 22
     private let headerHeight: CGFloat = 24
     private let gutterWidth: CGFloat = 48
@@ -287,6 +288,12 @@ public final class CSVGridView: NSView, NSTextFieldDelegate {
         let inHeader = p.y < vis.minY + headerHeight
         let inGutter = p.x < vis.minX + gutterWidth
         if inHeader && inGutter { return }                       // corner → no-op
+        // Column resize: dragging a header separator widens that column. Checked
+        // before the "+" tail so the last column's right edge resizes (the "+"
+        // cell still adds when clicked past the edge).
+        if inHeader, !inGutter, let sepCol = geometry.columnSeparatorIndex(atX: p.x) {
+            beginColumnResize(sepCol, startX: p.x); return
+        }
         // "+" tail affordances (past the last column / row).
         if inHeader, !inGutter, p.x >= geometry.columnX(colCount) { onAddColumn?(); return }
         if inGutter, !inHeader, p.y >= geometry.rowY(rowCount) { onAddRow?(); return }
@@ -352,6 +359,42 @@ public final class CSVGridView: NSView, NSTextFieldDelegate {
         onSelectionChange?(selection)
         scrollToActive()
         needsDisplay = true
+    }
+
+    // MARK: - Column resize
+
+    /// Track a header-separator drag, live-resizing `col` (min width clamped).
+    /// Uses a nested event loop — the standard AppKit pattern for a drag that
+    /// owns the mouse until release.
+    private func beginColumnResize(_ col: Int, startX: CGFloat) {
+        guard col < columnWidths.count else { return }
+        let startWidth = columnWidths[col]
+        NSCursor.resizeLeftRight.push()
+        defer { NSCursor.pop() }
+        while let ev = window?.nextEvent(matching: [.leftMouseDragged, .leftMouseUp]) {
+            if ev.type == .leftMouseUp { break }
+            let p = convert(ev.locationInWindow, from: nil)
+            columnWidths[col] = max(minColumnWidth, startWidth + (p.x - startX))
+            reload()   // rebuilds geometry from columnWidths + resizes the doc view
+        }
+    }
+
+    public override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(rect: bounds,
+                                       options: [.activeInKeyWindow, .mouseMoved, .inVisibleRect],
+                                       owner: self))
+    }
+
+    /// Show the resize cursor when hovering a header column separator.
+    public override func mouseMoved(with event: NSEvent) {
+        let p = convert(event.locationInWindow, from: nil)
+        let vis = enclosingScrollView?.documentVisibleRect ?? bounds
+        let onHeaderSeparator = p.y < vis.minY + headerHeight
+            && p.x >= vis.minX + gutterWidth
+            && geometry.columnSeparatorIndex(atX: p.x) != nil
+        if onHeaderSeparator { NSCursor.resizeLeftRight.set() } else { NSCursor.arrow.set() }
     }
 
     // MARK: - Drag & drop (file → cell link)

@@ -44,6 +44,19 @@ public struct CSVGridGeometry: Equatable, Sendable {
         headerHeight + CGFloat(max(row, 0)) * rowHeight
     }
 
+    /// The column whose right-edge separator sits within `tolerance` of `x`, or
+    /// nil. Drives drag-to-resize: the returned column is the one being widened.
+    /// Prefers the nearest boundary when two are within tolerance.
+    public func columnSeparatorIndex(atX x: CGFloat, tolerance: CGFloat = 4) -> Int? {
+        var best: (col: Int, dist: CGFloat)?
+        for col in 0..<columnCount {
+            let edge = columnX(col + 1)
+            let dist = abs(x - edge)
+            if dist <= tolerance, best == nil || dist < best!.dist { best = (col, dist) }
+        }
+        return best?.col
+    }
+
     public func cellRect(row: Int, col: Int) -> CGRect {
         guard col >= 0, col < columnCount else { return .zero }
         return CGRect(x: columnX(col), y: rowY(row), width: columnWidths[col], height: rowHeight)

@@ -102,6 +102,7 @@
 "inspector.linked_mentions" = "链接提及";
 "inspector.properties" = "属性";
 "inspector.tags" = "标签";
+"inspector.query.placeholder" = "查询：priority:1 #urgent 文本";
 "inspector.tags.empty" = "暂无标签。给节点添加一个 “tags” 属性。";
 "inspector.tags.select_help" = "选中所有带此标签的节点";
 "inspector.properties.empty" = "还没有属性。在下方添加。";

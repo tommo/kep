@@ -30,6 +30,8 @@ struct ContentView: View {
     @AppStorage(PrefKeys.inspectorLinksExpanded) private var linksExpanded = false
     @AppStorage(PrefKeys.inspectorPropertiesExpanded) private var propertiesExpanded = true
     @AppStorage(PrefKeys.inspectorTagsExpanded) private var tagsExpanded = false
+    /// Live text of the inspector property/tag query field.
+    @State private var tagQuery = ""
 
     /// Sidebar visibility bridged to `session.sidebarVisible` (toggled from the
     /// View menu / sidebar button). `.all` shows it, `.detailOnly` hides it.
@@ -267,7 +269,22 @@ struct ContentView: View {
     /// carry it; clicking selects all of them on the canvas.
     private var tagsInspector: some View {
         let tags = session.activeMindMapTagCounts
-        return Group {
+        return VStack(alignment: .leading, spacing: 4) {
+            // Query bar: `key:value` / `#tag` / text, space = AND. Return selects
+            // every matching node on the canvas (#203 property queries).
+            HStack(spacing: 6) {
+                Image(systemName: "line.3.horizontal.decrease.circle").foregroundStyle(.secondary)
+                TextField(L("inspector.query.placeholder"), text: $tagQuery)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit { session.selectTopicsMatching(tagQuery) }
+            }
+            .padding(.horizontal, 8).padding(.top, 4)
+            tagList(tags)
+        }
+    }
+
+    @ViewBuilder private func tagList(_ tags: [(tag: String, count: Int)]) -> some View {
+        Group {
             if tags.isEmpty {
                 Text(L("inspector.tags.empty"))
                     .font(.caption).foregroundStyle(.secondary)

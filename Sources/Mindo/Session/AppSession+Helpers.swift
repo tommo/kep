@@ -229,6 +229,17 @@ extension AppSession {
         activeMindMapView?.selectTopics(MindMapTags.topicsWithTag(tag, in: map))
     }
 
+    /// Select every topic in the active map matching the query (TopicQuery
+    /// mini-language: `key:value`, `#tag`, bare text; space = AND). Returns the
+    /// match count so the UI can report it; no-op for a blank query.
+    @MainActor @discardableResult func selectTopicsMatching(_ query: String) -> Int {
+        let q = query.trimmingCharacters(in: .whitespaces)
+        guard !q.isEmpty, case .mindMap(let map)? = activeDocument?.kind else { return 0 }
+        let topics = TopicQuery.evaluate(q, in: map)
+        activeMindMapView?.selectTopics(topics)
+        return topics.count
+    }
+
     /// Well-known keys that render a canvas marker — editing one must relayout
     /// the canvas so the marker strip appears/updates.
     private var markerKeys: Set<String> {

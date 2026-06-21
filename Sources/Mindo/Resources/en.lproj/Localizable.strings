@@ -105,6 +105,7 @@
 "inspector.linked_mentions" = "Linked Mentions";
 "inspector.properties" = "Properties";
 "inspector.tags" = "Tags";
+"inspector.query.placeholder" = "Query: priority:1 #urgent text";
 "inspector.tags.empty" = "No tags yet. Add a tags property to a node.";
 "inspector.tags.select_help" = "Select every node with this tag";
 "inspector.properties.empty" = "No properties yet. Add one below.";

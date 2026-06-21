@@ -349,6 +349,7 @@ public struct MarkdownEditor: NSViewRepresentable {
         }
 
         private var themeObserver: NSObjectProtocol?
+        private var fontObserver: NSObjectProtocol?
 
         init(parent: MarkdownEditor) {
             self.parent = parent
@@ -357,10 +358,15 @@ public struct MarkdownEditor: NSViewRepresentable {
             themeObserver = NotificationCenter.default.addObserver(
                 forName: .editorThemeChanged, object: nil, queue: .main
             ) { [weak self] _ in self?.applyHighlighting() }
+            // Live-re-apply the editor + preview font when the pref changes.
+            fontObserver = NotificationCenter.default.addObserver(
+                forName: .editorFontChanged, object: nil, queue: .main
+            ) { [weak self] _ in self?.applyHighlighting(); self?.refreshPreview() }
         }
 
         deinit {
             if let themeObserver { NotificationCenter.default.removeObserver(themeObserver) }
+            if let fontObserver { NotificationCenter.default.removeObserver(fontObserver) }
         }
 
         public func textDidChange(_ notification: Notification) {
@@ -389,6 +395,12 @@ public struct MarkdownEditor: NSViewRepresentable {
 
         func applyHighlighting() {
             guard let storage = textView?.textStorage else { return }
+            // The highlighter overwrites the storage font over the full range,
+            // so the editor-font preference only takes effect by feeding it the
+            // highlighter's baseFont (and the text view's font for typing/caret).
+            let font = EditorFont.current
+            highlighter.baseFont = font
+            textView?.font = font
             highlighter.theme = .resolved(dark: parent.isDarkMode)
             highlighter.highlight(storage, activeRange: textView?.selectedRange())
             lastHighlightedDarkMode = parent.isDarkMode

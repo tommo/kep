@@ -268,6 +268,7 @@ public struct PlantUMLEditor: NSViewRepresentable {
         }
 
         private var themeObserver: NSObjectProtocol?
+        private var fontObserver: NSObjectProtocol?
 
         init(parent: PlantUMLEditor) {
             self.parent = parent
@@ -275,10 +276,14 @@ public struct PlantUMLEditor: NSViewRepresentable {
             themeObserver = NotificationCenter.default.addObserver(
                 forName: .editorThemeChanged, object: nil, queue: .main
             ) { [weak self] _ in self?.applyHighlighting() }
+            fontObserver = NotificationCenter.default.addObserver(
+                forName: .editorFontChanged, object: nil, queue: .main
+            ) { [weak self] _ in self?.applyHighlighting() }
         }
 
         deinit {
             if let themeObserver { NotificationCenter.default.removeObserver(themeObserver) }
+            if let fontObserver { NotificationCenter.default.removeObserver(fontObserver) }
         }
 
         public func textDidChange(_ notification: Notification) {
@@ -398,6 +403,12 @@ public struct PlantUMLEditor: NSViewRepresentable {
 
         func applyHighlighting() {
             guard let storage = textView?.textStorage else { return }
+            // The highlighter overwrites the storage font, so the editor-font
+            // preference only takes effect via its baseFont (+ the text view's
+            // font for typing/caret).
+            let font = EditorFont.current
+            highlighter.baseFont = font
+            textView?.font = font
             highlighter.theme = .resolved(dark: parent.isDarkMode)
             highlighter.highlight(storage)
         }

@@ -1,4 +1,13 @@
 import AppKit
+import MindoCore
+
+public extension Notification.Name {
+    /// Posted by the Editor preferences pane when the editor or preview font
+    /// (family/size) changes, so open markdown / PlantUML editors re-apply it
+    /// live instead of only on the next document open. Mirrors
+    /// `.csvFontChanged` / `.editorThemeChanged`. See feedback_settings_reapply_live.
+    static let editorFontChanged = Notification.Name("mindo.editorFontChanged")
+}
 
 /// Resolve the monospaced font the markdown / plantuml editors should
 /// render with. Centralized so the lookup logic + fallback chain is
@@ -19,6 +28,16 @@ public enum EditorFont {
     public static let pickerFamilies: [String] = [
         "SF Mono", "Menlo", "Monaco", "Courier New", "JetBrains Mono",
     ]
+
+    /// The editor font currently configured in Preferences (family + size),
+    /// with the same fallback chain as `resolve`. The single source of truth
+    /// for the markdown / plantuml editors so the pref actually drives the
+    /// rendered font (the highlighters overwrite the storage font, so this must
+    /// feed the highlighter's baseFont — not just textView.font).
+    public static var current: NSFont {
+        resolve(family: PrefKeys.string(PrefKeys.editorFontFamily),
+                size: CGFloat(PrefKeys.double(PrefKeys.editorFontSize, fallback: 13)))
+    }
 
     /// Resolve `family` (nil = system default) at the requested point
     /// size. Falls back to `monospacedSystemFont` when the named family

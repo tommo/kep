@@ -167,6 +167,17 @@ private struct EditorPrefs: View {
         }
         .formStyle(.grouped)
         .padding()
+        // Re-apply the editor + preview font to open editors the instant it
+        // changes (not on next document open). See feedback_settings_reapply_live.
+        .onChange(of: fontSignature) { _, _ in
+            NotificationCenter.default.post(name: .editorFontChanged, object: nil)
+        }
+    }
+
+    /// Combined key of every font pref that affects live editor/preview
+    /// rendering, so a single onChange covers them all.
+    private var fontSignature: String {
+        "\(fontSize)|\(fontFamily)|\(previewFont)|\(previewMonoFont)"
     }
 
     /// Open a file picker to choose the dot binary. Reads back into the

@@ -11,13 +11,28 @@ final class PropertyMarkersTests: XCTestCase {
         XCTAssertTrue(PropertyMarkers.markerRow(for: t).isEmpty)
     }
 
-    func testPriorityDoneTagsInStableOrder() {
+    func testPriorityDoneProgressTagsInStableOrder() {
         let t = Topic(text: "n")
         t.setProperty(PropertyMarkers.tagsKey, .list(["a", "b"]))
         t.setProperty(PropertyMarkers.doneKey, .checkbox(true))
         t.setProperty(PropertyMarkers.priorityKey, .number(2))
+        t.setProperty(PropertyMarkers.progressKey, .number(0.5))
         let roles = PropertyMarkers.markerRow(for: t).map(\.role)
-        XCTAssertEqual(roles, [.priority(2), .doneTrue, .tags(2)])
+        XCTAssertEqual(roles, [.priority(2), .doneTrue, .progress(0.5), .tags(2)])
+    }
+
+    func testProgressNormalization() {
+        XCTAssertEqual(PropertyMarkers.normalizeProgress(0.5), 0.5, accuracy: 0.001)   // fraction
+        XCTAssertEqual(PropertyMarkers.normalizeProgress(70), 0.7, accuracy: 0.001)    // percent
+        XCTAssertEqual(PropertyMarkers.normalizeProgress(1), 1, accuracy: 0.001)       // 100%
+        XCTAssertEqual(PropertyMarkers.normalizeProgress(-3), 0, accuracy: 0.001)      // clamp low
+        XCTAssertEqual(PropertyMarkers.normalizeProgress(250), 1, accuracy: 0.001)     // clamp high
+    }
+
+    func testProgressOnlyFromNumber() {
+        let t = Topic(text: "n")
+        t.setProperty(PropertyMarkers.progressKey, .text("half"))   // not a number → no marker
+        XCTAssertTrue(PropertyMarkers.markerRow(for: t).isEmpty)
     }
 
     func testDoneFalseRendersHollowMarker() {

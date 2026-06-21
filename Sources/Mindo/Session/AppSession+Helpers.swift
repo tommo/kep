@@ -219,7 +219,8 @@ extension AppSession {
     /// Well-known keys that render a canvas marker — editing one must relayout
     /// the canvas so the marker strip appears/updates.
     private var markerKeys: Set<String> {
-        [PropertyMarkers.priorityKey, PropertyMarkers.doneKey, PropertyMarkers.tagsKey]
+        [PropertyMarkers.priorityKey, PropertyMarkers.doneKey,
+         PropertyMarkers.progressKey, PropertyMarkers.tagsKey]
     }
 
     /// Set or clear (nil) a typed property on the selected node.

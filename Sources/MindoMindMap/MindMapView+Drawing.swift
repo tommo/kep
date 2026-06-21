@@ -192,11 +192,18 @@ extension MindMapView {
         case .doneTrue:  return .systemGreen
         case .doneFalse: return theme.textColor(forLevel: level).withAlphaComponent(0.55)
         case .tags:      return theme.textColor(forLevel: level).withAlphaComponent(0.85)
+        case .progress:  return .systemBlue
         }
     }
 
     /// Render a property marker's SF Symbol inside `rect`, tinted by its role.
     func drawPropertyMarker(_ marker: PropertyMarker, in rect: CGRect, level: Int, into ctx: CGContext) {
+        // `.progress` is a drawn ring (a filled pie arc on a faint track), not
+        // an SF Symbol — the only marker whose appearance is parametric.
+        if case .progress(let fraction) = marker.role {
+            drawProgressRing(fraction: fraction, in: rect, level: level, into: ctx)
+            return
+        }
         let symbolName = marker.symbolName
         let tint = markerTint(marker, level: level)
         let pointSize = (rect.width - 2).rounded()
@@ -221,6 +228,31 @@ extension MindMapView {
             width: tinted.size.width, height: tinted.size.height
         )
         tinted.draw(in: drawRect)
+    }
+
+    /// Draw a progress marker as a pie: a faint full-circle track with a filled
+    /// wedge sweeping clockwise from 12 o'clock for `fraction` (0…1) of the
+    /// circle. A full circle reads as 100%, empty as 0%.
+    func drawProgressRing(fraction: Double, in rect: CGRect, level: Int, into ctx: CGContext) {
+        let tint = NSColor.systemBlue
+        let inset = rect.insetBy(dx: 1, dy: 1)
+        let center = CGPoint(x: inset.midX, y: inset.midY)
+        let radius = min(inset.width, inset.height) / 2
+        // Faint track.
+        ctx.setStrokeColor(tint.withAlphaComponent(0.30).cgColor)
+        ctx.setLineWidth(1)
+        ctx.addArc(center: center, radius: radius, startAngle: 0, endAngle: .pi * 2, clockwise: false)
+        ctx.strokePath()
+        // Filled wedge for the completed fraction (clockwise from the top).
+        let f = max(0, min(1, fraction))
+        guard f > 0 else { return }
+        let start = CGFloat.pi / 2                  // 12 o'clock (flipped view → top)
+        let end = start - CGFloat(f) * .pi * 2      // clockwise
+        ctx.setFillColor(tint.cgColor)
+        ctx.move(to: center)
+        ctx.addArc(center: center, radius: radius, startAngle: start, endAngle: end, clockwise: true)
+        ctx.closePath()
+        ctx.fillPath()
     }
 
     /// Render an SF Symbol-based icon for one extra type inside `rect`,

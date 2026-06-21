@@ -14,11 +14,17 @@ public struct PlantUMLEditor: NSViewRepresentable {
     /// On-disk URL of the `.puml` being edited, when saved. Used only to
     /// seed the export save-panel's default filename.
     public var documentURL: URL?
+    /// Byte-offset target (as a string, with a disambiguation suffix) the
+    /// outline panel pushes to scroll the source to a diagram block. Mirrors
+    /// the markdown editor's outline navigation.
+    public var navigationTarget: String?
 
-    public init(text: Binding<String>, isDarkMode: Bool = false, documentURL: URL? = nil) {
+    public init(text: Binding<String>, isDarkMode: Bool = false, documentURL: URL? = nil,
+                navigationTarget: String? = nil) {
         self._text = text
         self.isDarkMode = isDarkMode
         self.documentURL = documentURL
+        self.navigationTarget = navigationTarget
     }
 
     public func makeNSView(context: Context) -> NSView {
@@ -176,6 +182,10 @@ public struct PlantUMLEditor: NSViewRepresentable {
         if PlantUMLPreviewState.shouldRerender(textChanged: textChanged, darkModeChanged: darkChanged) {
             context.coordinator.scheduleRender(immediate: true)
         }
+        if let target = navigationTarget, target != context.coordinator.lastNavigated {
+            context.coordinator.lastNavigated = target
+            DispatchQueue.main.async { context.coordinator.scroll(toByteOffsetString: target) }
+        }
         context.coordinator.placeDividerIfNeeded()
     }
 
@@ -185,6 +195,8 @@ public struct PlantUMLEditor: NSViewRepresentable {
         var parent: PlantUMLEditor
         var textView: NSTextView?
         var webView: WKWebView?
+        /// Last outline target acted on, so the same value isn't re-scrolled.
+        var lastNavigated: String?
         weak var splitView: NSSplitView?
         weak var statusFooter: NSTextField?
         weak var modeControl: NSSegmentedControl?
@@ -399,6 +411,26 @@ public struct PlantUMLEditor: NSViewRepresentable {
             parent.text = combined
             applyHighlighting()
             scheduleRender(immediate: true)
+        }
+
+        /// Scroll the source to the diagram block at `s` (a UTF-8 byte offset),
+        /// selecting its first line. Mirrors the markdown editor's outline jump.
+        func scroll(toByteOffsetString s: String) {
+            guard let byteOffset = Int(s), let tv = textView else { return }
+            let nsString = tv.string as NSString
+            let safeByte = max(0, min(byteOffset, tv.string.utf8.count))
+            var byteCount = 0
+            var charIndex = 0
+            for ch in tv.string {
+                if byteCount >= safeByte { break }
+                byteCount += ch.utf8.count
+                charIndex += ch.utf16.count
+            }
+            let location = min(charIndex, nsString.length)
+            let lineRange = nsString.lineRange(for: NSRange(location: location, length: 0))
+            tv.scrollRangeToVisible(lineRange)
+            tv.setSelectedRange(lineRange)
+            tv.window?.makeFirstResponder(tv)
         }
 
         func applyHighlighting() {

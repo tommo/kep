@@ -101,7 +101,8 @@ struct EditorPane: View {
             PlantUMLEditor(
                 text: textBinding(for: documentID),
                 isDarkMode: colorScheme == .dark,
-                documentURL: session.openDocuments.first(where: { $0.id == documentID })?.fileURL
+                documentURL: session.openDocuments.first(where: { $0.id == documentID })?.fileURL,
+                navigationTarget: session.sanitizedNavigationTarget
             )
         case .text(_, .csv):
             CSVEditor(text: textBinding(for: documentID),

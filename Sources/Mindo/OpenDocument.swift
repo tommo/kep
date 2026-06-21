@@ -3,6 +3,7 @@ import MindoBase
 import MindoCore
 import MindoMindMap
 import MindoModel
+import MindoPlantUML
 
 /// One row in the App's open-tabs list. Wraps the actual document payload
 /// (`Kind`) plus the metadata the tab bar / file watcher need.
@@ -83,7 +84,8 @@ struct OpenDocument: Identifiable, Hashable {
     var outlineItems: [OutlineItem] {
         switch kind {
         case .mindMap(let map): return Outline.fromMindMap(map)
-        case .text(let body, .markdown), .text(let body, .plantUML), .text(let body, .mindNotebook):
+        case .text(let body, .plantUML): return PlantUMLOutline.items(for: body)
+        case .text(let body, .markdown), .text(let body, .mindNotebook):
             return Outline.fromMarkdown(body)
         case .text, .unsupported: return []
         }

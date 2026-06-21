@@ -69,6 +69,42 @@ final class NotebookModelTests: XCTestCase {
         XCTAssertTrue(model.cells.contains { if case .code = $0 { return true } else { return false } })
     }
 
+    func testSelectionNavigation() {
+        let model = makeModel(text: "a\n\n```lua {exec id=c}\nreturn 1\n```\n\nb")
+        // prose-1, code c, prose-2
+        XCTAssertEqual(model.cells.count, 3)
+        model.selectFirstIfNeeded()
+        XCTAssertEqual(model.selectedID, model.cells[0].id)
+        model.selectNext()
+        XCTAssertEqual(model.selectedID, model.cells[1].id)
+        model.selectNext(); model.selectNext()   // clamp at last
+        XCTAssertEqual(model.selectedID, model.cells[2].id)
+        model.selectPrev()
+        XCTAssertEqual(model.selectedID, model.cells[1].id)
+    }
+
+    func testDeleteSelectedReselectsNeighbor() {
+        // Three cells (prose / code / prose — the scanner splits on code fences).
+        let model = makeModel(text: "a\n\n```lua {exec id=x}\nreturn 1\n```\n\nc")
+        XCTAssertEqual(model.cells.count, 3)
+        let middleID = model.cells[1].id
+        model.selectedID = middleID
+        model.deleteSelected()
+        XCTAssertEqual(model.cells.count, 2)
+        XCTAssertNotNil(model.selectedID)
+        XCTAssertNotEqual(model.selectedID, middleID)   // re-selected a neighbor
+    }
+
+    func testAddAfterSelectionSelectsNew() {
+        let model = makeModel(text: "only")
+        model.selectFirstIfNeeded()
+        model.addAfterSelection { model.addCode(after: $0) }
+        XCTAssertEqual(model.cells.count, 2)
+        // The new code cell is selected and sits right after the original.
+        XCTAssertEqual(model.selectedID, model.cells[1].id)
+        if case .code = model.cells[1] {} else { XCTFail("new cell should be code") }
+    }
+
     func testStaleAfterEditingCode() {
         let model = makeModel(text: "```lua {exec id=c1}\nreturn 1\n```")
         // No output cached yet → stale.

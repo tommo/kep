@@ -210,16 +210,67 @@ final class NotebookModel: ObservableObject, NotebookAgentSink {
         outputs = ExecOutputs()
         if let url = documentURL { try? ExecOutputsStore.save(outputs, for: url) }
     }
+
+    // MARK: - Selection / command-mode navigation (keyboard-only use)
+
+    @Published var selectedID: String?
+
+    private var selIndex: Int? { selectedID.flatMap { sid in cells.firstIndex { $0.id == sid } } }
+
+    func selectFirstIfNeeded() { if selectedID == nil || selIndex == nil { selectedID = cells.first?.id } }
+    func selectNext() {
+        guard let i = selIndex else { selectedID = cells.first?.id; return }
+        if i + 1 < cells.count { selectedID = cells[i + 1].id }
+    }
+    func selectPrev() {
+        guard let i = selIndex, i > 0 else { return }
+        selectedID = cells[i - 1].id
+    }
+
+    /// Add a cell after the selection (or at the end) and select it.
+    func addAfterSelection(_ make: (String?) -> Void) {
+        let anchor = selectedID
+        let beforeIDs = Set(cells.map(\.id))
+        make(anchor)
+        if let new = cells.first(where: { !beforeIDs.contains($0.id) }) { selectedID = new.id }
+    }
+    func deleteSelected() {
+        guard let id = selectedID, let i = selIndex else { return }
+        cells.removeAll { $0.id == id }
+        selectedID = cells.indices.contains(i) ? cells[i].id : cells.last?.id
+        scheduleSerialize()
+    }
+    func moveSelected(by offset: Int) {
+        guard let id = selectedID else { return }
+        move(id, by: offset)   // selection follows the id
+    }
+    /// Run the selected cell (code → run, agent → research). Prose: no-op.
+    func runSelected() async {
+        guard let id = selectedID else { return }
+        switch cells.first(where: { $0.id == id }) {
+        case .code: await run(id)
+        case .agent: await runAgentCell(id)
+        default: break
+        }
+    }
 }
 
 /// The cell-based Research Notebook editor: a vertical list of prose + code
 /// cells with per-cell run + a Run-All toolbar. Outputs render beneath code
 /// cells; a "stale" badge shows when a cell changed since its last run.
+/// Keyboard focus target for the notebook: command mode (cell navigation) or
+/// editing a specific cell.
+enum NotebookFocus: Hashable {
+    case command
+    case edit(String)
+}
+
 public struct NotebookEditor: View {
     @Binding var text: String
     let documentURL: URL?
     let isDarkMode: Bool
     @StateObject private var model: NotebookModel
+    @FocusState private var focus: NotebookFocus?
 
     public init(text: Binding<String>, documentURL: URL?, isDarkMode: Bool,
                 runOne: @escaping NotebookRunOne, runAll: @escaping NotebookRunAll,
@@ -237,17 +288,57 @@ public struct NotebookEditor: View {
         VStack(spacing: 0) {
             toolbar
             Divider()
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 10) {
-                    ForEach(model.cells) { cell in
-                        NotebookCellRow(model: model, cell: cell)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 10) {
+                        ForEach(model.cells) { cell in
+                            NotebookCellRow(model: model, cell: cell,
+                                            focus: $focus, isSelected: model.selectedID == cell.id)
+                                .id(cell.id)
+                        }
+                        addBar
                     }
-                    addBar
+                    .padding(12)
                 }
-                .padding(12)
+                .onChange(of: model.selectedID) { _, id in
+                    if let id { withAnimation(.easeInOut(duration: 0.12)) { proxy.scrollTo(id, anchor: .center) } }
+                }
             }
         }
+        .focusable()
+        .focused($focus, equals: .command)
+        .focusEffectDisabled()
+        .onKeyPress(phases: .down) { handleCommandKey($0) }
+        .onAppear { model.selectFirstIfNeeded(); focus = .command }
+        .onChange(of: focus) { _, f in if case .edit(let id)? = f { model.selectedID = id } }
         .onChange(of: text) { _, new in model.reload(from: new) }
+    }
+
+    /// Command-mode keys (fire only when the notebook container — not a cell
+    /// editor — holds focus). Makes the notebook fully keyboard-operable.
+    private func handleCommandKey(_ press: KeyPress) -> KeyPress.Result {
+        let opt = press.modifiers.contains(.option)
+        switch press.key {
+        case .upArrow:   opt ? model.moveSelected(by: -1) : model.selectPrev(); return .handled
+        case .downArrow: opt ? model.moveSelected(by: 1) : model.selectNext(); return .handled
+        case .return:
+            if press.modifiers.contains(.command) || press.modifiers.contains(.shift) {
+                Task { await model.runSelected() }
+            } else if let id = model.selectedID {
+                focus = .edit(id)
+            }
+            return .handled
+        case .deleteForward, .delete:
+            model.deleteSelected(); return .handled
+        default: break
+        }
+        switch press.characters {
+        case "b": model.addAfterSelection { model.addCode(after: $0) }; return .handled
+        case "m": model.addAfterSelection { model.addProse(after: $0) }; return .handled
+        case "g" where model.runAgent != nil: model.addAfterSelection { model.addAgent(after: $0) }; return .handled
+        case "r": Task { await model.runSelected() }; return .handled
+        default: return .ignored
+        }
     }
 
     private var toolbar: some View {
@@ -262,7 +353,8 @@ public struct NotebookEditor: View {
                 Label("Clear Outputs", systemImage: "eraser")
             }
             Spacer()
-            Text("⌘↩ run cell · ⇧⌘↩ run all").font(.caption2).foregroundStyle(.tertiary)
+            Text("↑↓ select · ⏎ edit · ⎋ done · ⌘↩ run · b/m/g add · ⌥↑↓ move · ⌦ delete")
+                .font(.caption2).foregroundStyle(.tertiary)
             if !model.running.isEmpty { ProgressView().controlSize(.small) }
         }
         .padding(.horizontal, 10)
@@ -287,8 +379,10 @@ public struct NotebookEditor: View {
 private struct NotebookCellRow: View {
     @ObservedObject var model: NotebookModel
     let cell: NotebookCell
-    @State private var editingProse = false
-    @FocusState private var proseFocused: Bool
+    var focus: FocusState<NotebookFocus?>.Binding
+    let isSelected: Bool
+
+    private var isEditing: Bool { focus.wrappedValue == .edit(cell.id) }
 
     private var binding: Binding<String> {
         Binding(get: { model.text(of: cell.id) }, set: { model.updateText(cell.id, $0) })
@@ -302,23 +396,35 @@ private struct NotebookCellRow: View {
     }
 
     var body: some View {
+        cellContent
+            .padding(6)
+            .background(RoundedRectangle(cornerRadius: 6).fill(isSelected ? Color.accentColor.opacity(0.06) : .clear))
+            .overlay(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 1.5)
+                    .fill(isSelected ? Color.accentColor : .clear)
+                    .frame(width: 3)
+            }
+            // Select on click without blocking the editors' own clicks.
+            .simultaneousGesture(TapGesture().onEnded { model.selectedID = cell.id })
+    }
+
+    @ViewBuilder private var cellContent: some View {
         switch cell {
         case .prose:
             HStack(alignment: .top, spacing: 6) {
                 Image(systemName: "text.alignleft").foregroundStyle(.secondary).font(.caption).padding(.top, 6)
-                if editingProse {
+                if isEditing {
                     TextEditor(text: binding)
                         .font(.body)
                         .frame(minHeight: 40)
                         .scrollContentBackground(.hidden)
-                        .focused($proseFocused)
-                        .onAppear { proseFocused = true }
-                        .onChange(of: proseFocused) { _, focused in if !focused { editingProse = false } }
+                        .focused(focus, equals: .edit(cell.id))
+                        .onKeyPress(.escape) { focus.wrappedValue = .command; return .handled }
                 } else {
                     ProseRenderedView(markdown: model.text(of: cell.id))
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(Rectangle())
-                        .onTapGesture { editingProse = true }
+                        .onTapGesture { model.selectedID = cell.id; focus.wrappedValue = .edit(cell.id) }
                 }
                 cellMenu
             }
@@ -335,11 +441,13 @@ private struct NotebookCellRow: View {
                             Image(systemName: "play.fill")
                         }
                         .buttonStyle(.borderless)
-                        .help("Run cell")
+                        .help("Run cell (⌘↩)")
                     }
                     cellMenu
                 }
-                NotebookCodeView(text: binding) { Task { await model.run(cell.id) } }
+                NotebookCodeView(text: binding, isEditing: isEditing,
+                                 onRun: { Task { await model.run(cell.id) } },
+                                 onEscape: { focus.wrappedValue = .command })
                     .frame(height: codeHeight(binding.wrappedValue))
                     .padding(6)
                     .background(RoundedRectangle(cornerRadius: 6).fill(Color.gray.opacity(0.10)))
@@ -373,6 +481,9 @@ private struct NotebookCellRow: View {
                 .textFieldStyle(.plain)
                 .font(.body.weight(.medium))
                 .lineLimit(1...4)
+                .focused(focus, equals: .edit(cell.id))
+                .onKeyPress(.escape) { focus.wrappedValue = .command; return .handled }
+                .onSubmit { Task { await model.runAgentCell(cell.id) } }
             let result = model.agentResult(of: cell.id)
             if !result.isEmpty {
                 Divider()
@@ -433,7 +544,9 @@ private struct NotebookCellRow: View {
 /// Backed by an NSTextView (SwiftUI TextEditor can't intercept those keys).
 struct NotebookCodeView: NSViewRepresentable {
     @Binding var text: String
+    var isEditing: Bool = false
     var onRun: () -> Void
+    var onEscape: () -> Void = {}
 
     func makeNSView(context: Context) -> NSScrollView {
         let (scroll, tv) = CodeArea.makeMonospaced(text: text, delegate: context.coordinator) {
@@ -441,6 +554,7 @@ struct NotebookCodeView: NSViewRepresentable {
         }
         scroll.hasVerticalScroller = false   // outer notebook ScrollView scrolls
         (tv as? NotebookCodeTextView)?.onRun = onRun
+        (tv as? NotebookCodeTextView)?.onEscape = onEscape
         context.coordinator.textView = tv
         return scroll
     }
@@ -449,6 +563,11 @@ struct NotebookCodeView: NSViewRepresentable {
         guard let tv = scroll.documentView as? NSTextView else { return }
         if tv.string != text { tv.string = text }
         (tv as? NotebookCodeTextView)?.onRun = onRun
+        (tv as? NotebookCodeTextView)?.onEscape = onEscape
+        // Bridge SwiftUI command-mode "edit" → make this the first responder.
+        if isEditing, tv.window != nil, tv.window?.firstResponder !== tv {
+            tv.window?.makeFirstResponder(tv)
+        }
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
@@ -468,11 +587,13 @@ struct NotebookCodeView: NSViewRepresentable {
 /// (plain Return inserts a newline).
 final class NotebookCodeTextView: NSTextView {
     var onRun: (() -> Void)?
+    var onEscape: (() -> Void)?
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 36 {   // Return
             let mods = event.modifierFlags.intersection([.command, .shift, .option, .control])
             if mods == .command || mods == .shift { onRun?(); return }
         }
+        if event.keyCode == 53 { onEscape?(); return }   // Esc → back to command mode
         super.keyDown(with: event)
     }
 }

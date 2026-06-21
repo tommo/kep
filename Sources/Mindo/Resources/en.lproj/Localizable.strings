@@ -124,6 +124,7 @@
 "menu.edit.copy_markdown_as_html" = "Copy as HTML";
 "mindmap.copy_image.empty" = "Nothing to copy — the mind map is empty.";
 "menu.edit.find" = "Find…";
+"menu.edit.paste_plain" = "Paste as Plain Text";
 "menu.edit.insert_snippet" = "Insert Snippet…";
 "menu.edit.find_in_files" = "Find in Files…";
 

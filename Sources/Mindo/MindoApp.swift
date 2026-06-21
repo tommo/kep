@@ -278,6 +278,13 @@ struct MindoApp: App {
                 .disabled(session.activeFileType != .mindMap)
                 Button(L("menu.edit.copy_markdown_as_html")) { session.copyActiveMarkdownAsHTML() }
                     .disabled(session.activeFileType != .markdown)
+                // Paste raw clipboard text, bypassing the markdown editor's
+                // smart paste (URL→link, image→base64). Routed to the focused
+                // text view's pasteAsPlainText: via the responder chain.
+                Button(L("menu.edit.paste_plain")) {
+                    NSApp.sendAction(Selector(("pasteAsPlainText:")), to: nil, from: nil)
+                }
+                .keyboardShortcut("v", modifiers: [.command, .shift])
                 Button(L("menu.edit.find")) { session.invokeFindInActiveDocument() }
                     .keyboardShortcut("f", modifiers: .command)
                     .disabled(session.activeDocument == nil)

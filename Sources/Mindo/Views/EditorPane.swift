@@ -34,12 +34,7 @@ struct EditorPane: View {
     private func content(for document: OpenDocument) -> some View {
         switch document.kind {
         case .mindMap(let map):
-            VStack(spacing: 0) {
-                if session.inDocFindOpen, let view = activeMindMapView() {
-                    MindMapFindBar(view: view) { session.inDocFindOpen = false }
-                    Divider()
-                }
-                MindMapCanvas(
+            MindMapCanvas(
                     map: map,
                     theme: theme,
                     onChange: { _ in markDirty(documentID) },
@@ -60,6 +55,13 @@ struct EditorPane: View {
                         session.setCanvasViewState(state, forPath: path)
                     }
                 )
+            .overlay(alignment: .top) {
+                // Float the find bar OVER the canvas so opening it never
+                // reflows / resizes the graph (it has its own material bg).
+                if session.inDocFindOpen, let view = activeMindMapView() {
+                    MindMapFindBar(view: view) { session.inDocFindOpen = false }
+                        .shadow(color: .black.opacity(0.15), radius: 4, y: 2)
+                }
             }
             .onChange(of: session.zoomCommandTick) { _, _ in
                 // The canvas is created lazily inside MindMapCanvas; we route

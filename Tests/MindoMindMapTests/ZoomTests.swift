@@ -1,6 +1,27 @@
 import XCTest
 @testable import MindoMindMap
 
+final class ScrollPanVectorTests: XCTestCase {
+    func testPreciseDeltasPassThroughOneToOne() {
+        let v = CanvasScroll.panVector(scrollingDeltaX: 12, scrollingDeltaY: -8, hasPreciseDeltas: true)
+        XCTAssertEqual(v.dx, 12, accuracy: 0.001)
+        XCTAssertEqual(v.dy, -8, accuracy: 0.001)
+    }
+
+    func testLineDeltasAreScaledUp() {
+        // Classic mouse wheel reports small line deltas; they must be amplified
+        // to feel like panning (otherwise a notch barely moves the canvas).
+        let v = CanvasScroll.panVector(scrollingDeltaX: 0, scrollingDeltaY: -3, hasPreciseDeltas: false)
+        XCTAssertEqual(v.dy, -3 * CanvasScroll.lineScrollPoints, accuracy: 0.001)
+        XCTAssertGreaterThan(abs(v.dy), 3, "line deltas must be amplified")
+    }
+
+    func testZeroDeltaIsZero() {
+        let v = CanvasScroll.panVector(scrollingDeltaX: 0, scrollingDeltaY: 0, hasPreciseDeltas: true)
+        XCTAssertEqual(v.dx, 0); XCTAssertEqual(v.dy, 0)
+    }
+}
+
 final class ZoomMathTests: XCTestCase {
 
     func testZoomInScalesUpBoundedByMax() {

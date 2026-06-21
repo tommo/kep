@@ -775,19 +775,28 @@ extension MindMapView {
             scroll.setMagnification(target, centeredAt: center)
             return
         }
-        // No momentum/inertial panning. After the fingers lift, a trackpad keeps
-        // emitting scrollWheel events with a non-empty momentumPhase — applying
-        // those is what gives the "flung canvas" feel. Drop them; pan only while
-        // the user is actively scrolling.
-        if !event.momentumPhase.isEmpty { return }
-        // Let NSScrollView do the actual scrolling. The previous hand-rolled
-        // `origin -= delta` got the vertical sign wrong under "natural"
-        // scrolling — scrolling down pinned the view at the top and it couldn't
-        // come back ("locked"). Native scrolling already handles direction,
-        // natural-scroll, precise vs line deltas and 2D/shift correctly, and
-        // CanvasClipView.constrainBoundsRect still supplies the free-pan bounds
-        // (that's the documented extension point). We only kill momentum above.
-        super.scrollWheel(with: event)
+        // PAN by driving the clip's bounds origin directly — do NOT defer to
+        // NSScrollView. When the map fits the viewport the documentView frame
+        // equals the clip, so NSScrollView concludes there's "nothing to
+        // scroll" and silently drops the wheel event — the long-standing
+        // "trackpad two-finger pan does nothing" bug. Drag-pan never hit it
+        // because it drives the clip directly via constrainBoundsRect; this
+        // makes scroll-pan do exactly the same, so it works at any content size.
+        let pan = CanvasScroll.panVector(
+            scrollingDeltaX: event.scrollingDeltaX,
+            scrollingDeltaY: event.scrollingDeltaY,
+            hasPreciseDeltas: event.hasPreciseScrollingDeltas)
+        guard pan.dx != 0 || pan.dy != 0 else { return }
+        // Drive the clip directly (any NSClipView; the production CanvasClipView
+        // supplies the free-pan bounds via constrainBoundsRect). Flipped clip,
+        // grab-the-canvas convention (matches CanvasClipView's mouseDragged):
+        // content follows the fingers, so the origin moves opposite the delta.
+        let clip = scroll.contentView
+        let proposed = NSPoint(x: clip.bounds.origin.x - pan.dx,
+                               y: clip.bounds.origin.y - pan.dy)
+        let origin = clip.constrainBoundsRect(NSRect(origin: proposed, size: clip.bounds.size)).origin
+        clip.scroll(to: origin)
+        scroll.reflectScrolledClipView(clip)
     }
 
 

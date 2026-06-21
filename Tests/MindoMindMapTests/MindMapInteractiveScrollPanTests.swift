@@ -171,4 +171,49 @@ final class MindMapInteractiveScrollPanTests: XCTestCase {
         XCTAssertGreaterThan(h.origin.x, 0, "shift+wheel pans horizontally")
         XCTAssertEqual(h.origin.y, yBefore, accuracy: 0.5, "and leaves the vertical offset alone")
     }
+
+    /// THE bug the user kept hitting: a map small enough to FIT the viewport.
+    /// Its documentView frame equals the clip, so NSScrollView concluded there
+    /// was "nothing to scroll" and dropped every wheel event — trackpad pan did
+    /// nothing at all. Driving the clip directly must pan it regardless.
+    func testTrackpadScrollPansWhenContentFitsViewport() throws {
+        let size = NSSize(width: 480, height: 360)
+        let window = NSWindow(contentRect: NSRect(origin: .zero, size: size),
+                              styleMask: [.titled], backing: .buffered, defer: false)
+        let scroll = NSScrollView(frame: NSRect(origin: .zero, size: size))
+        scroll.contentView = CanvasClipView()
+        scroll.hasHorizontalScroller = false
+        scroll.hasVerticalScroller = false
+        scroll.horizontalScrollElasticity = .none
+        scroll.verticalScrollElasticity = .none
+        let view = MindMapView(frame: NSRect(origin: .zero, size: size))
+        scroll.documentView = view
+        window.contentView = scroll
+        window.makeKeyAndOrderFront(nil)
+        scroll.layoutSubtreeIfNeeded()
+
+        // A tiny map: a root and two short children — comfortably smaller than
+        // the 480×360 viewport.
+        let map = MindMap()
+        let root = Topic(text: "Root"); map.root = root
+        _ = root.addChild(text: "A"); _ = root.addChild(text: "B")
+        view.display(map: map)
+        scroll.layoutSubtreeIfNeeded()
+
+        // Precondition: content really does fit, so the doc frame == viewport —
+        // the exact situation native scrolling refused to scroll.
+        XCTAssertLessThanOrEqual(view.contentBounds.width, scroll.documentVisibleRect.width)
+        XCTAssertLessThanOrEqual(view.contentBounds.height, scroll.documentVisibleRect.height)
+
+        let before = scroll.documentVisibleRect.origin
+        // Synthesize a real precise (trackpad) scroll and dispatch it.
+        let cg = CGEvent(scrollWheelEvent2Source: nil, units: .pixel,
+                         wheelCount: 2, wheel1: -60, wheel2: -60, wheel3: 0)!
+        let ev = NSEvent(cgEvent: cg)!
+        view.scrollWheel(with: ev)
+
+        let after = scroll.documentVisibleRect.origin
+        XCTAssertNotEqual(after, before,
+                          "trackpad pan must move the canvas even when content fits the viewport")
+    }
 }

@@ -116,12 +116,16 @@ struct EditorPane: View {
                     .textSelection(.enabled)
             }
         case .unsupported(let path):
-            VStack {
-                Image(systemName: "doc.questionmark").font(.largeTitle).foregroundStyle(.secondary)
-                Text(L("plantuml.unsupported.unsupported_file_type"))
-                Text(path).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
+            if ImageFileView.isImagePath(path) {
+                ImageFileView(url: URL(fileURLWithPath: path))
+            } else {
+                VStack {
+                    Image(systemName: "doc.questionmark").font(.largeTitle).foregroundStyle(.secondary)
+                    Text(L("plantuml.unsupported.unsupported_file_type"))
+                    Text(path).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 

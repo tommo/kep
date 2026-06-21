@@ -88,6 +88,8 @@
 "menu.window.next_tab" = "下一个标签页";
 "menu.window.previous_tab" = "上一个标签页";
 "menu.window.show_outline" = "显示大纲";
+"image.fit" = "适应";
+"image.actual" = "100%";
 "menu.window.hide_outline" = "隐藏大纲";
 
 /* MARK: - Inspector */

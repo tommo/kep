@@ -91,6 +91,8 @@
 "menu.window.next_tab" = "Next Tab";
 "menu.window.previous_tab" = "Previous Tab";
 "menu.window.show_outline" = "Show Outline";
+"image.fit" = "Fit";
+"image.actual" = "100%";
 "menu.window.hide_outline" = "Hide Outline";
 
 /* MARK: - Inspector */

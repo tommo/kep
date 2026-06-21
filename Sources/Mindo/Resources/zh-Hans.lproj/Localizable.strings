@@ -103,6 +103,11 @@
 "inspector.properties" = "属性";
 "inspector.tags" = "标签";
 "inspector.query.placeholder" = "查询：priority:1 #urgent 文本";
+"inspector.query.save" = "保存当前查询";
+"inspector.query.run" = "运行";
+"inspector.query.remove" = "移除";
+"inspector.query.none" = "暂无已保存查询";
+"inspector.query.saved_help" = "已保存查询";
 "inspector.tags.empty" = "暂无标签。给节点添加一个 “tags” 属性。";
 "inspector.tags.select_help" = "选中所有带此标签的节点";
 "inspector.properties.empty" = "还没有属性。在下方添加。";

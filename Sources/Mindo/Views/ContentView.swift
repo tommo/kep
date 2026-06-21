@@ -277,6 +277,28 @@ struct ContentView: View {
                 TextField(L("inspector.query.placeholder"), text: $tagQuery)
                     .textFieldStyle(.roundedBorder)
                     .onSubmit { session.selectTopicsMatching(tagQuery) }
+                Menu {
+                    if !tagQuery.trimmingCharacters(in: .whitespaces).isEmpty {
+                        Button(L("inspector.query.save")) { session.saveQuery(name: tagQuery, query: tagQuery) }
+                        Divider()
+                    }
+                    if session.savedQueries.isEmpty {
+                        Text(L("inspector.query.none"))
+                    } else {
+                        ForEach(session.savedQueries) { q in
+                            Menu(q.name) {
+                                Button(L("inspector.query.run")) {
+                                    tagQuery = q.query; session.selectTopicsMatching(q.query)
+                                }
+                                Button(L("inspector.query.remove"), role: .destructive) {
+                                    session.removeSavedQuery(q)
+                                }
+                            }
+                        }
+                    }
+                } label: { Image(systemName: "bookmark") }
+                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                .help(L("inspector.query.saved_help"))
             }
             .padding(.horizontal, 8).padding(.top, 4)
             tagList(tags)

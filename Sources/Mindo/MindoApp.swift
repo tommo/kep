@@ -663,6 +663,30 @@ final class AppSession {
                                   forKey: PrefKeys.sidebarExpansion)
     }
 
+    /// Saved property/text queries (#203 saved views), loaded once + persisted
+    /// on change. Map-agnostic, so stored globally.
+    var savedQueries: [SavedQuery] = SavedQueriesCodec.decode(
+        UserDefaults.standard.data(forKey: PrefKeys.savedQueries))
+
+    /// Save (or replace by name) the current query and persist.
+    func saveQuery(name: String, query: String) {
+        let trimmedName = name.trimmingCharacters(in: .whitespaces)
+        let trimmedQuery = query.trimmingCharacters(in: .whitespaces)
+        guard !trimmedName.isEmpty, !trimmedQuery.isEmpty else { return }
+        savedQueries = SavedQueriesCodec.upserting(
+            SavedQuery(name: trimmedName, query: trimmedQuery), into: savedQueries)
+        persistSavedQueries()
+    }
+
+    func removeSavedQuery(_ query: SavedQuery) {
+        savedQueries.removeAll { $0.id == query.id }
+        persistSavedQueries()
+    }
+
+    private func persistSavedQueries() {
+        UserDefaults.standard.set(SavedQueriesCodec.encode(savedQueries), forKey: PrefKeys.savedQueries)
+    }
+
     /// Native CSV find/replace bar visible (CSV editor only — its
     /// NSTableView can't use the standard text find bar). Toggled by ⌘F.
     var csvFindOpen: Bool = false

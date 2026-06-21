@@ -14,6 +14,8 @@ public enum PrefKeys {
     public static let inspectorLinksExpanded = "mindo.prefs.inspectorLinksExpanded"
     public static let inspectorPropertiesExpanded = "mindo.prefs.inspectorPropertiesExpanded"
     public static let inspectorTagsExpanded = "mindo.prefs.inspectorTagsExpanded"
+    /// Saved property/text queries (JSON of [SavedQuery]). Roadmap T4 / #203.
+    public static let savedQueries = "mindo.prefs.savedQueries"
     /// User-customized editor syntax colors (JSON of EditorTheme).
     public static let editorTheme = "mindo.prefs.editorTheme"
     /// User-customized mind-map canvas colors (JSON of CanvasThemeColors).

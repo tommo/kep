@@ -51,14 +51,21 @@ extension AppSession {
         }
         let (files, corpus) = workspaceCorpus()
 
-        // Sequential tool calls append here; applied to the sink after the loop.
-        final class Buffer { var items: [(code: Bool, text: String, out: ExecOutput?)] = [] }
-        let buf = Buffer()
+        // Stream authored cells to the notebook AS the agent works (the loop runs
+        // off the main actor; each cell hops to the @MainActor sink). FIFO Task
+        // enqueue preserves authoring order.
+        final class Flag { var authored = false }
+        let flag = Flag()
         let effects = AgentToolEffects()
-        effects.notebookAddProse = { buf.items.append((false, $0, nil)) }
+        effects.notebookAddProse = { text in
+            flag.authored = true
+            Task { @MainActor in sink.agentAddProse(text) }
+        }
         effects.notebookRunCode = { code in
+            flag.authored = true
             let r = MindoScriptRunner.run(code, on: MindMap(), corpus: corpus, allFiles: files)
-            buf.items.append((true, code, ExecOutput(text: r.output, error: r.error)))
+            let out = ExecOutput(text: r.output, error: r.error)
+            Task { @MainActor in sink.agentAddCode(code, output: out) }
             return r.error.map { "error: \($0)" } ?? (r.output.isEmpty ? "(no output)" : r.output)
         }
         let tools = MindoAgentTools(map: MindMap(), corpus: corpus, allFiles: files,
@@ -88,14 +95,10 @@ extension AppSession {
         _ = try? await AgentLoop.run(backend: backend, maxIterations: 10) { call in
             tools.handle(name: call.name, argumentsJSON: call.argumentsJSON)
         }
-
-        if buf.items.isEmpty {
+        // Let the last streamed Task land before reporting an empty run.
+        await Task.yield()
+        if !flag.authored {
             sink.agentAddProse("> The agent didn't produce any notebook content for that question.")
-        } else {
-            for item in buf.items {
-                if item.code, let out = item.out { sink.agentAddCode(item.text, output: out) }
-                else { sink.agentAddProse(item.text) }
-            }
         }
     }
 

@@ -92,14 +92,30 @@ extension AppSession {
                                  messages: msgs, tools: offered, isStreaming: false)
             return try await provider.complete(input)
         }
+        // Track which documents the agent actually read → block provenance.
+        final class Sources { var names: [String] = [] }
+        let sources = Sources()
         _ = try? await AgentLoop.run(backend: backend, maxIterations: 10) { call in
-            tools.handle(name: call.name, argumentsJSON: call.argumentsJSON)
+            if call.name == "read_document" || call.name == "resolve_link",
+               let name = Self.argString(call.argumentsJSON, call.name == "read_document" ? "name" : "target"),
+               !sources.names.contains(name) {
+                sources.names.append(name)
+            }
+            return tools.handle(name: call.name, argumentsJSON: call.argumentsJSON)
         }
-        // Let the last streamed Task land before reporting an empty run.
+        // Let the last streamed Task land before reporting / setting provenance.
         await Task.yield()
+        if !sources.names.isEmpty { sink.agentSetSources(sources.names) }
         if !flag.authored {
             sink.agentAddProse("> The agent didn't produce any notebook content for that question.")
         }
+    }
+
+    /// Pull a string arg out of a tool call's JSON arguments.
+    private static func argString(_ json: String, _ key: String) -> String? {
+        guard let data = json.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        return obj[key] as? String
     }
 
     /// Run a single cell in a fresh kernel; load-modify-save the sidecar so a

@@ -19,6 +19,8 @@ public typealias NotebookRunAll = @MainActor (_ notebook: Notebook, _ ctx: Noteb
 public protocol NotebookAgentSink: AnyObject {
     func agentAddProse(_ text: String)
     func agentAddCode(_ code: String, output: ExecOutput)
+    /// Report the source documents consulted (provenance for the block).
+    func agentSetSources(_ sources: [String])
 }
 
 /// Run the research agent for `question`, authoring cells into `sink`. Injected

@@ -9,13 +9,13 @@ import Foundation
 public enum NotebookCell: Equatable, Sendable, Identifiable {
     case prose(id: String, text: String)
     case code(id: String, language: String, code: String)
-    case agent(id: String, prompt: String, result: String)
+    case agent(id: String, prompt: String, result: String, sources: [String])
 
     public var id: String {
         switch self {
         case .prose(let id, _): return id
         case .code(let id, _, _): return id
-        case .agent(let id, _, _): return id
+        case .agent(let id, _, _, _): return id
         }
     }
 
@@ -68,8 +68,8 @@ public enum NotebookFormat {
                 var j = i + 1
                 while j < lines.count, lines[j] != agentClose { body.append(lines[j]); j += 1 }
                 agentN += 1
-                cells.append(.agent(id: "agent-\(agentN)", prompt: prompt,
-                                    result: body.joined(separator: "\n")))
+                cells.append(.agent(id: "agent-\(agentN)", prompt: prompt.text,
+                                    result: body.joined(separator: "\n"), sources: prompt.sources))
                 i = (j < lines.count) ? j + 1 : j   // skip the close marker
             } else {
                 plain.append(line); i += 1
@@ -87,25 +87,26 @@ public enum NotebookFormat {
             case .code(let id, let language, let code):
                 let lang = language.isEmpty ? "lua" : language
                 return "```\(lang) {exec id=\(id)}\n\(code)\n```"
-            case .agent(_, let prompt, let result):
-                return "\(agentOpenPrefix)\(encodePrompt(prompt))-->\n\(result)\n\(agentClose)"
+            case .agent(_, let prompt, let result, let sources):
+                return "\(agentOpenPrefix)\(encodeMeta(prompt: prompt, sources: sources))-->\n\(result)\n\(agentClose)"
             }
         }.joined(separator: "\n\n")
     }
 
-    // MARK: - Agent prompt codec (JSON in the open comment — survives quotes/newlines)
+    // MARK: - Agent meta codec (JSON in the open comment — survives quotes/newlines)
 
-    private static func encodePrompt(_ prompt: String) -> String {
-        let data = (try? JSONSerialization.data(withJSONObject: ["prompt": prompt])) ?? Data()
+    private static func encodeMeta(prompt: String, sources: [String]) -> String {
+        var obj: [String: Any] = ["prompt": prompt]
+        if !sources.isEmpty { obj["sources"] = sources }
+        let data = (try? JSONSerialization.data(withJSONObject: obj)) ?? Data()
         return String(data: data, encoding: .utf8) ?? "{\"prompt\":\"\"}"
     }
-    private static func decodePrompt(from openLine: String) -> String {
+    private static func decodePrompt(from openLine: String) -> (text: String, sources: [String]) {
         // strip "<!--mindo:agent " prefix and "-->" suffix → JSON object
         var json = String(openLine.dropFirst(agentOpenPrefix.count))
         if json.hasSuffix("-->") { json = String(json.dropLast(3)) }
         guard let data = json.data(using: .utf8),
-              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let prompt = obj["prompt"] as? String else { return "" }
-        return prompt
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return ("", []) }
+        return (obj["prompt"] as? String ?? "", obj["sources"] as? [String] ?? [])
     }
 }

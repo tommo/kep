@@ -44,9 +44,10 @@ final class NotebookModel: ObservableObject, NotebookAgentSink {
     /// that block's result, streamed live. Re-running clears the prior result.
     func runAgentCell(_ id: String) async {
         guard let runAgent,
-              case .agent(_, let prompt, _)? = cells.first(where: { $0.id == id }),
+              case .agent(_, let prompt, _, _)? = cells.first(where: { $0.id == id }),
               !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         setAgentResult(id, "")
+        setAgentSources(id, [])
         activeAgentCell = id
         running.insert(id); agentBusy = true
         await runAgent(prompt, self)
@@ -56,8 +57,19 @@ final class NotebookModel: ObservableObject, NotebookAgentSink {
     }
 
     private func setAgentResult(_ id: String, _ result: String) {
-        guard let i = index(of: id), case .agent(let cid, let prompt, _) = cells[i] else { return }
-        cells[i] = .agent(id: cid, prompt: prompt, result: result)
+        guard let i = index(of: id), case .agent(let cid, let prompt, _, let sources) = cells[i] else { return }
+        cells[i] = .agent(id: cid, prompt: prompt, result: result, sources: sources)
+    }
+    private func setAgentSources(_ id: String, _ sources: [String]) {
+        guard let i = index(of: id), case .agent(let cid, let prompt, let result, _) = cells[i] else { return }
+        cells[i] = .agent(id: cid, prompt: prompt, result: result, sources: sources)
+    }
+
+    /// NotebookAgentSink — the agent reports the sources it consulted.
+    func agentSetSources(_ sources: [String]) {
+        guard let id = activeAgentCell else { return }
+        setAgentSources(id, sources)
+        flushNow()
     }
     private func appendToAgentResult(_ id: String, _ markdown: String) {
         let existing = agentResult(of: id)
@@ -100,15 +112,20 @@ final class NotebookModel: ObservableObject, NotebookAgentSink {
         switch cells.first(where: { $0.id == id }) {
         case .prose(_, let t): return t
         case .code(_, _, let c): return c
-        case .agent(_, let prompt, _): return prompt   // editable field is the prompt
+        case .agent(_, let prompt, _, _): return prompt   // editable field is the prompt
         case .none: return ""
         }
     }
 
     /// The agent block's authored result (rendered read-only).
     func agentResult(of id: String) -> String {
-        if case .agent(_, _, let r)? = cells.first(where: { $0.id == id }) { return r }
+        if case .agent(_, _, let r, _)? = cells.first(where: { $0.id == id }) { return r }
         return ""
+    }
+    /// The source documents the agent consulted for this block.
+    func agentSources(of id: String) -> [String] {
+        if case .agent(_, _, _, let s)? = cells.first(where: { $0.id == id }) { return s }
+        return []
     }
 
     func updateText(_ id: String, _ newText: String) {
@@ -116,7 +133,7 @@ final class NotebookModel: ObservableObject, NotebookAgentSink {
         switch cells[i] {
         case .prose(let cid, _): cells[i] = .prose(id: cid, text: newText)
         case .code(let cid, let lang, _): cells[i] = .code(id: cid, language: lang, code: newText)
-        case .agent(let cid, _, let result): cells[i] = .agent(id: cid, prompt: newText, result: result)
+        case .agent(let cid, _, let result, let sources): cells[i] = .agent(id: cid, prompt: newText, result: result, sources: sources)
         }
         scheduleSerialize()
     }
@@ -130,7 +147,7 @@ final class NotebookModel: ObservableObject, NotebookAgentSink {
         insert(cell, after: id)
     }
     func addAgent(after id: String? = nil) {
-        let cell = NotebookCell.agent(id: freshID("agent"), prompt: "", result: "")
+        let cell = NotebookCell.agent(id: freshID("agent"), prompt: "", result: "", sources: [])
         insert(cell, after: id)
     }
     private func insert(_ cell: NotebookCell, after id: String?) {
@@ -363,6 +380,15 @@ private struct NotebookCellRow: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else if model.running.contains(cell.id) {
                 Text("Researching…").font(.caption).foregroundStyle(.secondary)
+            }
+            let sources = model.agentSources(of: cell.id)
+            if !sources.isEmpty {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Image(systemName: "book.closed").font(.caption2).foregroundStyle(.secondary)
+                    Text("Sources: ").font(.caption2).foregroundStyle(.secondary)
+                    + Text(sources.joined(separator: ", ")).font(.caption2).foregroundStyle(.secondary)
+                }
+                .padding(.top, 2)
             }
         }
         .padding(8)

@@ -72,7 +72,7 @@ final class NotebookTests: XCTestCase {
         let nb = NotebookFormat.parse(md)
         // prose, agent, prose
         XCTAssertEqual(nb.cells.count, 3)
-        guard case .agent(_, let prompt, let result) = nb.cells[1] else { return XCTFail("cell1 agent") }
+        guard case .agent(_, let prompt, let result, _) = nb.cells[1] else { return XCTFail("cell1 agent") }
         XCTAssertEqual(prompt, "how do X and Y relate?")
         XCTAssertTrue(result.contains("Found a link via doc A."))
         XCTAssertTrue(result.contains("return 42"))
@@ -81,10 +81,18 @@ final class NotebookTests: XCTestCase {
         XCTAssertEqual(round.cells, nb.cells)
     }
 
-    func testAgentPromptWithQuotesSurvives() {
-        let nb = Notebook(cells: [.agent(id: "agent-1", prompt: "what about \"quotes\" & \nnewlines?", result: "r")])
+    func testAgentBlockSourcesRoundTrip() {
+        let nb = Notebook(cells: [.agent(id: "agent-1", prompt: "q", result: "findings",
+                                         sources: ["Project Mindo", "Roadmap"])])
         let round = NotebookFormat.parse(NotebookFormat.serialize(nb))
-        guard case .agent(_, let prompt, _) = round.cells.first else { return XCTFail("agent") }
+        guard case .agent(_, _, _, let sources) = round.cells.first else { return XCTFail("agent") }
+        XCTAssertEqual(sources, ["Project Mindo", "Roadmap"])
+    }
+
+    func testAgentPromptWithQuotesSurvives() {
+        let nb = Notebook(cells: [.agent(id: "agent-1", prompt: "what about \"quotes\" & \nnewlines?", result: "r", sources: [])])
+        let round = NotebookFormat.parse(NotebookFormat.serialize(nb))
+        guard case .agent(_, let prompt, _, _) = round.cells.first else { return XCTFail("agent") }
         XCTAssertEqual(prompt, "what about \"quotes\" & \nnewlines?")
     }
 

@@ -25,36 +25,65 @@ public struct MarkdownExecBlock: Equatable, Sendable {
     public var hash: String { MarkdownExecBlocks.hash(code) }
 }
 
+/// An ordered segment of a markdown document: a run of prose, or an executable
+/// cell. Drives both `MarkdownExecBlocks.parse` and the Notebook cell model.
+public enum MarkdownSegment: Equatable, Sendable {
+    case prose(String)
+    case exec(MarkdownExecBlock)
+}
+
 public enum MarkdownExecBlocks {
 
     /// All executable cells in `markdown`, in document order. A cell is a fenced
     /// block (``` or more backticks) whose info string's first token is a
     /// language and whose attributes contain `exec` (e.g. `lua {exec id=x}`).
     public static func parse(_ markdown: String) -> [MarkdownExecBlock] {
-        var blocks: [MarkdownExecBlock] = []
+        scan(markdown).compactMap { if case .exec(let b) = $0 { return b } else { return nil } }
+    }
+
+    /// Segment `markdown` into ordered prose runs and exec cells. Non-exec
+    /// fenced blocks (plain ```code```) stay inside prose; only `{exec}` fences
+    /// become cells. Empty/whitespace-only prose runs are dropped.
+    public static func scan(_ markdown: String) -> [MarkdownSegment] {
+        var segments: [MarkdownSegment] = []
         let lines = markdown.components(separatedBy: "\n")
+        var prose: [String] = []
         var i = 0
         var auto = 0
-        while i < lines.count {
-            guard let fence = opening(lines[i]) else { i += 1; continue }
-            var body: [String] = []
-            var j = i + 1
-            var closed = false
-            while j < lines.count {
-                if isClosing(lines[j], minBackticks: fence.fenceLength) { closed = true; break }
-                body.append(lines[j])
-                j += 1
+
+        func flushProse() {
+            let joined = prose.joined(separator: "\n")
+            if !joined.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                segments.append(.prose(joined))
             }
-            if fence.isExec {
+            prose.removeAll()
+        }
+
+        while i < lines.count {
+            // Only EXEC fences are special; plain fences pass through as prose.
+            if let fence = opening(lines[i]), fence.isExec {
+                var body: [String] = []
+                var j = i + 1
+                var closed = false
+                while j < lines.count {
+                    if isClosing(lines[j], minBackticks: fence.fenceLength) { closed = true; break }
+                    body.append(lines[j])
+                    j += 1
+                }
+                flushProse()
                 auto += 1
-                blocks.append(MarkdownExecBlock(
+                segments.append(.exec(MarkdownExecBlock(
                     id: fence.id ?? "cell-\(auto)",
                     language: fence.language,
-                    code: body.joined(separator: "\n")))
+                    code: body.joined(separator: "\n"))))
+                i = closed ? j + 1 : j
+            } else {
+                prose.append(lines[i])
+                i += 1
             }
-            i = closed ? j + 1 : j
         }
-        return blocks
+        flushProse()
+        return segments
     }
 
     /// Lowercase hex SHA-256 of the code (the output-cache key).

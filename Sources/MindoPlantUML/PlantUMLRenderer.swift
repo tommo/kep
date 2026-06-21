@@ -106,7 +106,21 @@ public final class PlantUMLRenderer {
            let data = native.data(using: .utf8) {
             return data
         }
+        return try renderViaCLI(source: source, formatFlag: "-tsvg", timeout: timeout)
+    }
 
+    /// Render the diagram as monospaced ASCII art via PlantUML `-tatxt`
+    /// (javamind's "Copy ASCII"). Always uses the CLI/jar — there's no native
+    /// ASCII path. #216.
+    public func renderASCII(source: String, timeout: TimeInterval = 30) throws -> String {
+        let data = try renderViaCLI(source: source, formatFlag: "-tatxt", timeout: timeout)
+        guard let text = String(data: data, encoding: .utf8), !text.isEmpty else { throw RenderError.empty }
+        return text
+    }
+
+    /// Shared PlantUML CLI/jar shell-out (`-pipe <formatFlag>`): feeds `source`
+    /// on stdin and returns stdout. Used by both SVG and ASCII rendering.
+    private func renderViaCLI(source: String, formatFlag: String, timeout: TimeInterval) throws -> Data {
         guard let tool = locate() else {
             throw RenderError.toolMissing(installHint: installHint)
         }
@@ -122,10 +136,10 @@ public final class PlantUMLRenderer {
         switch tool {
         case .cli(let url):
             process.executableURL = url
-            process.arguments = ["-pipe", "-tsvg"]
+            process.arguments = ["-pipe", formatFlag]
         case .jar(let java, let jar):
             process.executableURL = java
-            process.arguments = ["-jar", jar.path, "-pipe", "-tsvg"]
+            process.arguments = ["-jar", jar.path, "-pipe", formatFlag]
         }
 
         // Forward a custom Graphviz path when the user pinned one in

@@ -8,6 +8,7 @@ public enum PreviewMenuAction: String, CaseIterable, Sendable {
     case refresh
     case copySVG
     case copyPNG
+    case copyASCII
     case copyScript
     case copyHTML
     case export
@@ -39,6 +40,7 @@ public enum PreviewContextMenu {
             PreviewMenuItem(action: .refresh, title: "Refresh Preview", isEnabled: true),
             PreviewMenuItem(action: .copySVG, title: "Copy as SVG", isEnabled: hasRenderedDiagram),
             PreviewMenuItem(action: .copyPNG, title: "Copy as PNG", isEnabled: hasRenderedDiagram),
+            PreviewMenuItem(action: .copyASCII, title: "Copy as ASCII", isEnabled: hasRenderedDiagram),
             // Copy Script needs no render — the source is always available.
             PreviewMenuItem(action: .copyScript, title: "Copy Script", isEnabled: true),
             PreviewMenuItem(action: .export, title: "Export Diagram…", isEnabled: hasRenderedDiagram),

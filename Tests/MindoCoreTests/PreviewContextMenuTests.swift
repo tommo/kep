@@ -6,7 +6,7 @@ final class PreviewContextMenuTests: XCTestCase {
     func testPlantUMLMenuActions() {
         let items = PreviewContextMenu.plantUML(hasRenderedDiagram: true)
         XCTAssertEqual(items.map { $0.action },
-                       [.refresh, .copySVG, .copyPNG, .copyScript, .export])
+                       [.refresh, .copySVG, .copyPNG, .copyASCII, .copyScript, .export])
     }
 
     func testCopyScriptAlwaysEnabledEvenBeforeRender() {
@@ -28,7 +28,7 @@ final class PreviewContextMenuTests: XCTestCase {
 
     func testPlantUMLCopyExportDisabledUntilRendered() {
         let none = PreviewContextMenu.plantUML(hasRenderedDiagram: false)
-        for action in [PreviewMenuAction.copySVG, .copyPNG, .export] {
+        for action in [PreviewMenuAction.copySVG, .copyPNG, .copyASCII, .export] {
             XCTAssertEqual(none.first { $0.action == action }?.isEnabled, false,
                            "\(action) should be disabled before a render")
         }
@@ -36,7 +36,7 @@ final class PreviewContextMenuTests: XCTestCase {
 
     func testPlantUMLCopyExportEnabledOnceRendered() {
         let some = PreviewContextMenu.plantUML(hasRenderedDiagram: true)
-        for action in [PreviewMenuAction.copySVG, .copyPNG, .export] {
+        for action in [PreviewMenuAction.copySVG, .copyPNG, .copyASCII, .export] {
             XCTAssertEqual(some.first { $0.action == action }?.isEnabled, true)
         }
     }

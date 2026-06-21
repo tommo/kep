@@ -272,6 +272,7 @@ public struct PlantUMLEditor: NSViewRepresentable {
             case .refresh:    scheduleRender(immediate: true)
             case .copySVG:    copyDiagramAsSVG()
             case .copyPNG:    copyDiagramAsPNG()
+            case .copyASCII:  copyDiagramAsASCII()
             case .copyScript: copyScript()
             case .export:     exportDiagram()
             case .viewSource: textView?.window?.makeFirstResponder(textView)
@@ -619,6 +620,27 @@ public struct PlantUMLEditor: NSViewRepresentable {
         /// Copy the raw PlantUML source to the pasteboard — useful for
         /// sharing the script without exporting an image. Available even
         /// before a render (the source always exists).
+        /// Render the active diagram as ASCII art (PlantUML `-tatxt`) and copy it
+        /// to the clipboard — javamind's "Copy ASCII" (#216). Renders on demand
+        /// off-main (it shells out), unlike SVG/PNG which reuse the cached render.
+        @objc public func copyDiagramAsASCII() {
+            let pages = PlantUMLPages.split(parent.text)
+            guard !parent.text.isEmpty, !pages.isEmpty else { reportNothingToCopy(); return }
+            let source = pages[min(activePageIndex, pages.count - 1)].text
+            flashFooter("Rendering ASCII…")
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                let ascii = try? PlantUMLRenderer.shared.renderASCII(source: source)
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    guard let ascii, !ascii.isEmpty else { self.reportNothingToCopy(); return }
+                    let pb = NSPasteboard.general
+                    pb.clearContents()
+                    pb.setString(ascii, forType: .string)
+                    self.flashFooter("Copied ASCII diagram to clipboard")
+                }
+            }
+        }
+
         @objc public func copyScript() {
             let source = parent.text
             guard !source.isEmpty else {

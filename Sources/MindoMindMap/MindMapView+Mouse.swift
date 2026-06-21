@@ -775,6 +775,11 @@ extension MindMapView {
             scroll.setMagnification(target, centeredAt: center)
             return
         }
+        // Ignore the inertial MOMENTUM tail (events after the fingers lift). A
+        // flick toward an edge otherwise keeps coasting into the corner and
+        // pins there for the length of the inertia — which reads as "scroll
+        // locked at the top-left corner". Pan only while actively scrolling.
+        if !event.momentumPhase.isEmpty { return }
         // PAN by driving the clip's bounds origin directly — do NOT defer to
         // NSScrollView. When the map fits the viewport the documentView frame
         // equals the clip, so NSScrollView concludes there's "nothing to

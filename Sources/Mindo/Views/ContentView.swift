@@ -121,10 +121,18 @@ struct ContentView: View {
         // Initial sync: .onChange doesn't fire for the value restored at launch,
         // so seed the selection from the active document once the tree exists.
         .onAppear {
-            guard sidebarSelection == nil,
-                  let url = session.activeDocument?.fileURL,
-                  let node = sidebarNode(for: url) else { return }
-            sidebarSelection = node
+            if sidebarSelection == nil,
+               let url = session.activeDocument?.fileURL,
+               let node = sidebarNode(for: url) {
+                sidebarSelection = node
+            }
+            // Establish a consistent initial focus so the indicator + real
+            // first responder agree on launch: the open document, else the tree.
+            if session.activeRegion == nil {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    session.focusRegion(session.activeDocument != nil ? .document : .sidebar)
+                }
+            }
         }
         // Marks the document window as focused so ⌘W (Close Tab) is scoped here
         // and doesn't fire when the Settings window is key.

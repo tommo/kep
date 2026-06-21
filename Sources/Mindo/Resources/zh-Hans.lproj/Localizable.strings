@@ -88,6 +88,7 @@
 "menu.window.hide_outline" = "隐藏大纲";
 
 /* MARK: - Inspector */
+"inspector.linked_mentions" = "链接提及";
 "inspector.note" = "笔记";
 "inspector.note.expand" = "展开笔记编辑器";
 "inspector.note.title_fmt" = "笔记 — %@";

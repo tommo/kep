@@ -421,7 +421,7 @@ final class AppSession {
     var aiSettingsOpen: Bool = false
     var aiGenerateOpen: Bool = false
     /// Which surface the right inspector shows — document outline or AI assistant.
-    var inspectorTab: InspectorTab = .outline
+    var inspectorTab: InspectorTab = .inspector
     var aiSupportedModes: [AIGeneratePane.InsertionMode] = [.append]
     var aiDefaultPrompt: String = ""
 

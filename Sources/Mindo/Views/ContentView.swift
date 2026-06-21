@@ -6,7 +6,10 @@ import MindoGenAI
 
 /// Which surface the right inspector is showing: the document outline (+ node
 /// note), or the cross-document AI assistant.
-enum InspectorTab: Sendable { case outline, links, agent }
+/// Right-inspector top-level mode. `inspector` is an accordion of the passive
+/// nav panes (Outline + Linked Mentions, both collapsible); `agent` is the
+/// full-pane AI assistant chat.
+enum InspectorTab: Sendable { case inspector, agent }
 
 /// Top-level window content: split view (sidebar | detail with outline
 /// inspector), plus the global error alert. Owned by `MindoApp.body`.
@@ -22,6 +25,9 @@ struct ContentView: View {
     /// Presents the node-note editor in a roomy sheet (the inspector strip is
     /// cramped for anything longer than a line or two).
     @State private var noteExpanded = false
+    /// Accordion section expansion in the "Inspector" mode (persisted).
+    @AppStorage(PrefKeys.inspectorOutlineExpanded) private var outlineExpanded = true
+    @AppStorage(PrefKeys.inspectorLinksExpanded) private var linksExpanded = false
 
     /// Sidebar visibility bridged to `session.sidebarVisible` (toggled from the
     /// View menu / sidebar button). `.all` shows it, `.detailOnly` hides it.
@@ -143,8 +149,7 @@ struct ContentView: View {
     private var inspectorPane: some View {
         Group {
             switch session.inspectorTab {
-            case .outline: outlineInspector
-            case .links: linksInspector
+            case .inspector: accordionInspector
             case .agent:
                 DialogView(
                     systemPrompt: Self.agentSystemPrompt,
@@ -155,19 +160,18 @@ struct ContentView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        // Put the Outline / Assistant switch in the inspector's OWN toolbar band
+        // Put the Inspector / Assistant switch in the inspector's OWN toolbar band
         // (the area at the top that was otherwise empty), not a row below it.
         .toolbar {
             ToolbarItem(placement: .automatic) {
                 Picker("", selection: inspectorTabBinding) {
-                    Image(systemName: "list.bullet.indent").tag(InspectorTab.outline)
-                    Image(systemName: "link").tag(InspectorTab.links)
+                    Image(systemName: "sidebar.squares.right").tag(InspectorTab.inspector)
                     Image(systemName: "bubble.left.and.bubble.right").tag(InspectorTab.agent)
                 }
                 .pickerStyle(.segmented)
                 .controlSize(.small)
                 .fixedSize()
-                .help("Switch the inspector between document outline, linked mentions, and the assistant")
+                .help("Switch the inspector between the document panels (outline + linked mentions) and the assistant")
             }
         }
         .sheet(isPresented: $noteExpanded) {
@@ -223,6 +227,27 @@ struct ContentView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// "Inspector" mode: an accordion of the two passive nav panes — the
+    /// document Outline and the Linked Mentions — each independently
+    /// collapsible so both can be visible at once (Obsidian-style), unlike the
+    /// old one-at-a-time tabs. The chat lives in its own full pane (`.agent`).
+    private var accordionInspector: some View {
+        VStack(spacing: 0) {
+            CollapsibleInspectorSection(title: L("detail.outline.title"),
+                                        systemImage: "list.bullet.indent",
+                                        isExpanded: $outlineExpanded) {
+                outlineInspector
+            }
+            Divider()
+            CollapsibleInspectorSection(title: L("inspector.linked_mentions"),
+                                        systemImage: "link",
+                                        isExpanded: $linksExpanded) {
+                linksInspector
+            }
+            if !outlineExpanded && !linksExpanded { Spacer() }
+        }
     }
 
     /// The Outline tab content: outline list + (when a node is selected) a
@@ -301,6 +326,41 @@ struct ContentView: View {
             if let hit = findNode(in: child, matching: url) { return hit }
         }
         return nil
+    }
+}
+
+/// One collapsible pane of the right-inspector accordion: a clickable header
+/// (chevron + title) and, when expanded, its content filling the available
+/// height. Collapsed sections shrink to the header so siblings get the space.
+private struct CollapsibleInspectorSection<Content: View>: View {
+    let title: String
+    let systemImage: String
+    @Binding var isExpanded: Bool
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) { isExpanded.toggle() }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                        .font(.caption2).foregroundStyle(.secondary).frame(width: 10)
+                    Label(title, systemImage: systemImage)
+                        .font(.caption.weight(.semibold))
+                    Spacer()
+                }
+                .contentShape(Rectangle())
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+            }
+            .buttonStyle(.plain)
+
+            if isExpanded {
+                content().frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .frame(maxHeight: isExpanded ? .infinity : nil)
     }
 }
 

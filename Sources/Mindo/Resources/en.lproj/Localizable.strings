@@ -91,6 +91,7 @@
 "menu.window.hide_outline" = "Hide Outline";
 
 /* MARK: - Inspector */
+"inspector.linked_mentions" = "Linked Mentions";
 "inspector.note" = "Note";
 "inspector.note.expand" = "Expand note editor";
 "inspector.note.title_fmt" = "Note — %@";

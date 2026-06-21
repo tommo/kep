@@ -297,6 +297,7 @@ struct MindoApp: App {
             }
             CommandMenu(L("menu.view.theme")) {
                 Picker(L("menu.view.theme"), selection: $session.theme) {
+                    Text(L("menu.view.theme.system")).tag(ThemeChoice.system)
                     Text(L("menu.view.theme.light")).tag(ThemeChoice.light)
                     Text(L("menu.view.theme.dark")).tag(ThemeChoice.dark)
                     Text(L("menu.view.theme.classic")).tag(ThemeChoice.classic)

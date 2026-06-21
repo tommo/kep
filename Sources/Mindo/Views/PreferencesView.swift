@@ -48,6 +48,7 @@ private struct GeneralPrefs: View {
                     (AppAppearance(rawValue: new) ?? .system).apply()
                 }
                 Picker(L("prefs.general.theme"), selection: $theme) {
+                    Text(L("menu.view.theme.system")).tag(ThemeChoice.system.rawValue)
                     Text(L("menu.view.theme.light")).tag(ThemeChoice.light.rawValue)
                     Text(L("menu.view.theme.dark")).tag(ThemeChoice.dark.rawValue)
                     Text(L("menu.view.theme.classic")).tag(ThemeChoice.classic.rawValue)

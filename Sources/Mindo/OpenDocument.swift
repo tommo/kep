@@ -109,13 +109,21 @@ struct OpenDocument: Identifiable, Hashable {
 /// One of the bundled mindmap themes (Light / Dark / Classic). Persisted as
 /// a `String` so it round-trips through UserDefaults cleanly.
 enum ThemeChoice: String, CaseIterable, Hashable {
-    case light, dark, classic, custom
-    var theme: MindMapTheme {
+    case light, dark, classic, custom, system
+
+    /// Resolve to a concrete canvas theme. `.system` follows the effective
+    /// light/dark appearance (`dark`), which the caller derives from the
+    /// environment colorScheme so it re-resolves when the appearance flips.
+    func resolved(dark: Bool) -> MindMapTheme {
         switch self {
         case .light: return .light
         case .dark: return .dark
         case .classic: return .classic
         case .custom: return .custom
+        case .system: return dark ? .dark : .light
         }
     }
+
+    /// Back-compat non-reactive resolution (system → light).
+    var theme: MindMapTheme { resolved(dark: false) }
 }

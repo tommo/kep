@@ -4,13 +4,17 @@ import MindoMindMap
 /// Right-hand area: tab strip on top, active editor below.
 struct DetailArea: View {
     @Binding var session: AppSession
+    /// Drives `.system` theme resolution: reading colorScheme makes this view
+    /// re-render (and re-resolve the canvas theme) when the appearance flips.
+    @Environment(\.colorScheme) private var colorScheme
 
     /// The active canvas theme, recomputed when the custom canvas colors change
     /// (reads `canvasThemeRevision` so Observation re-renders on a custom edit
-    /// even though the ThemeChoice itself is unchanged).
+    /// even though the ThemeChoice itself is unchanged) and when the system
+    /// appearance flips (via colorScheme) for the `.system` choice.
     private var resolvedCanvasTheme: MindMapTheme {
         _ = session.canvasThemeRevision
-        return session.theme.theme
+        return session.theme.resolved(dark: colorScheme == .dark)
     }
 
     var body: some View {

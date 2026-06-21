@@ -75,6 +75,7 @@
 "menu.view.theme.light" = "Light";
 "menu.view.theme.dark" = "Dark";
 "menu.view.theme.classic" = "Classic";
+"menu.view.theme.system" = "System (Light/Dark)";
 "menu.view.theme.custom" = "Custom";
 "prefs.mindmap.section.canvas_colors" = "Canvas Colors";
 "prefs.mindmap.canvas_colors_hint" = "Select the Custom mind-map theme to edit canvas colors.";

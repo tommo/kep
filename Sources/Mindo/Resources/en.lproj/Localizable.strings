@@ -226,6 +226,10 @@
 "prefs.tab.mindmap" = "Mind Map";
 "prefs.tab.ai" = "AI";
 "prefs.general.section.appearance" = "Appearance";
+"prefs.general.app_appearance" = "App appearance";
+"prefs.appearance.system" = "Follow System";
+"prefs.appearance.light" = "Light";
+"prefs.appearance.dark" = "Dark";
 "prefs.general.theme" = "Default mind-map theme";
 "prefs.general.outline_default_open" = "Show outline panel by default";
 "prefs.editor.section.text" = "Text";

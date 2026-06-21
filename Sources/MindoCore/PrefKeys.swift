@@ -7,6 +7,8 @@ import Foundation
 /// graph.
 public enum PrefKeys {
     public static let theme = "mindo.prefs.theme"
+    /// App-wide chrome appearance override: "system" | "light" | "dark".
+    public static let appAppearance = "mindo.prefs.appAppearance"
     public static let outlineOpenByDefault = "mindo.prefs.outlineOpenByDefault"
     public static let editorFontSize = "mindo.prefs.editorFontSize"
     /// Show dotfiles + hidden directories in the workspace sidebar.

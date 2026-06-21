@@ -25,6 +25,7 @@ struct PreferencesView: View {
 
 private struct GeneralPrefs: View {
     @AppStorage(PrefKeys.theme) private var theme: String = ThemeChoice.light.rawValue
+    @AppStorage(PrefKeys.appAppearance) private var appAppearance: String = AppAppearance.system.rawValue
     @AppStorage(PrefKeys.outlineOpenByDefault) private var outlineOpen: Bool = true
     @AppStorage(PrefKeys.showHiddenFiles) private var showHiddenFiles: Bool = false
     @AppStorage(PrefKeys.hideFileExtensions) private var hideFileExtensions: Bool = false
@@ -35,6 +36,14 @@ private struct GeneralPrefs: View {
     var body: some View {
         Form {
             Section(L("prefs.general.section.appearance")) {
+                Picker(L("prefs.general.app_appearance"), selection: $appAppearance) {
+                    Text(L("prefs.appearance.system")).tag(AppAppearance.system.rawValue)
+                    Text(L("prefs.appearance.light")).tag(AppAppearance.light.rawValue)
+                    Text(L("prefs.appearance.dark")).tag(AppAppearance.dark.rawValue)
+                }
+                .onChange(of: appAppearance) { _, new in
+                    (AppAppearance(rawValue: new) ?? .system).apply()
+                }
                 Picker(L("prefs.general.theme"), selection: $theme) {
                     Text(L("menu.view.theme.light")).tag(ThemeChoice.light.rawValue)
                     Text(L("menu.view.theme.dark")).tag(ThemeChoice.dark.rawValue)

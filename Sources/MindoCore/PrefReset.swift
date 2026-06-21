@@ -18,6 +18,7 @@ public enum PrefResetGroup: String, CaseIterable, Sendable {
         case .general:
             return [
                 PrefKeys.theme,
+                PrefKeys.appAppearance,
                 PrefKeys.outlineOpenByDefault,
                 PrefKeys.showHiddenFiles,
                 PrefKeys.hideFileExtensions,

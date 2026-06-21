@@ -223,6 +223,10 @@
 "prefs.tab.mindmap" = "思维导图";
 "prefs.tab.ai" = "AI";
 "prefs.general.section.appearance" = "外观";
+"prefs.general.app_appearance" = "应用外观";
+"prefs.appearance.system" = "跟随系统";
+"prefs.appearance.light" = "浅色";
+"prefs.appearance.dark" = "深色";
 "prefs.general.theme" = "默认思维导图主题";
 "prefs.general.outline_default_open" = "默认显示大纲面板";
 "prefs.editor.section.text" = "文本";

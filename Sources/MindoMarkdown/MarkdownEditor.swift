@@ -348,7 +348,20 @@ public struct MarkdownEditor: NSViewRepresentable {
             tv.window?.makeFirstResponder(tv)
         }
 
-        init(parent: MarkdownEditor) { self.parent = parent }
+        private var themeObserver: NSObjectProtocol?
+
+        init(parent: MarkdownEditor) {
+            self.parent = parent
+            super.init()
+            // Live-restyle when the user edits the custom editor theme.
+            themeObserver = NotificationCenter.default.addObserver(
+                forName: .editorThemeChanged, object: nil, queue: .main
+            ) { [weak self] _ in self?.applyHighlighting() }
+        }
+
+        deinit {
+            if let themeObserver { NotificationCenter.default.removeObserver(themeObserver) }
+        }
 
         public func textDidChange(_ notification: Notification) {
             guard let tv = textView else { return }
@@ -376,7 +389,7 @@ public struct MarkdownEditor: NSViewRepresentable {
 
         func applyHighlighting() {
             guard let storage = textView?.textStorage else { return }
-            highlighter.theme = parent.isDarkMode ? .dark : .light
+            highlighter.theme = .resolved(dark: parent.isDarkMode)
             highlighter.highlight(storage, activeRange: textView?.selectedRange())
             lastHighlightedDarkMode = parent.isDarkMode
         }

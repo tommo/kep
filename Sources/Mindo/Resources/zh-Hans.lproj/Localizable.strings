@@ -265,6 +265,10 @@
 "prefs.editor.split.top_bottom" = "上下排列";
 "prefs.editor.split.note" = "更改将在下次打开编辑器时生效。";
 "prefs.editor.section.plantuml" = "PlantUML";
+"prefs.editor.section.colors" = "编辑器颜色";
+"prefs.editor.customize_colors" = "自定义编辑器颜色";
+"prefs.editor.colors_editing_fmt" = "正在编辑%@颜色（跟随应用外观）";
+"prefs.editor.colors_reset" = "重置这些颜色";
 "prefs.editor.plantuml.dotpath_placeholder" = "dot 路径（Graphviz）";
 "prefs.editor.plantuml.dotpath_pick" = "选择…";
 "prefs.editor.plantuml.dotpath_note" = "留空则由 PlantUML 自动通过 $PATH 查找 dot；自定义路径将通过 GRAPHVIZ_DOT 传入。";

@@ -267,7 +267,19 @@ public struct PlantUMLEditor: NSViewRepresentable {
             }
         }
 
-        init(parent: PlantUMLEditor) { self.parent = parent }
+        private var themeObserver: NSObjectProtocol?
+
+        init(parent: PlantUMLEditor) {
+            self.parent = parent
+            super.init()
+            themeObserver = NotificationCenter.default.addObserver(
+                forName: .editorThemeChanged, object: nil, queue: .main
+            ) { [weak self] _ in self?.applyHighlighting() }
+        }
+
+        deinit {
+            if let themeObserver { NotificationCenter.default.removeObserver(themeObserver) }
+        }
 
         public func textDidChange(_ notification: Notification) {
             guard let tv = textView else { return }
@@ -386,7 +398,7 @@ public struct PlantUMLEditor: NSViewRepresentable {
 
         func applyHighlighting() {
             guard let storage = textView?.textStorage else { return }
-            highlighter.theme = parent.isDarkMode ? .dark : .light
+            highlighter.theme = .resolved(dark: parent.isDarkMode)
             highlighter.highlight(storage)
         }
 

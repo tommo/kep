@@ -47,5 +47,12 @@ public struct SyntaxPalette: Sendable {
         punctuation: NSColor(white: 0.85, alpha: 1)
     )
 
-    public static func resolved(dark: Bool) -> SyntaxPalette { dark ? .dark : .light }
+    /// The effective palette for the appearance: the built-in base with the
+    /// user's custom overrides applied on top (when their custom theme is on).
+    public static func resolved(dark: Bool) -> SyntaxPalette {
+        let base = dark ? Self.dark : Self.light
+        let theme = EditorThemeStore.current
+        guard theme.enabled else { return base }
+        return base.applying(dark ? theme.dark : theme.light)
+    }
 }

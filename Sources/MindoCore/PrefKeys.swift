@@ -12,6 +12,8 @@ public enum PrefKeys {
     /// Right-inspector accordion section expansion state.
     public static let inspectorOutlineExpanded = "mindo.prefs.inspectorOutlineExpanded"
     public static let inspectorLinksExpanded = "mindo.prefs.inspectorLinksExpanded"
+    /// User-customized editor syntax colors (JSON of EditorTheme).
+    public static let editorTheme = "mindo.prefs.editorTheme"
     public static let outlineOpenByDefault = "mindo.prefs.outlineOpenByDefault"
     public static let editorFontSize = "mindo.prefs.editorFontSize"
     /// Show dotfiles + hidden directories in the workspace sidebar.

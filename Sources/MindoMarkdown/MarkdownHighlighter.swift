@@ -41,6 +41,17 @@ public final class MarkdownHighlighter {
             horizontalRule: NSColor(white: 0.55, alpha: 1),
             marker: NSColor(white: 0.45, alpha: 1))
 
+        /// The effective theme for the appearance — built from the *resolved*
+        /// palette so the user's custom editor colors apply. Editors call this
+        /// (not the static light/dark) so re-highlighting picks up changes.
+        public static func resolved(dark: Bool) -> Theme {
+            make(palette: .resolved(dark: dark),
+                 list: dark ? NSColor(red: 0.55, green: 0.85, blue: 0.55, alpha: 1)
+                            : NSColor(red: 0.20, green: 0.50, blue: 0.20, alpha: 1),
+                 horizontalRule: dark ? NSColor(white: 0.55, alpha: 1) : NSColor(white: 0.50, alpha: 1),
+                 marker: dark ? NSColor(white: 0.45, alpha: 1) : NSColor(white: 0.66, alpha: 1))
+        }
+
         /// Build a theme from the shared [SyntaxPalette] for the common roles,
         /// plus the markdown-specific colors (list / rule / dim marker) that
         /// have no palette equivalent.

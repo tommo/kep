@@ -139,6 +139,7 @@ private struct EditorPrefs: View {
                 }
                 Text(L("prefs.editor.plantuml.dotpath_note")).font(.caption).foregroundStyle(.secondary)
             }
+            EditorColorPrefs()
             RestoreDefaultsRow(group: .editor)
         }
         .formStyle(.grouped)
@@ -157,6 +158,75 @@ private struct EditorPrefs: View {
         if panel.runModal() == .OK, let url = panel.url {
             graphvizPath = url.path
         }
+    }
+}
+
+/// Editor syntax-color customization — a toggle plus a color well per token
+/// role. Edits the override for the *effective* appearance (light or dark);
+/// changes persist + post `.editorThemeChanged` so open editors restyle live.
+private struct EditorColorPrefs: View {
+    @State private var theme = EditorThemeStore.current
+
+    private struct Role: Identifiable {
+        let id: String
+        let label: String
+        let override: WritableKeyPath<EditorThemeColors, String?>
+        let base: KeyPath<SyntaxPalette, NSColor>
+    }
+    private static let roles: [Role] = [
+        Role(id: "text", label: "Text", override: \.text, base: \.text),
+        Role(id: "keyword", label: "Keyword / Heading", override: \.keyword, base: \.keyword),
+        Role(id: "string", label: "String / Code", override: \.string, base: \.string),
+        Role(id: "comment", label: "Comment / Quote", override: \.comment, base: \.comment),
+        Role(id: "link", label: "Link", override: \.link, base: \.link),
+        Role(id: "punctuation", label: "Punctuation", override: \.punctuation, base: \.punctuation),
+    ]
+
+    /// Which appearance's colors we're editing right now.
+    private var dark: Bool {
+        switch AppAppearance.current {
+        case .light: return false
+        case .dark: return true
+        case .system:
+            return NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        }
+    }
+
+    var body: some View {
+        Section(L("prefs.editor.section.colors")) {
+            Toggle(L("prefs.editor.customize_colors"), isOn: Binding(
+                get: { theme.enabled },
+                set: { theme.enabled = $0; EditorThemeStore.save(theme) }
+            ))
+            if theme.enabled {
+                Text(String(format: L("prefs.editor.colors_editing_fmt"),
+                            dark ? L("prefs.appearance.dark") : L("prefs.appearance.light")))
+                    .font(.caption).foregroundStyle(.secondary)
+                ForEach(Self.roles) { role in
+                    ColorPicker(role.label, selection: binding(for: role), supportsOpacity: false)
+                }
+                Button(L("prefs.editor.colors_reset")) {
+                    if dark { theme.dark = EditorThemeColors() } else { theme.light = EditorThemeColors() }
+                    EditorThemeStore.save(theme)
+                }
+            }
+        }
+    }
+
+    private func binding(for role: Role) -> Binding<Color> {
+        Binding(
+            get: {
+                let hex = (dark ? theme.dark : theme.light)[keyPath: role.override]
+                let base = (dark ? SyntaxPalette.dark : SyntaxPalette.light)[keyPath: role.base]
+                return Color(nsColor: hex.flatMap(NSColor.init(hexString:)) ?? base)
+            },
+            set: { newColor in
+                let hex = NSColor(newColor).hexString
+                if dark { theme.dark[keyPath: role.override] = hex }
+                else { theme.light[keyPath: role.override] = hex }
+                EditorThemeStore.save(theme)
+            }
+        )
     }
 }
 

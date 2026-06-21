@@ -19,6 +19,14 @@ public final class PlantUMLHighlighter {
         public static let dark = make(palette: .dark,
             arrow: NSColor(red: 1.00, green: 0.75, blue: 0.45, alpha: 1))
 
+        /// Effective theme for the appearance — from the *resolved* palette so
+        /// the user's custom editor colors apply.
+        public static func resolved(dark: Bool) -> Theme {
+            make(palette: .resolved(dark: dark),
+                 arrow: dark ? NSColor(red: 1.00, green: 0.75, blue: 0.45, alpha: 1)
+                             : NSColor(red: 0.75, green: 0.40, blue: 0.10, alpha: 1))
+        }
+
         /// Build from the shared [SyntaxPalette]; `arrow` (the relation accent)
         /// has no palette equivalent so it stays PlantUML-specific.
         static func make(palette p: SyntaxPalette, arrow: NSColor) -> Theme {

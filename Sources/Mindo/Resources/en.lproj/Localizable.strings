@@ -268,6 +268,10 @@
 "prefs.editor.split.top_bottom" = "Top / bottom";
 "prefs.editor.split.note" = "Applies to editors opened after the change.";
 "prefs.editor.section.plantuml" = "PlantUML";
+"prefs.editor.section.colors" = "Editor Colors";
+"prefs.editor.customize_colors" = "Customize editor colors";
+"prefs.editor.colors_editing_fmt" = "Editing %@ colors (follows the app appearance)";
+"prefs.editor.colors_reset" = "Reset these colors";
 "prefs.editor.plantuml.dotpath_placeholder" = "Path to dot (Graphviz)";
 "prefs.editor.plantuml.dotpath_pick" = "Choose…";
 "prefs.editor.plantuml.dotpath_note" = "Leave blank to let PlantUML find dot via $PATH. Custom paths are forwarded as GRAPHVIZ_DOT.";

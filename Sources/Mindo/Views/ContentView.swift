@@ -289,6 +289,7 @@ struct ContentView: View {
                 TextField(L("inspector.query.placeholder"), text: $tagQuery)
                     .textFieldStyle(.roundedBorder)
                     .onSubmit { session.selectTopicsMatching(tagQuery) }
+                    .help(L("inspector.query.help"))
                 Menu {
                     if !tagQuery.trimmingCharacters(in: .whitespaces).isEmpty {
                         Button(L("inspector.query.save")) { session.saveQuery(name: tagQuery, query: tagQuery) }

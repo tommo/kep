@@ -106,6 +106,7 @@
 "inspector.properties" = "Properties";
 "inspector.tags" = "Tags";
 "inspector.query.placeholder" = "Query: priority:1 #urgent text";
+"inspector.query.help" = "Operators (space = AND, OR between groups, leading - negates): key:value · key: present · #tag · tag:name · text:words · /regex/ · under:Branch · priority>=3 · progress<50";
 "inspector.query.save" = "Save Current Query";
 "inspector.query.run" = "Run";
 "inspector.query.remove" = "Remove";
@@ -223,7 +224,6 @@
 "detail.empty.title" = "No Document Open";
 "detail.empty.description" = "Open a workspace, then click a file in the sidebar.";
 "detail.outline.title" = "Outline";
-"detail.new_document" = "New";
 "outline.empty.title" = "No Outline";
 "outline.empty.description" = "Add headings or topics to see them here.";
 

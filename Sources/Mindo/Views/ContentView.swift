@@ -91,9 +91,13 @@ struct ContentView: View {
                 .background(RegionContainerTagger(session: session, region: .document))
                 // Doc focus hint is the tab strip's bottom border (see DetailArea)
                 // — a top ring sat under the hidden title bar.
-                // Fill the hidden-title-bar strip — no traffic lights over these
-                // columns, so the tab strip / inspector sit flush at the top.
-                .ignoresSafeArea(.container, edges: .top)
+                // Only pull the tabs flush to the window top when the sidebar is
+                // VISIBLE (traffic lights + the system sidebar-toggle then sit over
+                // the sidebar). When the sidebar is COLLAPSED the detail reaches the
+                // window's left edge, so we must NOT ignore the top inset — let the
+                // tabs sit below the system's title-bar row (which holds the traffic
+                // lights and the reveal-sidebar toggle) instead of colliding with it.
+                .ignoresSafeArea(.container, edges: session.sidebarVisible ? .top : [])
         }
         .navigationSplitViewStyle(.balanced)
         .inspector(isPresented: inspectorPresented) {

@@ -78,6 +78,11 @@ public struct MindMapCanvas: NSViewRepresentable {
         scroll.minMagnification = 0.25
         scroll.maxMagnification = 3.0
         scroll.borderType = .noBorder
+        // Kill the focus-ring "border" drawn around the scroll view's frame when
+        // its document (the canvas) is first responder — that was the ugly box
+        // around the whole map. (borderType only controls the bezel, not the ring.)
+        scroll.focusRingType = .none
+        scroll.contentView.focusRingType = .none
         // Match the canvas paper color so the area exposed when panning past the
         // content (free canvas) blends seamlessly instead of showing a different
         // container background. Both the scroll view and its clip view paint it.

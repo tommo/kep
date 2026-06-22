@@ -71,6 +71,14 @@ public struct OutlinePanel: View {
                             .font(.system(size: 13))   // match mindmap node text size
                             .lineLimit(1)
                             .truncationMode(.tail)
+                        if !item.markers.isEmpty {
+                            Spacer(minLength: 4)
+                            ForEach(Array(item.markers.enumerated()), id: \.offset) { _, marker in
+                                Image(systemName: marker.symbolName)
+                                    .font(.system(size: 9))
+                                    .foregroundStyle(color(for: marker.tint))
+                            }
+                        }
                     }
                     .tag(item.id)
                     .listRowInsets(EdgeInsets(top: 1, leading: 6, bottom: 1, trailing: 6))
@@ -96,6 +104,24 @@ public struct OutlinePanel: View {
         let trimmed = filter.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return items }
         return items.filter { $0.title.localizedCaseInsensitiveContains(trimmed) }
+    }
+
+    /// Tint for an outline marker — mirrors the canvas marker colors so the
+    /// outline reads consistently with the graph.
+    private func color(for tint: OutlineMarker.Tint) -> Color {
+        switch tint {
+        case .priority(let p):
+            switch p {
+            case 1: return .red
+            case 2: return .orange
+            case 3: return .yellow
+            case 4: return .blue
+            default: return .gray
+            }
+        case .done:    return .green
+        case .accent:  return .blue
+        case .todo, .neutral: return .secondary
+        }
     }
 
     private func icon(for depth: Int) -> String {

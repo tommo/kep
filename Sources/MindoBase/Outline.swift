@@ -1,10 +1,32 @@
 import Foundation
 
+/// A small marker glyph shown on an outline row — the dependency-free mirror of
+/// the canvas `PropertyMarker` (MindoBase can't import MindoModel). The producer
+/// maps its typed markers to these; `OutlinePanel` resolves the tint to a color.
+public struct OutlineMarker: Hashable {
+    public enum Tint: Hashable {
+        case priority(Int)   // 1...5 — colored like the canvas flag
+        case done            // green check
+        case todo            // hollow / dimmed
+        case accent          // progress etc.
+        case neutral         // tags
+    }
+    public let symbolName: String
+    public let tint: Tint
+    public init(symbolName: String, tint: Tint) {
+        self.symbolName = symbolName
+        self.tint = tint
+    }
+}
+
 /// One row in the outline panel. Mirrors `OutlineItemData` from `mindolph-core`.
 public struct OutlineItem: Identifiable, Hashable {
     public let id = UUID()
     public var title: String
     public var depth: Int
+    /// Typed-property markers (priority/done/progress/tags) for this row, mirrored
+    /// from the canvas. Empty for non-mindmap outlines (markdown/PlantUML).
+    public var markers: [OutlineMarker] = []
     /// Symbolic location used by the editor to navigate when this item is
     /// clicked. The exact shape is per-editor — character offsets for text
     /// editors, topic UIDs for mind maps, etc. Encoded as a string so the
@@ -16,11 +38,13 @@ public struct OutlineItem: Identifiable, Hashable {
     /// headings, or the root itself).
     public var breadcrumb: String
 
-    public init(title: String, depth: Int, target: String, breadcrumb: String = "") {
+    public init(title: String, depth: Int, target: String, breadcrumb: String = "",
+                markers: [OutlineMarker] = []) {
         self.title = title
         self.depth = depth
         self.target = target
         self.breadcrumb = breadcrumb
+        self.markers = markers
     }
 }
 

@@ -22,11 +22,29 @@ public extension Outline {
         // Go to Node palette show "Root › Branch" beside an otherwise ambiguous
         // leaf and fuzzy-match across the whole path.
         let breadcrumb = ancestors.joined(separator: " › ")
-        items.append(OutlineItem(title: title, depth: depth, target: path, breadcrumb: breadcrumb))
+        items.append(OutlineItem(title: title, depth: depth, target: path,
+                                 breadcrumb: breadcrumb, markers: outlineMarkers(for: topic)))
         for (index, child) in topic.children.enumerated() {
             let childPath = path.isEmpty ? "\(index)" : "\(path)/\(index)"
             walk(child, depth: depth + 1, path: childPath,
                  ancestors: ancestors + [title], into: &items)
+        }
+    }
+
+    /// Map a topic's typed-property markers (the same `PropertyMarkers.markerRow`
+    /// the canvas draws) to the dependency-free `OutlineMarker` the panel renders,
+    /// so the outline shows priority/done/progress/tags inline (roadmap T2 #201).
+    static func outlineMarkers(for topic: Topic) -> [OutlineMarker] {
+        PropertyMarkers.markerRow(for: topic).map { marker in
+            let tint: OutlineMarker.Tint
+            switch marker.role {
+            case .priority(let p): tint = .priority(p)
+            case .doneTrue:        tint = .done
+            case .doneFalse:       tint = .todo
+            case .progress:        tint = .accent
+            case .tags:            tint = .neutral
+            }
+            return OutlineMarker(symbolName: marker.symbolName, tint: tint)
         }
     }
 }

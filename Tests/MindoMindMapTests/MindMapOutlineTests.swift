@@ -20,6 +20,24 @@ final class MindMapOutlineTests: XCTestCase {
         XCTAssertEqual(items.map(\.depth), [1, 2, 3, 3, 2, 3])
     }
 
+    func testOutlineCarriesTypedPropertyMarkers() {
+        let map = MindMap()
+        let root = Topic(text: "Root")
+        map.root = root
+        let task = root.addChild(text: "Task")
+        task.setProperty("priority", .number(1))
+        task.setProperty("done", .checkbox(true))
+        let plain = root.addChild(text: "Plain")
+
+        let items = Outline.fromMindMap(map)
+        let taskItem = items.first { $0.title == "Task" }!
+        // priority(1) → red flag, done(true) → green check; stable order.
+        XCTAssertEqual(taskItem.markers.map(\.tint), [.priority(1), .done])
+        XCTAssertTrue(items.first { $0.title == "Plain" }!.markers.isEmpty)
+        XCTAssertTrue(items.first { $0.title == "Root" }!.markers.isEmpty)
+        _ = plain
+    }
+
     func testEmptyMapProducesNothing() {
         let map = MindMap()
         XCTAssertTrue(Outline.fromMindMap(map).isEmpty)

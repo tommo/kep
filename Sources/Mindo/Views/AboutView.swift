@@ -9,8 +9,7 @@ struct AboutView: View {
 
     private var appName: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String
-            ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleExecutable") as? String
-            ?? "Mindo"
+            ?? "kep"
     }
     private var version: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"

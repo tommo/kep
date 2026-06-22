@@ -10,6 +10,12 @@ import MindoMarkdown
 import MindoPlantUML
 import MindoModel
 
+extension Color {
+    /// kep brand accent — a calm teal ("keep your ideas"). Applied app-wide via
+    /// .tint so selection / focus ring / buttons / links pick it up.
+    static let kepAccent = Color(red: 0.09, green: 0.72, blue: 0.64)
+}
+
 extension NSView {
     /// Recursive depth-first search for the first descendant of `type`
     /// matching `predicate`. Used by the zoom-command bridge above.
@@ -87,9 +93,10 @@ struct MindoApp: App {
     @State private var session = AppSession()
 
     var body: some Scene {
-        WindowGroup("Mindo") {
+        WindowGroup("kep") {
             ContentView(session: $session)
                 .frame(minWidth: 1000, minHeight: 700)
+                .tint(Color.kepAccent)   // brand accent (selection/focus ring/buttons/links)
                 // Persist tab state on app quit as a safety net for
                 // anything the inline persistOpenTabs() calls miss.
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in

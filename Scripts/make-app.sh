@@ -8,19 +8,23 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_ROOT"
 
 CONFIG="${CONFIG:-release}"
-APP_NAME="Mindo"
+# Brand "kep" is user-visible (bundle name, Dock, menu bar, About). The SPM
+# product / executable / bundle id stay "Mindo" so the prefs domain and
+# ~/Library/Application Support/Mindo (LLM config, collections) are preserved.
+APP_NAME="kep"
+PRODUCT="Mindo"
 APP_DIR="build/$APP_NAME.app"
 
 echo "==> swift build -c $CONFIG"
 swift build -c "$CONFIG"
 
-BIN_PATH="$(swift build -c "$CONFIG" --show-bin-path)/$APP_NAME"
+BIN_PATH="$(swift build -c "$CONFIG" --show-bin-path)/$PRODUCT"
 [ -f "$BIN_PATH" ] || { echo "binary not found at $BIN_PATH"; exit 1; }
 
 echo "==> assembling $APP_DIR"
 rm -rf "$APP_DIR"
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
-cp "$BIN_PATH" "$APP_DIR/Contents/MacOS/$APP_NAME"
+cp "$BIN_PATH" "$APP_DIR/Contents/MacOS/$PRODUCT"
 
 # Drag in localized resources + the Mindo SPM resource bundle.
 RES_BUNDLE_DIR="$(dirname "$BIN_PATH")"
@@ -48,7 +52,7 @@ cat > "$APP_DIR/Contents/Info.plist" <<EOF
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleExecutable</key>          <string>$APP_NAME</string>
+    <key>CFBundleExecutable</key>          <string>$PRODUCT</string>
 $ICON_KEY_INSERT
     <key>CFBundleIdentifier</key>          <string>com.mindo.Mindo</string>
     <key>CFBundleName</key>                <string>$APP_NAME</string>
@@ -88,4 +92,4 @@ $ICON_KEY_INSERT
 EOF
 
 echo "==> done: open '$APP_DIR'"
-echo "    or run directly: '$APP_DIR/Contents/MacOS/$APP_NAME'"
+echo "    or run directly: '$APP_DIR/Contents/MacOS/$PRODUCT'"

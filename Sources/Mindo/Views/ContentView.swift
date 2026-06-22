@@ -227,7 +227,7 @@ struct ContentView: View {
             // the inspector/agent region holds focus).
             Rectangle()
                 .fill(inspectorRegionFocused ? Color.accentColor : Color(nsColor: .separatorColor))
-                .frame(height: inspectorRegionFocused ? 2 : 1)
+                .frame(height: 2)   // constant height — only the COLOR changes (no layout shift on focus)
             Group {
                 switch session.inspectorTab {
                 case .inspector: accordionInspector

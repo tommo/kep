@@ -40,7 +40,7 @@ struct DetailArea: View {
             // bar sat under the hidden title bar / window edge, unreadable).
             Rectangle()
                 .fill(session.activeRegion == .document ? Color.accentColor : Color(nsColor: .separatorColor))
-                .frame(height: session.activeRegion == .document ? 2 : 1)
+                .frame(height: 2)   // constant height — only the COLOR changes, so focus never shifts layout
             if let doc = session.activeDocument {
                 EditorPane(session: $session, documentID: doc.id, theme: resolvedCanvasTheme)
                     .id(doc.id)

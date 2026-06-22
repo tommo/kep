@@ -91,15 +91,19 @@ struct ContentView: View {
                 .background(RegionContainerTagger(session: session, region: .document))
                 // Doc focus hint is the tab strip's bottom border (see DetailArea)
                 // — a top ring sat under the hidden title bar.
-                // Only pull the tabs flush to the window top when the sidebar is
-                // VISIBLE (traffic lights + the system sidebar-toggle then sit over
-                // the sidebar). When the sidebar is COLLAPSED the detail reaches the
-                // window's left edge, so we must NOT ignore the top inset — let the
-                // tabs sit below the system's title-bar row (which holds the traffic
-                // lights and the reveal-sidebar toggle) instead of colliding with it.
-                .ignoresSafeArea(.container, edges: session.sidebarVisible ? .top : [])
+                // Obsidian-style: the tab strip ALWAYS sits flush in the top
+                // titlebar row (never a second band). When collapsed the strip
+                // reserves a leading gutter for the traffic lights + a single
+                // reveal toggle (see DetailArea); the system's own toggle is
+                // suppressed below so there's no duplicate control.
+                .ignoresSafeArea(.container, edges: .top)
         }
         .navigationSplitViewStyle(.balanced)
+        // Kill NavigationSplitView's auto-injected sidebar toggle — it lands in
+        // the titlebar leading area and collides with our flush tab strip (a
+        // duplicate of the reveal button we draw in the tab row). We provide our
+        // own single toggle in DetailArea instead.
+        .modifier(SuppressSidebarToggle())
         .inspector(isPresented: inspectorPresented) {
             inspectorPane
                 .background(RegionContainerTagger(session: session, region: .inspector))
@@ -650,3 +654,16 @@ private struct CollapsibleInspectorSection<Content: View>: View {
     }
 }
 
+
+/// Suppresses NavigationSplitView's automatically generated sidebar toggle
+/// (macOS 14.4+). On older systems it's a no-op — the toggle stays, which is
+/// harmless since the deployment floor in practice is current macOS.
+private struct SuppressSidebarToggle: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(macOS 14.4, *) {
+            content.toolbar(removing: .sidebarToggle)
+        } else {
+            content
+        }
+    }
+}

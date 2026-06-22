@@ -23,6 +23,7 @@ extension AppSession {
         ), let url = doc.fileURL else { return }
         do {
             try doc.save(to: url)
+            workspaceContentVersion &+= 1   // invalidate the agent corpus now, not on the 500ms watcher tick
             openDocuments[idx].isDirty = false
             openDocuments[idx].hasExternalChanges = false
         } catch {
@@ -53,6 +54,7 @@ extension AppSession {
             guard doc.isDirty, let url = doc.fileURL else { continue }
             do {
                 try doc.save(to: url)
+            workspaceContentVersion &+= 1   // invalidate the agent corpus now, not on the 500ms watcher tick
                 openDocuments[idx].isDirty = false
                 openDocuments[idx].hasExternalChanges = false
             } catch {
@@ -84,6 +86,7 @@ extension AppSession {
         }
         do {
             try doc.save(to: url)
+            workspaceContentVersion &+= 1   // invalidate the agent corpus now, not on the 500ms watcher tick
             openDocuments[idx].isDirty = false
             openDocuments[idx].hasExternalChanges = false
             return true
@@ -110,6 +113,7 @@ extension AppSession {
         guard panel.runModal() == .OK, let url = panel.url else { return false }
         do {
             try doc.save(to: url)
+            workspaceContentVersion &+= 1   // invalidate the agent corpus now, not on the 500ms watcher tick
             openDocuments[idx].fileURL = url
             openDocuments[idx].title = url.lastPathComponent
             openDocuments[idx].isDirty = false

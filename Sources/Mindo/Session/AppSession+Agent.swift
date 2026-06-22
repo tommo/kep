@@ -76,6 +76,11 @@ extension AppSession {
                 if !isActiveMutatedMap { reloadTab(doc.id) }
             }
         }
+        // Files the agent wrote this run changed on disk — invalidate the cached
+        // corpus now so the NEXT message re-reads them (don't wait for the watcher).
+        if !effects.changedFiles.isEmpty {
+            workspaceContentVersion &+= 1
+        }
         // Surface newly-created files in the sidebar.
         if !effects.createdFiles.isEmpty {
             reloadAllWorkspaces()

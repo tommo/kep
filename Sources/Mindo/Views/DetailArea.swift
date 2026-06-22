@@ -22,19 +22,14 @@ struct DetailArea: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
-                // Collapsed sidebar → the detail reaches the window's left edge.
-                // Obsidian keeps the tabs in this top titlebar row but offsets
-                // them past the traffic lights + a single reveal toggle. The
-                // system's own toggle is suppressed (ContentView) so this is the
-                // only one.
+                // Collapsed sidebar → the detail reaches the window's left edge,
+                // and NavigationSplitView floats its OWN sidebar-toggle there
+                // (an NSToolbar item that re-adds itself, so it can't be removed).
+                // It IS the reveal control. Measured in-window: traffic lights end
+                // ~79pt, the toggle item spans x≈100–148. Offset the tabs to 150pt
+                // so they clear it — no duplicate button, no overlap.
                 if !session.sidebarVisible {
-                    Color.clear.frame(width: 78)   // clear the native traffic-light cluster
-                    Button { session.sidebarVisible = true } label: {
-                        Image(systemName: "sidebar.leading").foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .help(L("menu.view.show_sidebar"))
-                    .padding(.trailing, 8)
+                    Color.clear.frame(width: 150)
                 }
                 DocumentTabBar(session: $session)
                 Divider()

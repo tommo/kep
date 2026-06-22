@@ -89,26 +89,17 @@ struct ContentView: View {
         } detail: {
             DetailArea(session: $session)
                 .background(RegionContainerTagger(session: session, region: .document))
-                // Attach to the detail column — it's ALWAYS mounted (unlike the
-                // sidebar, which unmounts when collapsed, leaving the stray system
-                // toggle in place). This guarantees the window toolbar is cleared
-                // in both states.
-                .background(WindowConfigurator())
                 // Doc focus hint is the tab strip's bottom border (see DetailArea)
                 // — a top ring sat under the hidden title bar.
-                // Obsidian-style: the tab strip ALWAYS sits flush in the top
-                // titlebar row (never a second band). When collapsed the strip
-                // reserves a leading gutter for the traffic lights + a single
-                // reveal toggle (see DetailArea); the system's own toggle is
-                // suppressed below so there's no duplicate control.
+                // The tab strip sits flush in the top titlebar row. When the
+                // sidebar is collapsed, NavigationSplitView floats its OWN
+                // sidebar-toggle (an unremovable NSToolbar item — it re-adds
+                // itself after window.toolbar = nil) at x≈100–148. DetailArea
+                // offsets the tabs past it (and the traffic lights) rather than
+                // drawing a duplicate toggle.
                 .ignoresSafeArea(.container, edges: .top)
         }
         .navigationSplitViewStyle(.balanced)
-        // Kill NavigationSplitView's auto-injected sidebar toggle — it lands in
-        // the titlebar leading area and collides with our flush tab strip (a
-        // duplicate of the reveal button we draw in the tab row). We provide our
-        // own single toggle in DetailArea instead.
-        .modifier(SuppressSidebarToggle())
         .inspector(isPresented: inspectorPresented) {
             inspectorPane
                 .background(RegionContainerTagger(session: session, region: .inspector))
@@ -656,51 +647,5 @@ private struct CollapsibleInspectorSection<Content: View>: View {
             }
         }
         .frame(maxHeight: isExpanded ? .infinity : nil)
-    }
-}
-
-
-/// Suppresses NavigationSplitView's automatically generated sidebar toggle
-/// (macOS 14.4+). On older systems it's a no-op — the toggle stays, which is
-/// harmless since the deployment floor in practice is current macOS.
-private struct SuppressSidebarToggle: ViewModifier {
-    func body(content: Content) -> some View {
-        if #available(macOS 14.4, *) {
-            content.toolbar(removing: .sidebarToggle)
-        } else {
-            content
-        }
-    }
-}
-
-/// Takes direct AppKit control of the host `NSWindow`: keeps the title bar
-/// transparent/empty (no app-name band) and strips NavigationSplitView's
-/// auto-injected toolbar (the sidebar-toggle item that floats over our flush
-/// tab strip). SwiftUI's `.toolbar(removing: .sidebarToggle)` does NOT remove
-/// it under `.windowStyle(.hiddenTitleBar)`, so we do it at the window level.
-private struct WindowConfigurator: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSView {
-        let v = NSView(frame: .zero)
-        DispatchQueue.main.async { Self.configure(v.window) }
-        return v
-    }
-    func updateNSView(_ nsView: NSView, context: Context) {
-        DispatchQueue.main.async { Self.configure(nsView.window) }
-    }
-
-    static func configure(_ window: NSWindow?) {
-        guard let window else { return }
-        window.titlebarAppearsTransparent = true
-        window.titleVisibility = .hidden
-        // NavigationSplitView injects an NSToolbar holding a flexible space, its
-        // own sidebar-toggle, and a split-view tracking separator. Under
-        // `.hiddenTitleBar` that toggle floats over our flush tab strip as a
-        // stray rounded button, and `.toolbar(removing: .sidebarToggle)` does
-        // NOT remove it. We draw our own toolbar/tab row, so drop the SwiftUI
-        // toolbar entirely at the window level. Guard so we only clear it once
-        // (SwiftUI rarely re-adds it, but the guard avoids any churn if it does).
-        if window.toolbar != nil {
-            window.toolbar = nil
-        }
     }
 }

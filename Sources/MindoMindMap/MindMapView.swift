@@ -541,7 +541,12 @@ public final class MindMapView: NSView {
         let W = contentBounds.width, H = contentBounds.height
         let rcx = root.frame.midX, rcy = root.frame.midY
 
-        let visibleSize = enclosingScrollView?.contentView.bounds.size ?? bounds.size
+        // The viewport in POINTS (scroll-view frame), NOT the clip's bounds.
+        // The clip's bounds = frame / magnification, so using it fed the document
+        // size back into the zoom: a zoomed-out state ballooned the doc, which
+        // kept it zoomed out and made panning roam a huge empty canvas. The frame
+        // size is magnification-independent, so layout is stable.
+        let visibleSize = enclosingScrollView?.frame.size ?? bounds.size
 
         // Where should the root's centre land in document space?
         //  • First layout / fresh map: centre the whole content in the larger

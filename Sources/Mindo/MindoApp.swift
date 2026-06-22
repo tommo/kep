@@ -485,6 +485,10 @@ final class AppSession {
     @ObservationIgnored var workspaceContentVersion = 0
     /// Cached workspace file index (the FS walk in `quickSwitcherFiles`).
     @ObservationIgnored private var fileIndexCache: (version: Int, files: [WorkspaceFile])?
+    /// Cached agent corpus (every workspace file's text). Reading all files on
+    /// every agent message was a real latency hit; rebuild only when the
+    /// workspace content actually changes.
+    @ObservationIgnored private var corpusCache: (version: Int, files: [URL], corpus: [(url: URL, text: String)])?
     /// Cached linked-mentions for the active doc, keyed by target + version.
     @ObservationIgnored private var linkedMentionsCache: (key: String, value: [LinkedMention])?
 
@@ -589,10 +593,14 @@ final class AppSession {
     /// Workspace file URLs + their text (the KB corpus) — shared by backlinks,
     /// the Lua runner, and the agent loop (best-effort; unreadable files drop).
     func workspaceCorpus() -> (files: [URL], corpus: [(url: URL, text: String)]) {
+        if let c = corpusCache, c.version == workspaceContentVersion {
+            return (c.files, c.corpus)   // unchanged since last build — skip re-reading every file
+        }
         let files = quickSwitcherFiles().map(\.url)
         let corpus: [(url: URL, text: String)] = files.compactMap { u in
             (try? String(contentsOf: u, encoding: .utf8)).map { (u, $0) }
         }
+        corpusCache = (workspaceContentVersion, files, corpus)
         return (files, corpus)
     }
 

@@ -195,23 +195,11 @@ struct ContentView: View {
     /// The right-hand inspector: a toggle between the document Outline (+ node
     /// Note editor) and the cross-document AI Assistant.
     private var inspectorPane: some View {
-        Group {
-            switch session.inspectorTab {
-            case .inspector: accordionInspector
-            case .agent:
-                DialogView(
-                    systemPrompt: Self.agentSystemPrompt,
-                    contextProvider: { session.aiWorkspaceContextBlock() },
-                    onInsert: { session.insertDialogReply($0) },
-                    agentReply: { try await session.agentReply($0) }
-                )
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        // Put the Inspector / Assistant switch in the inspector's OWN toolbar band
-        // (the area at the top that was otherwise empty), not a row below it.
-        .toolbar {
-            ToolbarItem(placement: .automatic) {
+        VStack(spacing: 0) {
+            // Inspector / Assistant switch — a small inline bar at the top of the
+            // inspector. (Was a window toolbar item, but hiding the title bar left
+            // that toolbar band as empty space above the doc tabs.)
+            HStack {
                 Picker("", selection: inspectorTabBinding) {
                     Image(systemName: "sidebar.squares.right").tag(InspectorTab.inspector)
                     Image(systemName: "bubble.left.and.bubble.right").tag(InspectorTab.agent)
@@ -220,7 +208,24 @@ struct ContentView: View {
                 .controlSize(.small)
                 .fixedSize()
                 .help("Switch the inspector between the document panels (outline + linked mentions) and the assistant")
+                Spacer()
             }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            Divider()
+            Group {
+                switch session.inspectorTab {
+                case .inspector: accordionInspector
+                case .agent:
+                    DialogView(
+                        systemPrompt: Self.agentSystemPrompt,
+                        contextProvider: { session.aiWorkspaceContextBlock() },
+                        onInsert: { session.insertDialogReply($0) },
+                        agentReply: { try await session.agentReply($0) }
+                    )
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .sheet(isPresented: $noteExpanded) {
             NoteEditorSheet(

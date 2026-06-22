@@ -454,6 +454,9 @@ struct ContentView: View {
                     : nil,
                 onMove: session.activeFileType == .mindMap
                     ? { item, move in session.moveOutlineTopic(atOutlinePath: item.target, move) }
+                    : nil,
+                onToggleCollapse: session.activeFileType == .mindMap
+                    ? { item in session.toggleOutlineCollapse(atOutlinePath: item.target) }
                     : nil
             )
             .frame(minHeight: 100, idealHeight: 260)

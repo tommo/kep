@@ -308,6 +308,17 @@ extension AppSession {
         view.selectTopics([topic])
     }
 
+    /// Toggle the fold state of the topic at `path` from the outline, through the
+    /// canvas undoable setter so the map relayouts and the outline (which omits a
+    /// collapsed node's descendants) mirrors it. No-op for a childless node.
+    @MainActor func toggleOutlineCollapse(atOutlinePath path: String) {
+        guard case .mindMap(let map)? = activeDocument?.kind,
+              let topic = map.topic(atOutlinePath: path), !topic.children.isEmpty,
+              let view = activeMindMapView else { return }
+        let collapsed = topic.attribute(TopicAttribute.collapsed) == "true"
+        view.undoableSetAttribute(topic, key: TopicAttribute.collapsed, value: collapsed ? nil : "true")
+    }
+
     /// Apply a built-in supertag template (keystone #200) to the selected node,
     /// stamping any missing typed properties with their defaults. Returns the
     /// keys that were added (empty if none/no selection/unknown template).

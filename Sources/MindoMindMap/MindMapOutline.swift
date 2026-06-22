@@ -22,8 +22,13 @@ public extension Outline {
         // Go to Node palette show "Root › Branch" beside an otherwise ambiguous
         // leaf and fuzzy-match across the whole path.
         let breadcrumb = ancestors.joined(separator: " › ")
+        // Mirror the canvas fold state: a collapsed node keeps its chevron but
+        // its descendants are omitted from the outline.
+        let collapsed = topic.attribute(TopicAttribute.collapsed) == "true"
         items.append(OutlineItem(title: title, depth: depth, target: path,
-                                 breadcrumb: breadcrumb, markers: outlineMarkers(for: topic)))
+                                 breadcrumb: breadcrumb, markers: outlineMarkers(for: topic),
+                                 hasChildren: !topic.children.isEmpty, isCollapsed: collapsed))
+        guard !collapsed else { return }
         for (index, child) in topic.children.enumerated() {
             let childPath = path.isEmpty ? "\(index)" : "\(path)/\(index)"
             walk(child, depth: depth + 1, path: childPath,

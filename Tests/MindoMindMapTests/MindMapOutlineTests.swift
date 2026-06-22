@@ -51,6 +51,25 @@ final class MindMapOutlineTests: XCTestCase {
         XCTAssertTrue(items.first { $0.title == "Plain" }!.markers.isEmpty)
     }
 
+    func testCollapsedNodeHidesDescendantsButKeepsChevron() {
+        let map = MindMap()
+        let root = Topic(text: "Root")
+        map.root = root
+        let a = root.addChild(text: "Alpha")
+        _ = a.addChild(text: "A1")
+        _ = a.addChild(text: "A2")
+        _ = root.addChild(text: "Beta")
+        a.setAttribute(TopicAttribute.collapsed, "true")
+
+        let items = Outline.fromMindMap(map)
+        // Alpha's children are omitted; Alpha still appears, marked collapsed.
+        XCTAssertEqual(items.map(\.title), ["Root", "Alpha", "Beta"])
+        let alpha = items.first { $0.title == "Alpha" }!
+        XCTAssertTrue(alpha.hasChildren)
+        XCTAssertTrue(alpha.isCollapsed)
+        XCTAssertFalse(items.first { $0.title == "Beta" }!.hasChildren)
+    }
+
     func testEmptyMapProducesNothing() {
         let map = MindMap()
         XCTAssertTrue(Outline.fromMindMap(map).isEmpty)

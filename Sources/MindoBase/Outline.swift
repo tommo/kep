@@ -37,14 +37,23 @@ public struct OutlineItem: Identifiable, Hashable {
     /// across the hierarchy. Empty when there's no meaningful path (markdown
     /// headings, or the root itself).
     public var breadcrumb: String
+    /// True when this node has children in the model (regardless of whether they
+    /// are shown) — drives the disclosure chevron. False for leaves / non-mindmap.
+    public var hasChildren: Bool = false
+    /// True when this node is folded on the canvas, so its descendants are
+    /// omitted from the outline (mirroring the canvas). Only meaningful with
+    /// `hasChildren`.
+    public var isCollapsed: Bool = false
 
     public init(title: String, depth: Int, target: String, breadcrumb: String = "",
-                markers: [OutlineMarker] = []) {
+                markers: [OutlineMarker] = [], hasChildren: Bool = false, isCollapsed: Bool = false) {
         self.title = title
         self.depth = depth
         self.target = target
         self.breadcrumb = breadcrumb
         self.markers = markers
+        self.hasChildren = hasChildren
+        self.isCollapsed = isCollapsed
     }
 }
 

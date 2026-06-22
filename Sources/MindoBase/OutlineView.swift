@@ -23,6 +23,9 @@ public struct OutlinePanel: View {
     /// Structural move callback `(item, move)` for ⌥-arrow reorder/reparent.
     /// nil for read-only outlines.
     public var onMove: ((OutlineItem, OutlineMove) -> Void)?
+    /// Fold/unfold callback for a row with children (chevron click or ←/→).
+    /// nil for read-only outlines.
+    public var onToggleCollapse: ((OutlineItem) -> Void)?
     @State private var selection: OutlineItem.ID?
     @State private var filter: String = ""
     /// True while pushing the external `selectedTarget` into `selection`, so the
@@ -36,12 +39,14 @@ public struct OutlinePanel: View {
     public init(items: [OutlineItem], selectedTarget: String? = nil,
                 onSelect: @escaping (OutlineItem) -> Void,
                 onRename: ((OutlineItem, String) -> Void)? = nil,
-                onMove: ((OutlineItem, OutlineMove) -> Void)? = nil) {
+                onMove: ((OutlineItem, OutlineMove) -> Void)? = nil,
+                onToggleCollapse: ((OutlineItem) -> Void)? = nil) {
         self.items = items
         self.selectedTarget = selectedTarget
         self.onSelect = onSelect
         self.onRename = onRename
         self.onMove = onMove
+        self.onToggleCollapse = onToggleCollapse
     }
 
     private func beginEdit(_ item: OutlineItem) {
@@ -101,6 +106,19 @@ public struct OutlinePanel: View {
                         if item.depth > 1 {
                             Spacer().frame(width: CGFloat((item.depth - 1) * 12))
                         }
+                        // Disclosure chevron — only for nodes with children when
+                        // folding is supported; a fixed-width gap otherwise keeps
+                        // sibling titles aligned.
+                        if item.hasChildren && onToggleCollapse != nil {
+                            Image(systemName: item.isCollapsed ? "chevron.right" : "chevron.down")
+                                .font(.system(size: 8))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 10)
+                                .contentShape(Rectangle())
+                                .onTapGesture { onToggleCollapse?(item) }
+                        } else {
+                            Spacer().frame(width: 10)
+                        }
                         Image(systemName: icon(for: item.depth))
                             .font(.system(size: 8))
                             .foregroundStyle(.secondary)
@@ -156,6 +174,11 @@ public struct OutlinePanel: View {
                         case .rightArrow: onMove(item, .indent);  return .handled
                         default: break
                         }
+                    }
+                    // Plain ←/→ fold/unfold the selected node (tree convention).
+                    if press.modifiers.isEmpty, item.hasChildren, let onToggleCollapse {
+                        if press.key == .leftArrow, !item.isCollapsed { onToggleCollapse(item); return .handled }
+                        if press.key == .rightArrow, item.isCollapsed { onToggleCollapse(item); return .handled }
                     }
                     return .ignored
                 }

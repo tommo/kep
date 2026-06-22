@@ -93,6 +93,7 @@ struct ContentView: View {
                 .inspectorColumnWidth(min: 200, ideal: 280, max: 460)
         }
         .onChange(of: sidebarSelection) { _, new in
+            FocusLog.log("onChange(sidebarSelection) new=\(new == nil ? "nil" : "node")")
             // A nil here is almost never a real user deselect — SwiftUI's List
             // clears its selection binding when it resigns first responder, and
             // opening a file does exactly that: the mindmap canvas (and the
@@ -109,9 +110,14 @@ struct ContentView: View {
                 // checking synchronously raced and saw focus still in transit.
                 selectionSource = .pointer
                 DispatchQueue.main.async {
+                    FocusLog.log("nil-restore deferred check (documentHasFocus=\(documentHasFocus))")
                     guard sidebarSelection == nil, !documentHasFocus,
                           let url = session.activeDocument?.fileURL,
-                          let node = sidebarNode(for: url) else { return }
+                          let node = sidebarNode(for: url) else {
+                        FocusLog.log("nil-restore SKIPPED (kept doc focus)")
+                        return
+                    }
+                    FocusLog.log("nil-restore RE-ASSERTING sidebar row")
                     sidebarSelection = node
                 }
                 return
@@ -132,9 +138,11 @@ struct ContentView: View {
         // can see where the doc lives. Skipped when sidebarSelection is
         // already correct to avoid the open→select→open feedback loop.
         .onChange(of: session.activeDocumentID) { _, _ in
+            FocusLog.log("onChange(activeDocumentID)")
             guard let url = session.activeDocument?.fileURL,
                   let node = sidebarNode(for: url),
                   sidebarSelection?.url != node.url else { return }
+            FocusLog.log("activeDocumentID → setting sidebarSelection (reveal)")
             sidebarSelection = node
         }
         // Initial sync: .onChange doesn't fire for the value restored at launch,

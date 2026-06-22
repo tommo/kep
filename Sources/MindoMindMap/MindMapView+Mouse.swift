@@ -1,4 +1,5 @@
 import AppKit
+import MindoBase
 import MindoCore
 import MindoModel
 
@@ -61,6 +62,7 @@ extension MindMapView {
     }
 
     public override func mouseDown(with event: NSEvent) {
+        FocusLog.log("canvas.mouseDown (wasFirstResponder=\(window?.firstResponder === self))")
         commitInlineEdit()
         hideNotePopover()
         let p = convert(event.locationInWindow, from: nil)

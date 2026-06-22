@@ -73,6 +73,7 @@ extension AppSession {
     /// Move keyboard focus to a region (revealing it first if collapsed). The
     /// keyboard-only navigation backbone — see [[feedback_keyboard_only_ux]].
     @MainActor func focusRegion(_ region: FocusRegion) {
+        FocusLog.log("focusRegion(\(region))")
         activeRegion = region
         switch region {
         case .sidebar:
@@ -129,6 +130,7 @@ extension AppSession {
     /// highlight. No-op when focus lands somewhere untagged (e.g. a toolbar) so
     /// the indicator never flickers off mid-edit.
     @MainActor func syncActiveRegionToFirstResponder() {
+        FocusLog.log("syncActiveRegionToFirstResponder (after click/Tab)")
         guard let win = NSApp.keyWindow ?? NSApp.mainWindow,
               let responder = win.firstResponder as? NSView else { return }
         let order: [FocusRegion] = [.document, .sidebar, .inspector]

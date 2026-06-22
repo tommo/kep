@@ -318,7 +318,7 @@ public final class MindMapView: NSView {
     public var autoFocusCheck: () -> Bool = { true }
 
     public func grabFocus() {
-        guard autoFocusCheck() else { return }
+        guard autoFocusCheck() else { FocusLog.log("canvas.grabFocus skipped (autoFocus off)"); return }
         // Never steal first responder from an open inline editor. Enter/Tab/F2
         // create a node and immediately begin editing it; the model change then
         // triggers a SwiftUI re-render whose updateNSView calls grabFocus on the
@@ -332,8 +332,9 @@ public final class MindMapView: NSView {
         // after each character typed into that editor.
         // (NSTextView is an NSText subclass, so this catches field editors and
         // the markdown editor's text view alike.)
-        if window?.firstResponder is NSText { return }
+        if window?.firstResponder is NSText { FocusLog.log("canvas.grabFocus skipped (NSText holds focus)"); return }
         window?.makeFirstResponder(self)
+        FocusLog.log("canvas.grabFocus → made canvas first responder")
         // One-shot: tell the host the focus intent was consumed so it can clear
         // the flag. Otherwise every later re-render would re-grab focus, yanking
         // it back from the inspector / sidebar / agent the user just switched to.

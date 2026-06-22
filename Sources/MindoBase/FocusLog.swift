@@ -19,8 +19,27 @@ public enum FocusLog {
         return "\(type(of: fr))"
     }
 
+    /// Fixed log file so the app can be launched any way (even double-clicked
+    /// from Finder, where stdout is discarded) and still record focus events.
+    private static let logURL = URL(fileURLWithPath: "/tmp/mindo-focus.log")
+    private static var didStart = false
+
     public static func log(_ tag: String) {
         guard enabled else { return }
-        print("[FOCUS] \(tag) | firstResponder=\(responder())")
+        let line = "[FOCUS] \(tag) | firstResponder=\(responder())\n"
+        print(line, terminator: "")
+        append(line)
+    }
+
+    private static func append(_ line: String) {
+        if !didStart {   // truncate at first write each launch so the file is one session
+            didStart = true
+            try? "[FOCUS] --- session start ---\n".write(to: logURL, atomically: false, encoding: .utf8)
+        }
+        guard let data = line.data(using: .utf8),
+              let h = try? FileHandle(forWritingTo: logURL) else { return }
+        defer { try? h.close() }
+        h.seekToEndOfFile()
+        h.write(data)
     }
 }

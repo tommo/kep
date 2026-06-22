@@ -88,11 +88,17 @@ final class CanvasClipView: NSClipView {
         let content = (doc as? MindMapView).map { $0.contentBounds }
             .flatMap { $0.width > 0 && $0.height > 0 ? $0 : nil }
             ?? CGRect(origin: .zero, size: doc.frame.size)
-        let origin = CanvasScroll.constrainedOrigin(
+        var origin = CanvasScroll.constrainedOrigin(
             proposed: proposedBounds.origin,
             viewport: proposedBounds.size,
             content: content,
             keepFraction: Self.keepFraction)
+        // Snap the clip origin to the device-pixel grid. Otherwise the canvas
+        // composites at a sub-pixel offset on any fractional pan position, which
+        // drew a faint, pan-dependent hairline along the canvas edge.
+        let scale = max(window?.backingScaleFactor ?? 2, 1)
+        origin.x = (origin.x * scale).rounded() / scale
+        origin.y = (origin.y * scale).rounded() / scale
         return NSRect(origin: origin, size: proposedBounds.size)
     }
 }

@@ -43,7 +43,12 @@ struct DetailArea: View {
                 .help(session.outlineOpen ? L("menu.window.hide_outline") : L("menu.window.show_outline"))
                 .padding(.horizontal, 8)
             }
-            .frame(height: 32)
+            // Match the macOS unified-toolbar height (52pt) so the tabs vertically
+            // center on the SAME line as the traffic lights and the system sidebar
+            // toggle, which the window centers in that 52pt band (measured toggle
+            // center = 26pt from the window top). A shorter strip floats the tabs
+            // above the system controls — the misalignment in the screenshots.
+            .frame(height: 52)
             // The tab strip's bottom border doubles as the document focus hint:
             // an accent line when the doc region holds focus (the old top accent
             // bar sat under the hidden title bar / window edge, unreadable).

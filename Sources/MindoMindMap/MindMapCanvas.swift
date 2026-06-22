@@ -60,6 +60,10 @@ public struct MindMapCanvas: NSViewRepresentable {
 
     public func makeNSView(context: Context) -> NSView {
         let container = NSView()
+        // Paint the container paper-colored too, so no lighter default backing
+        // shows through any sub-pixel sliver at the canvas edge.
+        container.wantsLayer = true
+        container.layer?.backgroundColor = theme.paperColor.cgColor
 
         let scroll = CanvasScrollView()
         // Free-canvas clip view: panning runs a screenful past the content
@@ -195,6 +199,7 @@ public struct MindMapCanvas: NSViewRepresentable {
     public func updateNSView(_ container: NSView, context: Context) {
         guard let view = context.coordinator.view else { return }
         view.theme = theme
+        container.layer?.backgroundColor = theme.paperColor.cgColor   // keep edge sliver paper-colored
         if let scroll = context.coordinator.scroll {
             scroll.backgroundColor = theme.paperColor
             scroll.contentView.backgroundColor = theme.paperColor

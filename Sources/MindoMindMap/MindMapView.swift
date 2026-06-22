@@ -177,6 +177,11 @@ public final class MindMapView: NSView {
     private func commonInit() {
         wantsLayer = true
         layer?.backgroundColor = theme.paperColor.cgColor
+        // Don't antialias the backing layer's own edges. When the document view
+        // lands on a fractional coordinate (any pan offset on Retina), edge
+        // antialiasing blended the canvas border with whatever sat behind it,
+        // showing a thin, pan-dependent hairline around the map.
+        layer?.edgeAntialiasingMask = []
         // No AppKit focus-ring border: the canvas is first responder almost all
         // the time, and the system ring drew a distracting box around the whole
         // map. Keyboard focus is shown by the region accent ring instead.
@@ -567,8 +572,10 @@ public final class MindMapView: NSView {
 
         // Document view must hold the placed content plus padding, and still
         // fill the viewport (bug #38: tiny maps shouldn't expose a canvas edge).
-        let docWidth = max(visibleSize.width, ox + W + pad)
-        let docHeight = max(visibleSize.height, oy + H + pad)
+        // Integral document size — a fractional frame (the Retina viewport size
+        // is often fractional) put the canvas edge on a half-pixel.
+        let docWidth = ceil(max(visibleSize.width, ox + W + pad))
+        let docHeight = ceil(max(visibleSize.height, oy + H + pad))
         if let parent = enclosingScrollView {
             self.frame = CGRect(x: 0, y: 0, width: docWidth, height: docHeight)
             parent.documentView?.frame.size = CGSize(width: docWidth, height: docHeight)

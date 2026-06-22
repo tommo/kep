@@ -46,18 +46,7 @@ extension AppSession {
     @MainActor
     func renameNode(_ node: NodeData) {
         guard !node.isWorkspace else { return }   // workspaces use removeWorkspace, not rename
-        // A modal prompt: an inline TextField inside the SwiftUI sidebar List
-        // never reliably takes first responder, so renaming silently did nothing.
-        let alert = NSAlert()
-        alert.messageText = L("sidebar.rename.title")
-        alert.addButton(withTitle: L("sidebar.rename.title"))   // default: Rename
-        alert.addButton(withTitle: L("button.cancel"))
-        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
-        field.stringValue = node.name
-        alert.accessoryView = field
-        alert.window.initialFirstResponder = field
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        renameNode(node, to: field.stringValue)
+        renamingNodeURL = node.url.standardizedFileURL   // sidebar swaps the row for an inline field
     }
 
     /// Commit a rename to disk. Empty / unchanged names quietly cancel. When

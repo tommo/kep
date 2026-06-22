@@ -499,6 +499,10 @@ final class AppSession {
     /// Cleared on next selection / new doc open.
     var lastSearchMatch: String?
 
+    /// Standardized URL of the sidebar row currently being inline-renamed, or nil.
+    /// Keyed by URL (not NodeData.id) because the tree rebuilds NodeData instances
+    /// on every reload — a per-instance id wouldn't survive to render.
+    var renamingNodeURL: URL?
 
     /// One-shot: whether the next-opened editor may grab keyboard focus. A
     /// browse-open (sidebar single-click) sets this false so focus stays in the

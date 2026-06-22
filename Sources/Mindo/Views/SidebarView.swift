@@ -1,5 +1,65 @@
 import SwiftUI
+import AppKit
 import MindoCore
+
+/// Inline rename editor for a sidebar row. An NSViewRepresentable wrapping a
+/// real NSTextField — a SwiftUI TextField + @FocusState never reliably takes
+/// first responder inside a List row, so we force it at the AppKit level. Commits
+/// on Return / focus-loss, cancels on Esc.
+private struct InlineRenameField: NSViewRepresentable {
+    let initial: String
+    let onCommit: (String) -> Void
+    let onCancel: () -> Void
+
+    func makeNSView(context: Context) -> NSTextField {
+        let field = NSTextField(string: initial)
+        field.bezelStyle = .roundedBezel
+        field.focusRingType = .none
+        field.font = .systemFont(ofSize: 12)
+        field.lineBreakMode = .byTruncatingTail
+        field.delegate = context.coordinator
+        field.target = context.coordinator
+        field.action = #selector(Coordinator.commit(_:))
+        // Force first responder + select-all once the field is in the window.
+        DispatchQueue.main.async {
+            guard field.window?.makeFirstResponder(field) == true else { return }
+            field.currentEditor()?.selectAll(nil)
+        }
+        return field
+    }
+
+    func updateNSView(_ nsView: NSTextField, context: Context) {}
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    final class Coordinator: NSObject, NSTextFieldDelegate {
+        private let parent: InlineRenameField
+        private var finished = false
+        init(_ parent: InlineRenameField) { self.parent = parent }
+
+        @objc func commit(_ sender: NSTextField) {
+            guard !finished else { return }
+            finished = true
+            parent.onCommit(sender.stringValue)
+        }
+
+        func controlTextDidEndEditing(_ obj: Notification) {
+            guard !finished, let field = obj.object as? NSTextField else { return }
+            finished = true
+            parent.onCommit(field.stringValue)   // commit on focus loss
+        }
+
+        func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
+            if selector == #selector(NSResponder.cancelOperation(_:)) {   // Esc
+                guard !finished else { return true }
+                finished = true
+                parent.onCancel()
+                return true
+            }
+            return false
+        }
+    }
+}
 
 /// Workspaces + lazy folder/file tree on the left of the window.
 struct SidebarView: View {
@@ -99,9 +159,10 @@ struct SidebarView: View {
         }
     }
 
-    /// One workspace's header row: a fold toggle (chevron + tinted vault icon +
-    /// name) and a remove button. A plain List row (not a Section header), so
-    /// the contents below aren't pushed right by the sidebar's section indent.
+    /// One workspace's header row: just a fold toggle (chevron + tinted vault
+    /// icon + name). Remove/new/reveal live in the right-click menu — removing a
+    /// workspace is destructive, so it shouldn't be a one-click button. A plain
+    /// List row (not a Section header) so contents aren't pushed right.
     @ViewBuilder
     private func workspaceHeaderRow(_ root: NodeData) -> some View {
         HStack {
@@ -121,13 +182,23 @@ struct SidebarView: View {
             .buttonStyle(.plain)
             .help(L("sidebar.tooltip.toggle_workspace"))
             Spacer()
-            Button { session.removeWorkspace(root) } label: {
-                Image(systemName: "minus.circle")
-            }
-            .buttonStyle(.plain)
-            .help(L("sidebar.tooltip.remove_workspace"))
         }
         .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 2, trailing: 6))
+        .contextMenu {
+            Menu(L("sidebar.menu.new_file")) {
+                Button(L("sidebar.menu.new_file.mindmap"))  { session.createFile(in: root, extension: "mmd") }
+                Button(L("sidebar.menu.new_file.markdown")) { session.createFile(in: root, extension: "md") }
+                Button(L("sidebar.menu.new_file.plantuml")) { session.createFile(in: root, extension: "puml") }
+                Button(L("sidebar.menu.new_file.csv"))      { session.createFile(in: root, extension: "csv") }
+                Button(L("sidebar.menu.new_file.notebook")) { session.createFile(in: root, extension: "mnb") }
+                Button(L("sidebar.menu.new_file.text"))     { session.createFile(in: root, extension: "txt") }
+            }
+            Button(L("sidebar.menu.new_folder")) { session.createFolder(in: root) }
+            Divider()
+            Button(L("sidebar.menu.reveal_in_finder")) { session.revealInFinder(root) }
+            Divider()
+            Button(L("sidebar.menu.remove_workspace"), role: .destructive) { session.removeWorkspace(root) }
+        }
         .onDrag { NSItemProvider(object: root.url.path as NSString) }
         .onDrop(of: [.text], delegate: WorkspaceDropDelegate(target: root.url.path, session: $session))
     }
@@ -266,14 +337,25 @@ struct NodeRow: View {
         .contextMenu { menuItems }
     }
 
-    /// The row name. Folders + workspaces always show their full name; only file
-    /// rows honor the Hide Extensions toggle so directories like `notes.archive`
-    /// keep their identifying suffix. (Renaming uses a modal prompt — see
-    /// AppSession.renameNode — since an inline List TextField can't hold focus.)
+    /// The row name, or — when this row is the rename target — an inline editor.
+    /// Folders + workspaces show their full name; file rows honor Hide Extensions.
+    @ViewBuilder
     private var label: some View {
-        Text(node.isFile
-             ? SidebarLabel.displayName(node.name, hideExtensions: hideFileExtensions)
-             : node.name)
+        if session.renamingNodeURL == node.url.standardizedFileURL {
+            InlineRenameField(
+                initial: node.name,
+                onCommit: { newName in
+                    session.renameNode(node, to: newName)
+                    session.renamingNodeURL = nil
+                },
+                onCancel: { session.renamingNodeURL = nil }
+            )
+            .frame(height: 18)
+        } else {
+            Text(node.isFile
+                 ? SidebarLabel.displayName(node.name, hideExtensions: hideFileExtensions)
+                 : node.name)
+        }
     }
 
     @ViewBuilder

@@ -22,22 +22,6 @@ struct DetailArea: View {
             HStack(spacing: 0) {
                 DocumentTabBar(session: $session)
                 Divider()
-                // "New document" dropdown in the doc-zone header. A plain menu
-                // (click opens the list) — no surprise primary action.
-                Menu {
-                    Button(L("menu.file.new_mindmap"))  { session.newMindMap() }
-                    Button(L("menu.file.new_markdown")) { session.newMarkdown() }
-                    Button(L("menu.file.new_plantuml")) { session.newPlantUML() }
-                    Button(L("menu.file.new_csv"))      { session.newCSV() }
-                    Button(L("menu.file.new_notebook")) { session.newResearchNotebook() }
-                    Button(L("menu.file.new_text"))     { session.newTextFile() }
-                } label: {
-                    Label(L("detail.new_document"), systemImage: "doc.badge.plus")
-                }
-                .menuStyle(.borderlessButton)
-                .fixedSize()
-                .help(L("detail.new_document"))
-                .padding(.horizontal, 8)
                 Button {
                     session.outlineOpen.toggle()
                 } label: {
@@ -46,7 +30,7 @@ struct DetailArea: View {
                 }
                 .buttonStyle(.plain)
                 .help(session.outlineOpen ? L("menu.window.hide_outline") : L("menu.window.show_outline"))
-                .padding(.trailing, 8)
+                .padding(.horizontal, 8)
             }
             .frame(height: 32)
             Divider()

@@ -84,12 +84,16 @@ struct ContentView: View {
                 onConfirm: confirmSelection
             )
             .background(RegionContainerTagger(session: session, region: .sidebar))
-            .background(WindowConfigurator())
             .overlay(regionRing(.sidebar))
             .navigationSplitViewColumnWidth(min: 170, ideal: 220, max: 460)
         } detail: {
             DetailArea(session: $session)
                 .background(RegionContainerTagger(session: session, region: .document))
+                // Attach to the detail column — it's ALWAYS mounted (unlike the
+                // sidebar, which unmounts when collapsed, leaving the stray system
+                // toggle in place). This guarantees the window toolbar is cleared
+                // in both states.
+                .background(WindowConfigurator())
                 // Doc focus hint is the tab strip's bottom border (see DetailArea)
                 // — a top ring sat under the hidden title bar.
                 // Obsidian-style: the tab strip ALWAYS sits flush in the top

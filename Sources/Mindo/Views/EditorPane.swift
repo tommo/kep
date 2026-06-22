@@ -122,7 +122,8 @@ struct EditorPane: View {
                 runOne: { src, ctx in await session.runNotebookCell(src, in: ctx) },
                 runAll: { nb, ctx in await session.runNotebookAll(nb, in: ctx) },
                 runAgent: { question, sink in await session.runNotebookAgent(question, into: sink) },
-                onOpenSource: { name in session.openWikiLink(target: name, heading: nil) })
+                onOpenSource: { name in session.openWikiLink(target: name, heading: nil) },
+                shouldFocusOnAppear: { session.pendingEditorFocus })
         case .text(let body, _):
             ScrollView {
                 Text(body)

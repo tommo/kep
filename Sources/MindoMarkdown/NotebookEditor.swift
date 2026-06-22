@@ -278,17 +278,22 @@ public struct NotebookEditor: View {
     let documentURL: URL?
     let isDarkMode: Bool
     let onOpenSource: ((String) -> Void)?
+    /// Whether the notebook may take keyboard focus when it appears. False for a
+    /// browse-open (sidebar single-click) so focus stays in the sidebar.
+    let shouldFocusOnAppear: () -> Bool
     @StateObject private var model: NotebookModel
     @FocusState private var focus: NotebookFocus?
 
     public init(text: Binding<String>, documentURL: URL?, isDarkMode: Bool,
                 runOne: @escaping NotebookRunOne, runAll: @escaping NotebookRunAll,
                 runAgent: NotebookAgentRunner? = nil,
-                onOpenSource: ((String) -> Void)? = nil) {
+                onOpenSource: ((String) -> Void)? = nil,
+                shouldFocusOnAppear: @escaping () -> Bool = { true }) {
         _text = text
         self.documentURL = documentURL
         self.isDarkMode = isDarkMode
         self.onOpenSource = onOpenSource
+        self.shouldFocusOnAppear = shouldFocusOnAppear
         _model = StateObject(wrappedValue: NotebookModel(
             text: text.wrappedValue, documentURL: documentURL,
             runOne: runOne, runAll: runAll, runAgent: runAgent,
@@ -321,7 +326,10 @@ public struct NotebookEditor: View {
         .focused($focus, equals: .command)
         .focusEffectDisabled()
         .onKeyPress(phases: .down) { handleCommandKey($0) }
-        .onAppear { model.selectFirstIfNeeded(); focus = .command }
+        .onAppear {
+            model.selectFirstIfNeeded()           // visual selection only
+            if shouldFocusOnAppear() { focus = .command }   // don't steal focus on a browse-open
+        }
         .onChange(of: focus) { _, f in if case .edit(let id)? = f { model.selectedID = id } }
         .onChange(of: text) { _, new in model.reload(from: new) }
         .onReceive(NotificationCenter.default.publisher(for: .focusNotebookCommand)) { _ in

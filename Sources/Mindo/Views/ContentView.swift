@@ -100,13 +100,12 @@ struct ContentView: View {
                 .ignoresSafeArea(.container, edges: .top)
         }
         .navigationSplitViewStyle(.balanced)
-        // Make the sidebar fold/expand snappy. NavigationSplitView's default
-        // column slide is a slow spring; override any animation carried into the
-        // split view with a short ease-out so the toggle (menu, ⌘, or the system
-        // toolbar button) feels instant instead of sluggish.
-        .transaction { txn in
-            if txn.animation != nil { txn.animation = .easeOut(duration: 0.12) }
-        }
+        // Snap the sidebar fold/expand instead of animating it. The column slide
+        // is AppKit-driven (its own timer) while our tab gutter width animates on
+        // the SwiftUI transaction clock — the two can't be kept in sync, so any
+        // animation shows the tabs lurching the "wrong way" before the column
+        // catches up. Disabling the animation makes both snap together cleanly.
+        .transaction { txn in txn.animation = nil }
         .inspector(isPresented: inspectorPresented) {
             inspectorPane
                 .background(RegionContainerTagger(session: session, region: .inspector))

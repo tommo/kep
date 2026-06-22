@@ -100,6 +100,13 @@ struct ContentView: View {
                 .ignoresSafeArea(.container, edges: .top)
         }
         .navigationSplitViewStyle(.balanced)
+        // Make the sidebar fold/expand snappy. NavigationSplitView's default
+        // column slide is a slow spring; override any animation carried into the
+        // split view with a short ease-out so the toggle (menu, ⌘, or the system
+        // toolbar button) feels instant instead of sluggish.
+        .transaction { txn in
+            if txn.animation != nil { txn.animation = .easeOut(duration: 0.12) }
+        }
         .inspector(isPresented: inspectorPresented) {
             inspectorPane
                 .background(RegionContainerTagger(session: session, region: .inspector))

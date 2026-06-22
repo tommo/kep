@@ -451,6 +451,9 @@ struct ContentView: View {
                 // markdown/PlantUML outline rows map to read-only source offsets.
                 onRename: session.activeFileType == .mindMap
                     ? { item, newName in session.renameOutlineTopic(atOutlinePath: item.target, to: newName) }
+                    : nil,
+                onMove: session.activeFileType == .mindMap
+                    ? { item, move in session.moveOutlineTopic(atOutlinePath: item.target, move) }
                     : nil
             )
             .frame(minHeight: 100, idealHeight: 260)

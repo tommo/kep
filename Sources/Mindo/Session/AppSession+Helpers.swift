@@ -289,6 +289,25 @@ extension AppSession {
         view.undoableSetText(topic, to: newText)
     }
 
+    /// Reorder/reparent the topic at `path` from the outline (T2 #201). All four
+    /// moves go through `undoableReparent` (one undo step) and re-select the moved
+    /// topic so the canvas + outline highlight follow it.
+    @MainActor func moveOutlineTopic(atOutlinePath path: String, _ move: OutlineMove) {
+        guard case .mindMap(let map)? = activeDocument?.kind,
+              let topic = map.topic(atOutlinePath: path),
+              let view = activeMindMapView else { return }
+        let modelMove: TopicMove
+        switch move {
+        case .up:      modelMove = .up
+        case .down:    modelMove = .down
+        case .indent:  modelMove = .indent
+        case .outdent: modelMove = .outdent
+        }
+        guard let plan = topic.movePlan(modelMove) else { return }
+        view.undoableReparent(topic, to: plan.newParent, at: plan.index)
+        view.selectTopics([topic])
+    }
+
     /// Apply a built-in supertag template (keystone #200) to the selected node,
     /// stamping any missing typed properties with their defaults. Returns the
     /// keys that were added (empty if none/no selection/unknown template).

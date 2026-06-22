@@ -1,5 +1,11 @@
 import SwiftUI
 
+/// A structural move requested from the outline (⌥-arrows): reorder among
+/// siblings or change depth. The host maps these to undoable reparents.
+public enum OutlineMove {
+    case up, down, indent, outdent
+}
+
 /// Sidebar list rendering of an `[OutlineItem]`. Indents by `depth` and emits
 /// a tap on selection. Lightweight: just a SwiftUI `List`; tree disclosure
 /// stays out of the way since the indentation already shows hierarchy.
@@ -14,6 +20,9 @@ public struct OutlinePanel: View {
     /// read-only (markdown/PlantUML outlines); when set (mind maps) a row can be
     /// edited in place via double-click or Return on the selected row.
     public var onRename: ((OutlineItem, String) -> Void)?
+    /// Structural move callback `(item, move)` for ⌥-arrow reorder/reparent.
+    /// nil for read-only outlines.
+    public var onMove: ((OutlineItem, OutlineMove) -> Void)?
     @State private var selection: OutlineItem.ID?
     @State private var filter: String = ""
     /// True while pushing the external `selectedTarget` into `selection`, so the
@@ -26,11 +35,13 @@ public struct OutlinePanel: View {
 
     public init(items: [OutlineItem], selectedTarget: String? = nil,
                 onSelect: @escaping (OutlineItem) -> Void,
-                onRename: ((OutlineItem, String) -> Void)? = nil) {
+                onRename: ((OutlineItem, String) -> Void)? = nil,
+                onMove: ((OutlineItem, OutlineMove) -> Void)? = nil) {
         self.items = items
         self.selectedTarget = selectedTarget
         self.onSelect = onSelect
         self.onRename = onRename
+        self.onMove = onMove
     }
 
     private func beginEdit(_ item: OutlineItem) {
@@ -127,14 +138,26 @@ public struct OutlinePanel: View {
                 }
                 .listStyle(.plain)
                 .environment(\.defaultMinListRowHeight, 20)
-                // Return on the selected row begins an inline rename (keyboard
-                // parity with double-click). Ignored while already editing — the
-                // focused TextField handles Return as commit.
-                .onKeyPress(.return) {
-                    guard onRename != nil, editingID == nil, let id = selection,
+                // Keyboard ops on the selected row (List handles plain arrows for
+                // selection; we only claim Return and ⌥-arrows). Skipped while
+                // editing — the focused TextField owns the keys then.
+                .onKeyPress { press in
+                    guard editingID == nil, let id = selection,
                           let item = items.first(where: { $0.id == id }) else { return .ignored }
-                    beginEdit(item)
-                    return .handled
+                    if press.key == .return, press.modifiers.isEmpty, onRename != nil {
+                        beginEdit(item)
+                        return .handled
+                    }
+                    if press.modifiers.contains(.option), let onMove {
+                        switch press.key {
+                        case .upArrow:    onMove(item, .up);      return .handled
+                        case .downArrow:  onMove(item, .down);    return .handled
+                        case .leftArrow:  onMove(item, .outdent); return .handled
+                        case .rightArrow: onMove(item, .indent);  return .handled
+                        default: break
+                        }
+                    }
+                    return .ignored
                 }
                 // Navigate on real selection changes (not the programmatic sync)
                 // — drives off List selection so the row shows the normal arrow

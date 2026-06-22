@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 import MindoBase
 import MindoCore
+import MindoMindMap
 import MindoModel
 import MindoMarkdown
 import MindoGenAI
@@ -99,18 +100,20 @@ struct ContentView: View {
             // it as a focus blip and restore the row for the active document so
             // the tree keeps showing where you are (Finder / VS Code behaviour).
             if new == nil {
-                // Re-assert the row ONLY when focus is still around the sidebar.
-                // If the user just clicked into the document (canvas/editor) or a
-                // text field, the List nilled its binding because it resigned
-                // first responder — re-setting it here pulls focus straight back
-                // to the workspace panel (the "focus jumps to the sidebar when I
-                // click in the doc" bug, most visible with a second tab in front).
-                if !documentHasFocus,
-                   let url = session.activeDocument?.fileURL,
-                   let node = sidebarNode(for: url) {
+                // The List nils its binding when it resigns first responder. If
+                // the user clicked into the document, re-asserting the row here
+                // pulls focus straight back to the workspace panel (the "focus
+                // jumps to the sidebar when I click in the doc" bug, most visible
+                // with a second tab in front). Defer the decision to the next
+                // runloop so the first responder has SETTLED on the new editor —
+                // checking synchronously raced and saw focus still in transit.
+                selectionSource = .pointer
+                DispatchQueue.main.async {
+                    guard sidebarSelection == nil, !documentHasFocus,
+                          let url = session.activeDocument?.fileURL,
+                          let node = sidebarNode(for: url) else { return }
                     sidebarSelection = node
                 }
-                selectionSource = .pointer
                 return
             }
             // Selecting a file — by click OR arrow — browses it: open it WITHOUT
@@ -512,9 +515,13 @@ struct ContentView: View {
     /// back when the user clicks into the document.
     private var documentHasFocus: Bool {
         guard let fr = (NSApp.keyWindow ?? NSApp.mainWindow)?.firstResponder else { return false }
-        if let canvas = session.activeMindMapView, let v = fr as? NSView,
-           v == canvas || v.isDescendant(of: canvas) { return true }
-        return fr is NSText
+        if fr is NSText { return true }          // any text editor (doc / note / agent)
+        if let v = fr as? NSView {
+            if v is MindMapView { return true }  // the canvas itself
+            if let canvas = session.activeMindMapView,
+               v == canvas || v.isDescendant(of: canvas) { return true }
+        }
+        return false
     }
 
     private func confirmSelection() {

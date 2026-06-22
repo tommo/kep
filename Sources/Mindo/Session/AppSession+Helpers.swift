@@ -119,10 +119,34 @@ extension AppSession {
             // Only Tab (48) among key events relocates focus across panes;
             // ignore every other keystroke so typing stays cheap.
             if event.type == .keyDown && event.keyCode != 48 { return event }
-            // First responder updates *after* the event is dispatched, so read
-            // it on the next runloop turn.
-            DispatchQueue.main.async { self?.syncActiveRegionToFirstResponder() }
+            let isClick = event.type == .leftMouseDown
+            let point = event.locationInWindow
+            let window = event.window
+            DispatchQueue.main.async {
+                guard let self else { return }
+                if isClick {
+                    // A click maps to whichever pane it landed in — so clicking
+                    // ANYWHERE (even a non-focusable spot outside the canvas)
+                    // moves the focus ring, not only clicks that change the first
+                    // responder.
+                    self.applyRegionAtClick(point, in: window)
+                } else {
+                    // Tab: first responder updates after dispatch, read next turn.
+                    self.syncActiveRegionToFirstResponder()
+                }
+            }
             return event
+        }
+    }
+
+    /// Set `activeRegion` from a click's window-space location: the pane whose
+    /// container frame contains the point. Pane frames don't overlap, so order
+    /// doesn't matter.
+    @MainActor private func applyRegionAtClick(_ point: NSPoint, in window: NSWindow?) {
+        guard let win = window ?? NSApp.keyWindow ?? NSApp.mainWindow else { return }
+        for region in [FocusRegion.sidebar, .document, .inspector] {
+            guard let c = regionContainers[region]?.view, c.window === win else { continue }
+            if c.convert(c.bounds, to: nil).contains(point) { apply(region); return }
         }
     }
 

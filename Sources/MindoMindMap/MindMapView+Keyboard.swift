@@ -237,13 +237,15 @@ extension MindMapView {
             if from === root { return from.isCollapsed ? nil : inwardChild(root.leftChildren) }
             return from.isLeftSide ? inwardChild(from.visibleChildren) : towardParent()
         case .up, .down:
-            // Purely POSITIONAL: the nearest visible node above/below anywhere on
-            // the canvas (nearest row, tie-broken by horizontal closeness), so
-            // Up/Down walk in reading order and cross subtree — and side —
-            // boundaries instead of dead-ending. The horizontal tie-break keeps
-            // you on your own branch while same-row neighbours exist, and only
-            // crosses to the other half when that's genuinely the nearest node.
-            let candidates = visibleElements().filter { $0 !== from && $0 !== root }
+            // POSITIONAL within the same half of the map: the node most directly
+            // above/below `from` (directional cost), so Up/Down walk in reading
+            // order and cross SUBTREE boundaries (different branches) instead of
+            // dead-ending at a sibling list. Restricted to the same side so it
+            // never WARPS across the root to the far side of the tree — the
+            // bottom of one side dead-ends rather than teleporting to the other.
+            let candidates = visibleElements().filter {
+                $0 !== from && $0 !== root && $0.isLeftSide == from.isLeftSide
+            }
             guard let idx = Self.nearestVertical(from: from.frame,
                                                  candidates: candidates.map(\.frame),
                                                  goingDown: direction == .down) else { return nil }
@@ -267,10 +269,10 @@ extension MindMapView {
     /// Pure geometry for Up/Down arrow navigation: among `candidates` strictly
     /// above (`goingDown == false`) or below `from`, pick the one most directly
     /// in that direction — a directional cost `verticalGap + 2·horizontalOffset`
-    /// that prefers the node straight above/below and only drifts sideways (to
-    /// another branch/side) when nothing is aligned. Returns the index into
-    /// `candidates`, or nil when none lie in that direction. (Canvas is flipped:
-    /// smaller midY is visually higher, so "down" means a larger midY.)
+    /// that prefers the node straight above/below over a sideways one. Returns
+    /// the index into `candidates`, or nil when none lie in that direction.
+    /// (Canvas is flipped: smaller midY is visually higher, so "down" = larger
+    /// midY.)
     static func nearestVertical(from: CGRect, candidates: [CGRect], goingDown: Bool) -> Int? {
         let fromX = from.midX, fromY = from.midY
         var best: Int?

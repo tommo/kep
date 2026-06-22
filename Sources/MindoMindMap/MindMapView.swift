@@ -177,6 +177,10 @@ public final class MindMapView: NSView {
     private func commonInit() {
         wantsLayer = true
         layer?.backgroundColor = theme.paperColor.cgColor
+        // No AppKit focus-ring border: the canvas is first responder almost all
+        // the time, and the system ring drew a distracting box around the whole
+        // map. Keyboard focus is shown by the region accent ring instead.
+        focusRingType = .none
     }
 
     public override var acceptsFirstResponder: Bool { true }

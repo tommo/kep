@@ -84,12 +84,16 @@ struct ContentView: View {
             DetailArea(session: $session)
                 .background(RegionContainerTagger(session: session, region: .document))
                 .overlay(regionRing(.document))
+                // Fill the hidden-title-bar strip — no traffic lights over these
+                // columns, so the tab strip / inspector sit flush at the top.
+                .ignoresSafeArea(.container, edges: .top)
         }
         .navigationSplitViewStyle(.balanced)
         .inspector(isPresented: inspectorPresented) {
             inspectorPane
                 .background(RegionContainerTagger(session: session, region: .inspector))
                 .overlay(regionRing(.inspector))
+                .ignoresSafeArea(.container, edges: .top)
                 .inspectorColumnWidth(min: 200, ideal: 280, max: 460)
         }
         .onChange(of: sidebarSelection) { _, new in

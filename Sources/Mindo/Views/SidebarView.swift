@@ -40,12 +40,22 @@ private struct InlineRenameField: NSViewRepresentable {
         @objc func commit(_ sender: NSTextField) {
             guard !finished else { return }
             finished = true
+            restoreListFocus(from: sender)   // Return: hand focus back to the list
             parent.onCommit(sender.stringValue)
         }
 
         func controlTextDidEndEditing(_ obj: Notification) {
             guard !finished, let field = obj.object as? NSTextField else { return }
             finished = true
+            // Return/Tab end the edit by keyboard → keep focus in the sidebar so
+            // the user can keep arrowing. A blur (NSOtherTextMovement, e.g. a
+            // click elsewhere) intentionally moved focus — don't yank it back.
+            let movement = (obj.userInfo?["NSTextMovement"] as? Int) ?? 0
+            if movement == NSTextMovement.return.rawValue
+                || movement == NSTextMovement.tab.rawValue
+                || movement == NSTextMovement.backtab.rawValue {
+                restoreListFocus(from: field)
+            }
             parent.onCommit(field.stringValue)   // commit on focus loss
         }
 
@@ -53,10 +63,29 @@ private struct InlineRenameField: NSViewRepresentable {
             if selector == #selector(NSResponder.cancelOperation(_:)) {   // Esc
                 guard !finished else { return true }
                 finished = true
+                restoreListFocus(from: control)
                 parent.onCancel()
                 return true
             }
             return false
+        }
+
+        /// After the rename field goes away (commit/cancel by keyboard), the
+        /// window would otherwise be left with no first responder. Walk up to the
+        /// List's backing NSTableView and re-make it first responder so the
+        /// workspace panel keeps focus (arrow-nav, selection ring) instead of
+        /// going dead. Captured now (field still in the tree); applied next
+        /// runloop, after SwiftUI removes the field.
+        private func restoreListFocus(from view: NSView) {
+            let window = view.window
+            var ancestor: NSView? = view.superview
+            var table: NSView?
+            while let cur = ancestor {
+                if cur is NSTableView { table = cur; break }
+                ancestor = cur.superview
+            }
+            guard let window, let table else { return }
+            DispatchQueue.main.async { window.makeFirstResponder(table) }
         }
     }
 }

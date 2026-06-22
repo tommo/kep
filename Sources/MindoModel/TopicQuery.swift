@@ -87,6 +87,21 @@ public enum TopicQuery {
             return PropertyCodec.encode(pv).caseInsensitiveCompare(value) == .orderedSame
                 || PropertyInference.infer(value) == pv
         }
+        // Numeric comparison on a typed number property: `key>=3`, `progress<50`,
+        // `priority>2`. Only for colon-less terms, so `text:`/`key:value` are
+        // untouched. Matches only when the property exists and is a number.
+        for op in [">=", "<=", ">", "<"] where term.contains(op) {
+            guard let r = term.range(of: op) else { continue }
+            let key = String(term[..<r.lowerBound])
+            guard !key.isEmpty, let bound = Double(term[r.upperBound...]),
+                  case .number(let n)? = topic.property(key) else { return false }
+            switch op {
+            case ">=": return n >= bound
+            case "<=": return n <= bound
+            case ">":  return n > bound
+            default:   return n < bound
+            }
+        }
         return topic.text.localizedCaseInsensitiveContains(term)
     }
 

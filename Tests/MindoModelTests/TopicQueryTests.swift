@@ -66,6 +66,27 @@ final class TopicQueryTests: XCTestCase {
         XCTAssertEqual(TopicQuery.evaluate("under:Home", in: m).map(\.text), ["Ship package"])
     }
 
+    func testNumericComparisonOperators() {
+        let m = sample()   // Design API priority 1, Write docs priority 3
+        XCTAssertEqual(TopicQuery.evaluate("priority>=3", in: m).map(\.text), ["Write docs"])
+        XCTAssertEqual(TopicQuery.evaluate("priority>1", in: m).map(\.text), ["Write docs"])
+        XCTAssertEqual(TopicQuery.evaluate("priority<=1", in: m).map(\.text), ["Design API"])
+        XCTAssertEqual(TopicQuery.evaluate("priority<3", in: m).map(\.text), ["Design API"])
+        XCTAssertEqual(Set(TopicQuery.evaluate("priority>=1", in: m).map(\.text)), ["Design API", "Write docs"])
+        XCTAssertTrue(TopicQuery.evaluate("priority>9", in: m).isEmpty)
+        // Non-numeric / missing property → no match, not a crash.
+        XCTAssertTrue(TopicQuery.evaluate("tags>1", in: m).isEmpty)
+        XCTAssertTrue(TopicQuery.evaluate("missing>1", in: m).isEmpty)
+        // Composes with AND.
+        XCTAssertEqual(TopicQuery.evaluate("priority>=1 done:true", in: m).map(\.text), ["Write docs"])
+    }
+
+    func testComparisonDoesNotBreakColonTerms() {
+        let m = sample()
+        // A colon term whose value contains '>' stays a text match, not a comparison.
+        XCTAssertTrue(TopicQuery.evaluate("text:a>b", in: m).isEmpty)
+    }
+
     func testRegexTerm() {
         let m = sample()
         XCTAssertEqual(TopicQuery.evaluate("/^Design/", in: m).map(\.text), ["Design API"])

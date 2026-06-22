@@ -84,6 +84,7 @@ struct ContentView: View {
                 onConfirm: confirmSelection
             )
             .background(RegionContainerTagger(session: session, region: .sidebar))
+            .background(WindowConfigurator())
             .overlay(regionRing(.sidebar))
             .navigationSplitViewColumnWidth(min: 170, ideal: 220, max: 460)
         } detail: {
@@ -664,6 +665,38 @@ private struct SuppressSidebarToggle: ViewModifier {
             content.toolbar(removing: .sidebarToggle)
         } else {
             content
+        }
+    }
+}
+
+/// Takes direct AppKit control of the host `NSWindow`: keeps the title bar
+/// transparent/empty (no app-name band) and strips NavigationSplitView's
+/// auto-injected toolbar (the sidebar-toggle item that floats over our flush
+/// tab strip). SwiftUI's `.toolbar(removing: .sidebarToggle)` does NOT remove
+/// it under `.windowStyle(.hiddenTitleBar)`, so we do it at the window level.
+private struct WindowConfigurator: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let v = NSView(frame: .zero)
+        DispatchQueue.main.async { Self.configure(v.window) }
+        return v
+    }
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async { Self.configure(nsView.window) }
+    }
+
+    static func configure(_ window: NSWindow?) {
+        guard let window else { return }
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        // NavigationSplitView injects an NSToolbar holding a flexible space, its
+        // own sidebar-toggle, and a split-view tracking separator. Under
+        // `.hiddenTitleBar` that toggle floats over our flush tab strip as a
+        // stray rounded button, and `.toolbar(removing: .sidebarToggle)` does
+        // NOT remove it. We draw our own toolbar/tab row, so drop the SwiftUI
+        // toolbar entirely at the window level. Guard so we only clear it once
+        // (SwiftUI rarely re-adds it, but the guard avoids any churn if it does).
+        if window.toolbar != nil {
+            window.toolbar = nil
         }
     }
 }

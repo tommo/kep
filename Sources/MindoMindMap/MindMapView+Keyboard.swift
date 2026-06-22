@@ -265,22 +265,23 @@ extension MindMapView {
     }
 
     /// Pure geometry for Up/Down arrow navigation: among `candidates` strictly
-    /// above (`goingDown == false`) or below `from`, pick the nearest row, then
-    /// tie-break by horizontal closeness. Returns the index into `candidates`,
-    /// or nil when none lie in that direction. (Canvas is flipped: smaller midY
-    /// is visually higher, so "down" means a larger midY.)
+    /// above (`goingDown == false`) or below `from`, pick the one most directly
+    /// in that direction — a directional cost `verticalGap + 2·horizontalOffset`
+    /// that prefers the node straight above/below and only drifts sideways (to
+    /// another branch/side) when nothing is aligned. Returns the index into
+    /// `candidates`, or nil when none lie in that direction. (Canvas is flipped:
+    /// smaller midY is visually higher, so "down" means a larger midY.)
     static func nearestVertical(from: CGRect, candidates: [CGRect], goingDown: Bool) -> Int? {
         let fromX = from.midX, fromY = from.midY
-        let inDir = candidates.enumerated().filter { _, f in
-            goingDown ? f.midY > fromY + 0.5 : f.midY < fromY - 0.5
+        var best: Int?
+        var bestCost = Double.greatestFiniteMagnitude
+        for (i, f) in candidates.enumerated() {
+            let dy = Double(f.midY - fromY)
+            guard goingDown ? dy > 0.5 : dy < -0.5 else { continue }
+            let cost = abs(dy) + 2 * abs(Double(f.midX - fromX))
+            if cost < bestCost { bestCost = cost; best = i }
         }
-        guard !inDir.isEmpty else { return nil }
-        let dyMin = inDir.map { abs($0.element.midY - fromY) }.min()!
-        // Rows within this band of the nearest count as "the same row"; among
-        // them the horizontally closest wins, otherwise the closer row wins.
-        let band = dyMin * 0.5 + 4
-        return inDir.filter { abs($0.element.midY - fromY) <= dyMin + band }
-                    .min { abs($0.element.midX - fromX) < abs($1.element.midX - fromX) }?.offset
+        return best
     }
 
     func move(_ direction: Direction) {

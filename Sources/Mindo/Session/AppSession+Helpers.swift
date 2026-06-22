@@ -150,7 +150,12 @@ extension AppSession {
     @MainActor private func containsResponder(_ region: FocusRegion, _ responder: NSView, geometric: Bool) -> Bool {
         guard let container = regionContainers[region]?.view else { return false }
         if !geometric { return responder == container || responder.isDescendant(of: container) }
-        let r = responder.convert(responder.bounds, to: nil)
+        // A scrollable document view (the mind-map canvas) is far larger than its
+        // viewport and its bounds-centre PANS off-screen — using it made the focus
+        // ring jump between columns as you scrolled. Use the responder's enclosing
+        // scroll view (a fixed, column-sized frame) so the mapping is stable.
+        let target = responder.enclosingScrollView ?? responder
+        let r = target.convert(target.bounds, to: nil)
         let c = container.convert(container.bounds, to: nil)
         return c.contains(NSPoint(x: r.midX, y: r.midY))
     }

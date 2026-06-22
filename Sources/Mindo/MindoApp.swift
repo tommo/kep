@@ -316,7 +316,7 @@ struct MindoApp: App {
                 Button(L("menu.view.focus_inspector")) { session.focusRegion(.inspector) }
                     .keyboardShortcut("3", modifiers: .command)
                 Button(L("menu.view.focus_agent")) { session.focusRegion(.agent) }
-                    .keyboardShortcut("\\", modifiers: .command)
+                    .keyboardShortcut("4", modifiers: .command)
                 Divider()
                 Button(L("menu.view.zoom_in")) { session.zoomCommand = .in; session.zoomCommandTick &+= 1 }
                     .keyboardShortcut("=", modifiers: .command)

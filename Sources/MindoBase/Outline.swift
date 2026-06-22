@@ -21,7 +21,12 @@ public struct OutlineMarker: Hashable {
 
 /// One row in the outline panel. Mirrors `OutlineItemData` from `mindolph-core`.
 public struct OutlineItem: Identifiable, Hashable {
-    public let id = UUID()
+    /// Stable identity = the navigation `target` (unique per node/heading). It is
+    /// deliberately NOT a per-rebuild UUID: a stable id lets SwiftUI diff the
+    /// list in place, so the focused row/List isn't torn down — and keyboard
+    /// focus isn't yanked to another pane — every time the outline rebuilds on a
+    /// selection change.
+    public var id: String { target }
     public var title: String
     public var depth: Int
     /// Typed-property markers (priority/done/progress/tags) for this row, mirrored

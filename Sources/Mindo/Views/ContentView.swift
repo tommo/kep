@@ -496,7 +496,8 @@ struct ContentView: View {
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     Divider()
-                    MarkdownEditor(text: nodeContentBinding, isDarkMode: colorScheme == .dark)
+                    MarkdownEditor(text: nodeContentBinding, isDarkMode: colorScheme == .dark,
+                                   showsModeSwitch: false)
                         .id(session.selectedOutlineTarget)
                         .frame(maxHeight: .infinity)
                 }

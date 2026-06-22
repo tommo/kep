@@ -46,7 +46,7 @@ extension AppSession {
     @MainActor
     func renameNode(_ node: NodeData) {
         guard !node.isWorkspace else { return }   // workspaces use removeWorkspace, not rename
-        renamingNodeID = node.id
+        renamingNodeURL = node.url.standardizedFileURL
     }
 
     /// Commit a rename to disk. Empty / unchanged names quietly cancel. When
@@ -55,7 +55,7 @@ extension AppSession {
     /// so the inline editor closes.
     @MainActor
     func renameNode(_ node: NodeData, to newName: String) {
-        defer { renamingNodeID = nil }
+        defer { renamingNodeURL = nil }
         let dir = node.url.deletingLastPathComponent()
         let outcome = RenamePlan.resolve(
             current: node.name,
@@ -142,7 +142,7 @@ extension AppSession {
             // Start an inline rename on the copy so the user can name it instead
             // of being stuck with "… copy" (mirrors create-from-template).
             DispatchQueue.main.async { [weak self] in
-                if let new = self?.nodeForURL(target) { self?.renamingNodeID = new.id }
+                if let new = self?.nodeForURL(target) { self?.renamingNodeURL = new.url.standardizedFileURL }
             }
         } catch {
             lastError = String(format: L("error.create_failed"), error.localizedDescription)
@@ -232,11 +232,9 @@ extension AppSession {
         }
         setFolderExpanded(folder.url, isWorkspace: folder.isWorkspace, true)
         reloadWorkspace(containing: folder)
-        open(url: url)
-        // Start an inline rename on the freshly-created node once the tree shows it.
-        DispatchQueue.main.async { [weak self] in
-            if let node = self?.nodeForURL(url) { self?.renamingNodeID = node.id }
-        }
+        // Open AND focus the document so you can start typing immediately (the
+        // file keeps its Untitled name — rename via the row's context menu).
+        open(url: url, focusEditor: true)
         return url
     }
 

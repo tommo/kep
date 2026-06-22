@@ -298,11 +298,11 @@ struct NodeRow: View {
     /// cancels on Esc.
     @ViewBuilder
     private var label: some View {
-        if session.renamingNodeID == node.id {
+        if session.renamingNodeURL == node.url.standardizedFileURL {
             InlineRenameField(initial: node.name) { newName in
                 session.renameNode(node, to: newName)
             } onCancel: {
-                session.renamingNodeID = nil
+                session.renamingNodeURL = nil
             }
         } else {
             // Folders + workspaces always show their full name. Only file

@@ -22,6 +22,24 @@ struct DetailArea: View {
             HStack(spacing: 0) {
                 DocumentTabBar(session: $session)
                 Divider()
+                // Quick "New document" menu, right in the doc-zone header.
+                Menu {
+                    Button(L("menu.file.new_mindmap"))  { session.newMindMap() }
+                    Button(L("menu.file.new_markdown")) { session.newMarkdown() }
+                    Button(L("menu.file.new_plantuml")) { session.newPlantUML() }
+                    Button(L("menu.file.new_csv"))      { session.newCSV() }
+                    Button(L("menu.file.new_notebook")) { session.newResearchNotebook() }
+                    Button(L("menu.file.new_text"))     { session.newTextFile() }
+                } label: {
+                    Image(systemName: "plus")
+                } primaryAction: {
+                    session.newMindMap()
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .help(L("menu.file.new_mindmap"))
+                .padding(.horizontal, 8)
                 Button {
                     session.outlineOpen.toggle()
                 } label: {
@@ -30,7 +48,7 @@ struct DetailArea: View {
                 }
                 .buttonStyle(.plain)
                 .help(session.outlineOpen ? L("menu.window.hide_outline") : L("menu.window.show_outline"))
-                .padding(.horizontal, 8)
+                .padding(.trailing, 8)
             }
             .frame(height: 32)
             Divider()

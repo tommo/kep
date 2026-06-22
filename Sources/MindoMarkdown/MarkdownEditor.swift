@@ -26,14 +26,20 @@ public struct MarkdownEditor: NSViewRepresentable {
     /// Invoked when a `[[wiki link]]` is clicked in the preview: (target, heading?).
     /// The host resolves the target to a workspace doc and opens it.
     public var onOpenWikiLink: ((String, String?) -> Void)?
+    /// When false, the preview-mode switch is hidden and the editor is forced to
+    /// editor-only (no preview pane). Used by the compact node-note panel, where
+    /// a preview split is overkill.
+    public var showsModeSwitch: Bool
 
     public init(text: Binding<String>, isDarkMode: Bool = false, navigationTarget: String? = nil, documentURL: URL? = nil,
+                showsModeSwitch: Bool = true,
                 wikiLinkCandidates: @escaping () -> [String] = { [] },
                 onOpenWikiLink: ((String, String?) -> Void)? = nil) {
         self._text = text
         self.isDarkMode = isDarkMode
         self.navigationTarget = navigationTarget
         self.documentURL = documentURL
+        self.showsModeSwitch = showsModeSwitch
         self.wikiLinkCandidates = wikiLinkCandidates
         self.onOpenWikiLink = onOpenWikiLink
     }
@@ -57,6 +63,12 @@ public struct MarkdownEditor: NSViewRepresentable {
         let modeControl = PreviewModeControl.make(target: context.coordinator,
                                                    action: #selector(Coordinator.previewModeChanged(_:)))
         context.coordinator.modeControl = modeControl
+        // Compact note panel: no preview switch, force editor-only (don't read or
+        // write the global markdown view-mode pref).
+        if !showsModeSwitch {
+            modeControl.isHidden = true
+            context.coordinator.viewMode = .editor
+        }
 
         split.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(split)

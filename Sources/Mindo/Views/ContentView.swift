@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import MindoBase
 import MindoCore
 import MindoModel
@@ -98,7 +99,14 @@ struct ContentView: View {
             // it as a focus blip and restore the row for the active document so
             // the tree keeps showing where you are (Finder / VS Code behaviour).
             if new == nil {
-                if let url = session.activeDocument?.fileURL,
+                // Re-assert the row ONLY when focus is still around the sidebar.
+                // If the user just clicked into the document (canvas/editor) or a
+                // text field, the List nilled its binding because it resigned
+                // first responder — re-setting it here pulls focus straight back
+                // to the workspace panel (the "focus jumps to the sidebar when I
+                // click in the doc" bug, most visible with a second tab in front).
+                if !documentHasFocus,
+                   let url = session.activeDocument?.fileURL,
                    let node = sidebarNode(for: url) {
                     sidebarSelection = node
                 }
@@ -498,6 +506,17 @@ struct ContentView: View {
     /// the same file/folder/active-doc guards as click-to-open.
     /// Return key in the sidebar: commit focus to the document. The file is
     /// already open from selection (browse); if somehow not, open it with focus.
+    /// True when the window's first responder is the document editor (mindmap
+    /// canvas or any text view — doc editor, inspector note editor, agent input)
+    /// rather than the sidebar tree. Used to stop the sidebar from grabbing focus
+    /// back when the user clicks into the document.
+    private var documentHasFocus: Bool {
+        guard let fr = (NSApp.keyWindow ?? NSApp.mainWindow)?.firstResponder else { return false }
+        if let canvas = session.activeMindMapView, let v = fr as? NSView,
+           v == canvas || v.isDescendant(of: canvas) { return true }
+        return fr is NSText
+    }
+
     private func confirmSelection() {
         guard let node = sidebarSelection, node.isFile else { return }
         if session.activeDocument?.fileURL?.standardizedFileURL == node.url.standardizedFileURL {

@@ -237,14 +237,51 @@ extension MindMapView {
             if from === root { return from.isCollapsed ? nil : inwardChild(root.leftChildren) }
             return from.isLeftSide ? inwardChild(from.visibleChildren) : towardParent()
         case .up, .down:
-            guard let parent = from.topic.parent, let parentEl = element(forTopic: parent) else { return nil }
-            let siblings = parentEl.children.filter { $0.isLeftSide == from.isLeftSide }
-            if let idx = siblings.firstIndex(where: { $0 === from }) {
-                let next = direction == .up ? idx - 1 : idx + 1
-                if siblings.indices.contains(next) { return siblings[next] }
+            // Spatial, NOT sibling-bound: the nearest visible node above/below on
+            // the same half of the map, so Up/Down walk the canvas in reading
+            // order and cross subtree boundaries instead of dead-ending at the
+            // first/last sibling. Same-side only (the map is mirrored about the
+            // root, so a left node is never directly "below" a right one).
+            let candidates = visibleElements().filter {
+                $0 !== from && $0 !== root && $0.isLeftSide == from.isLeftSide
             }
-            return nil
+            guard let idx = Self.nearestVertical(from: from.frame,
+                                                 candidates: candidates.map(\.frame),
+                                                 goingDown: direction == .down) else { return nil }
+            return candidates[idx]
         }
+    }
+
+    /// Every element currently visible (descendants of a folded node are
+    /// excluded, since `visibleChildren` is empty when collapsed).
+    func visibleElements() -> [MindMapElement] {
+        guard let root = rootElement else { return [] }
+        var out: [MindMapElement] = []
+        func rec(_ el: MindMapElement) {
+            out.append(el)
+            for child in el.visibleChildren { rec(child) }
+        }
+        rec(root)
+        return out
+    }
+
+    /// Pure geometry for Up/Down arrow navigation: among `candidates` strictly
+    /// above (`goingDown == false`) or below `from`, pick the nearest row, then
+    /// tie-break by horizontal closeness. Returns the index into `candidates`,
+    /// or nil when none lie in that direction. (Canvas is flipped: smaller midY
+    /// is visually higher, so "down" means a larger midY.)
+    static func nearestVertical(from: CGRect, candidates: [CGRect], goingDown: Bool) -> Int? {
+        let fromX = from.midX, fromY = from.midY
+        let inDir = candidates.enumerated().filter { _, f in
+            goingDown ? f.midY > fromY + 0.5 : f.midY < fromY - 0.5
+        }
+        guard !inDir.isEmpty else { return nil }
+        let dyMin = inDir.map { abs($0.element.midY - fromY) }.min()!
+        // Rows within this band of the nearest count as "the same row"; among
+        // them the horizontally closest wins, otherwise the closer row wins.
+        let band = dyMin * 0.5 + 4
+        return inDir.filter { abs($0.element.midY - fromY) <= dyMin + band }
+                    .min { abs($0.element.midX - fromX) < abs($1.element.midX - fromX) }?.offset
     }
 
     func move(_ direction: Direction) {

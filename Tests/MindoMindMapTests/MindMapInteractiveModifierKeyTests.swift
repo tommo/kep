@@ -44,9 +44,15 @@ final class MindMapInteractiveModifierKeyTests: XCTestCase {
     func testShiftDownExtendsAcrossSiblings() throws {
         let (h, _, a, _, _, b) = try build()
         h.view.selectElement(h.view.element(forTopic: a))
-        h.sendArrow(NSDownArrowFunctionKey, [.shift])      // extend A → B
-        XCTAssertTrue(h.view.selectedTopics.contains(ObjectIdentifier(a)))
-        XCTAssertTrue(h.view.selectedTopics.contains(ObjectIdentifier(b)))
+        // Down is spatial now, so extending from A walks down through A's own
+        // children before reaching sibling B — repeated Shift+Down must be able
+        // to extend the selection across the subtree boundary to B (keeping A).
+        var steps = 0
+        while !h.view.selectedTopics.contains(ObjectIdentifier(b)) && steps < 10 {
+            h.sendArrow(NSDownArrowFunctionKey, [.shift]); steps += 1
+        }
+        XCTAssertTrue(h.view.selectedTopics.contains(ObjectIdentifier(a)), "anchor A stays selected")
+        XCTAssertTrue(h.view.selectedTopics.contains(ObjectIdentifier(b)), "extended down to B")
     }
 
     // MARK: - ⌘+arrow reorders / indents (performKeyEquivalent path)

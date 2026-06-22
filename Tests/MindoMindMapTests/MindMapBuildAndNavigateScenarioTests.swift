@@ -46,17 +46,35 @@ final class MindMapBuildAndNavigateScenarioTests: XCTestCase {
         // and the sibling inherits the side) so Right = inward, Left = outward.
         XCTAssertFalse(h.view.element(forTopic: a)!.isLeftSide, "fixture assumes right-side layout")
 
-        // Walk from the root.
+        // Right/Left are still tree-directional.
         h.view.selectElement(h.view.element(forTopic: root))
         XCTAssertEqual(sel(h), "Root")
         h.sendArrow(NSRightArrowFunctionKey);  XCTAssertEqual(sel(h), "A",  "Root → first child")
-        h.sendArrow(NSDownArrowFunctionKey);   XCTAssertEqual(sel(h), "B",  "A ↓ next sibling")
-        h.sendArrow(NSUpArrowFunctionKey);     XCTAssertEqual(sel(h), "A",  "B ↑ back to A")
-        h.sendArrow(NSRightArrowFunctionKey);  XCTAssertEqual(sel(h), "A1", "A → first child")
-        h.sendArrow(NSDownArrowFunctionKey);   XCTAssertEqual(sel(h), "A2", "A1 ↓ A2")
-        h.sendArrow(NSLeftArrowFunctionKey);   XCTAssertEqual(sel(h), "A",  "A2 ← back to parent A")
-        h.sendArrow(NSLeftArrowFunctionKey);   XCTAssertEqual(sel(h), "Root", "A ← back to Root")
-        _ = b
+
+        // Down/Up are now SPATIAL (not subtree-bound): a Down walk from the top
+        // of the right column visits every right-side node in visual top→bottom
+        // order, crossing the A-subtree boundary into B, and dead-ends only at
+        // the bottom.
+        let rightCol = h.view.visibleElements()
+            .filter { $0.topic !== root && !$0.isLeftSide }
+            .sorted { $0.frame.midY < $1.frame.midY }
+        XCTAssertEqual(Set(rightCol.map(\.topic.text)), ["A", "A1", "A2", "B"])
+        h.view.selectElement(rightCol.first!)
+        var visited = [rightCol.first!.topic.text]
+        var lastY = rightCol.first!.frame.midY
+        for _ in 0..<10 {
+            let before = h.view.selectedElement!
+            h.sendArrow(NSDownArrowFunctionKey)
+            let after = h.view.selectedElement!
+            if after === before { break }                       // dead-end
+            XCTAssertGreaterThan(after.frame.midY, lastY, "Down only moves lower")
+            lastY = after.frame.midY
+            visited.append(after.topic.text)
+        }
+        XCTAssertEqual(visited.count, 4, "Down visits every right-side node")
+        XCTAssertEqual(visited.last, rightCol.last!.topic.text, "ends at the bottom node")
+        XCTAssertTrue(visited.contains("B"), "crossed out of A's subtree into B")
+        _ = (a, b)
     }
 
     func testBuildThenDeleteUpdatesSelectionAndTree() throws {

@@ -53,8 +53,9 @@ final class MindMapRoundtripUXTests: XCTestCase {
         let (h, mgr, root) = try build()
         let a = root.children[0], b = root.children[1], c = root.children[2]
 
-        // ── Navigate: Right INTO children is position-based (nearest by Y),
-        //    Down/Up steps through same-side siblings by order ───────────────
+        // ── Navigate: Right INTO children is position-based (nearest by Y);
+        //    Down/Up are spatial — nearest node below/above on the same half,
+        //    crossing subtree boundaries (so a Down walk from A reaches C) ─────
         h.view.selectElement(h.view.element(forTopic: root))
         h.sendArrow(NSRightArrowFunctionKey)
         let rootY = h.view.element(forTopic: root)!.frame.midY
@@ -64,10 +65,12 @@ final class MindMapRoundtripUXTests: XCTestCase {
         }
         XCTAssertTrue(sel(h) === nearest, "Right from root lands on the vertically-nearest child")
         h.view.selectElement(h.view.element(forTopic: a))
+        let yA = h.view.element(forTopic: a)!.frame.midY
         h.sendArrow(NSDownArrowFunctionKey)
-        XCTAssertTrue(sel(h) === b, "Down moves to sibling B")
-        h.sendArrow(NSDownArrowFunctionKey)
-        XCTAssertTrue(sel(h) === c, "Down moves to sibling C")
+        XCTAssertGreaterThan(h.view.selectedElement!.frame.midY, yA, "Down moves to a lower node")
+        var steps = 0
+        while sel(h) !== c && steps < 10 { h.sendArrow(NSDownArrowFunctionKey); steps += 1 }
+        XCTAssertTrue(sel(h) === c, "Down walk reaches C, crossing A's subtree")
 
         // ── Delete B (a MIDDLE sibling) ─────────────────────────────────────
         let rootBefore = h.view.element(forTopic: root)!.frame

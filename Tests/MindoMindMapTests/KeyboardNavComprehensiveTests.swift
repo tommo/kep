@@ -42,6 +42,14 @@ final class KeyboardNavComprehensiveTests: XCTestCase {
         return f.view.element(in: dir, of: el)?.topic
     }
 
+    /// Visible nodes on one half of the map, sorted top→bottom by vertical
+    /// position (excludes the centre root).
+    private func column(_ f: Fixture, leftSide: Bool) -> [MindMapElement] {
+        f.view.visibleElements()
+            .filter { $0.topic !== f.root && $0.isLeftSide == leftSide }
+            .sorted { $0.frame.midY < $1.frame.midY }
+    }
+
     // MARK: - Root
 
     func testRootRightGoesToFirstRightChild() {
@@ -82,25 +90,61 @@ final class KeyboardNavComprehensiveTests: XCTestCase {
         XCTAssertTrue(nav(f, f.l1a, .right) === f.l1)
     }
 
-    // MARK: - Up / Down among same-side siblings
+    // MARK: - Up / Down: spatial, NOT subtree-bound
 
-    func testDownMovesToNextSiblingSameSide() {
-        let f = makeFixture()
-        XCTAssertTrue(nav(f, f.r1, .down) === f.r2)
-        XCTAssertTrue(nav(f, f.r1a, .down) === f.r1b)
-        XCTAssertTrue(nav(f, f.l1, .down) === f.l2)
+    /// Pure geometry: nearest row below, tie-broken horizontally; nil above/below
+    /// the extremes.
+    func testNearestVerticalGeometry() {
+        let cur = CGRect(x: 100, y: 100, width: 40, height: 20)
+        let cands = [
+            CGRect(x: 100, y: 60,  width: 40, height: 20),  // 0: above, aligned
+            CGRect(x: 300, y: 140, width: 40, height: 20),  // 1: below, far x
+            CGRect(x: 110, y: 145, width: 40, height: 20),  // 2: below, near x
+            CGRect(x: 100, y: 400, width: 40, height: 20),  // 3: far below
+        ]
+        // Down → among the near rows (1 & 2), the horizontally closest (2).
+        XCTAssertEqual(MindMapView.nearestVertical(from: cur, candidates: cands, goingDown: true), 2)
+        // Up → only candidate 0.
+        XCTAssertEqual(MindMapView.nearestVertical(from: cur, candidates: cands, goingDown: false), 0)
+        // Nothing below the lowest.
+        XCTAssertNil(MindMapView.nearestVertical(from: cands[3], candidates: [cur], goingDown: true))
     }
 
-    func testUpMovesToPreviousSibling() {
+    func testDownAlwaysMovesToALowerSameSideNode() {
         let f = makeFixture()
-        XCTAssertTrue(nav(f, f.r2, .up) === f.r1)
-        XCTAssertTrue(nav(f, f.l1b, .up) === f.l1a)
+        for el in column(f, leftSide: false) {
+            if let next = nav(f, el.topic, .down), let nextEl = f.view.element(forTopic: next) {
+                XCTAssertGreaterThan(nextEl.frame.midY, el.frame.midY, "\(el.topic.text) down")
+                XCTAssertFalse(nextEl.isLeftSide)                 // stays on the same half
+            } else {
+                XCTAssertTrue(el.topic === column(f, leftSide: false).last?.topic) // only bottom dead-ends
+            }
+        }
     }
 
-    func testUpAtFirstSiblingIsNil() {
+    func testUpAlwaysMovesToAHigherSameSideNode() {
         let f = makeFixture()
-        XCTAssertNil(nav(f, f.r1, .up))
-        XCTAssertNil(nav(f, f.l1a, .up))
+        for el in column(f, leftSide: true) {
+            if let prev = nav(f, el.topic, .up), let prevEl = f.view.element(forTopic: prev) {
+                XCTAssertLessThan(prevEl.frame.midY, el.frame.midY, "\(el.topic.text) up")
+                XCTAssertTrue(prevEl.isLeftSide)
+            } else {
+                XCTAssertTrue(el.topic === column(f, leftSide: true).first?.topic)
+            }
+        }
+    }
+
+    /// THE FIX: from the last node of a subtree, Down must keep going (cross the
+    /// boundary into the next subtree) instead of dead-ending.
+    func testDownCrossesSubtreeBoundary() {
+        let f = makeFixture()
+        XCTAssertTrue(nav(f, f.r1b, .down) === f.r2, "down from R1's last node → R2 (next subtree)")
+    }
+
+    func testTopmostHasNoUp() {
+        let f = makeFixture()
+        XCTAssertNil(nav(f, column(f, leftSide: false).first!.topic, .up))
+        XCTAssertNil(nav(f, column(f, leftSide: true).first!.topic, .up))
     }
 
     // MARK: - Invariants (stability)
@@ -167,20 +211,21 @@ final class KeyboardNavComprehensiveTests: XCTestCase {
         XCTAssertTrue(f.view.selectedElement?.topic === f.root)
     }
 
-    func testArrowKeyDownUpDownWalksSiblings() {
+    func testArrowKeyDownMovesToALowerNode() {
         let f = makeFixture()
         f.view.keyDown(with: arrowEvent(NSRightArrowFunctionKey))      // root → R1
-        f.view.keyDown(with: arrowEvent(NSDownArrowFunctionKey))       // R1 → R2
-        XCTAssertTrue(f.view.selectedElement?.topic === f.r2)
-        f.view.keyDown(with: arrowEvent(NSUpArrowFunctionKey))         // R2 → R1
-        XCTAssertTrue(f.view.selectedElement?.topic === f.r1)
+        let beforeY = f.view.selectedElement!.frame.midY
+        f.view.keyDown(with: arrowEvent(NSDownArrowFunctionKey))       // R1 → nearest below
+        XCTAssertGreaterThan(f.view.selectedElement!.frame.midY, beforeY)
     }
 
-    func testArrowKeyDownAtDeadEndKeepsSelection() {
-        // Pressing into a dead end must NOT clear or corrupt the selection.
+    func testArrowKeyAtVeryTopKeepsSelection() {
+        // Up from the topmost node is a no-op (no node above) — must NOT clear
+        // or corrupt the selection.
         let f = makeFixture()
-        f.view.keyDown(with: arrowEvent(NSRightArrowFunctionKey))      // root → R1
-        f.view.keyDown(with: arrowEvent(NSUpArrowFunctionKey))         // R1 has no prev sibling
-        XCTAssertTrue(f.view.selectedElement?.topic === f.r1, "dead-end Up keeps R1 selected")
+        let top = column(f, leftSide: false).first!
+        f.view.selectElement(top)
+        f.view.keyDown(with: arrowEvent(NSUpArrowFunctionKey))
+        XCTAssertTrue(f.view.selectedElement === top, "dead-end Up keeps selection")
     }
 }

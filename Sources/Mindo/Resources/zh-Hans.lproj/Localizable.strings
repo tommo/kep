@@ -243,7 +243,7 @@
 
 /* MARK: - 外部修改冲突 */
 "conflict.title" = "“%@” 已在磁盘上发生改变";
-"conflict.message" = "该文档在 Mindo 之外被修改了，而你这里也有未保存的改动。你想怎么处理？";
+"conflict.message" = "该文档在 kep 之外被修改了，而你这里也有未保存的改动。你想怎么处理？";
 "conflict.button.reload" = "从磁盘重新加载";
 "conflict.button.keep_mine" = "保留我的更改";
 "conflict.button.save_mine" = "保存我的更改";
@@ -282,7 +282,7 @@
 "prefs.general.section.privacy" = "隐私";
 "prefs.general.block_remote_content" = "在文档预览中屏蔽远程内容";
 "prefs.general.block_remote_content.help" = "阻止笔记、Markdown 与 PlantUML 预览加载远程图片、脚本或跟踪像素。本地图片仍可正常显示。对此更改之后打开的文档生效。";
-"quit.confirm.title" = "退出 Mindo？";
+"quit.confirm.title" = "退出 kep？";
 "quit.confirm.message" = "已打开标签页中的未保存改动可能会丢失。";
 "quit.confirm.quit" = "退出";
 "quit.confirm.cancel" = "取消";
@@ -335,7 +335,7 @@
 "prefs.ai.streaming" = "流式输出（推荐）";
 
 /* MARK: - 帮助 / 关于 */
-"menu.help.about" = "关于 Mindo";
+"menu.help.about" = "关于 kep";
 "menu.help.releases" = "检查更新…";
 "about.version_format" = "版本 %@（构建 %@）";
 "about.tagline" = "Mindolph 的 macOS 原生移植版 —— 思维导图、Markdown、PlantUML、CSV 一体化。";
@@ -348,7 +348,7 @@
 "error.rename_failed" = "重命名失败：%@";
 "error.delete_failed" = "删除失败：%@";
 "error.create_failed" = "创建失败：%@";
-"error.alert_title" = "Mindo";
+"error.alert_title" = "kep";
 
 /* MARK: - 文件选择器 */
 "picker.untitled_mindmap" = "未命名.mmd";

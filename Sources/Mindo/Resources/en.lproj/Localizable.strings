@@ -235,7 +235,7 @@
 "outline.empty.description" = "Add headings or topics to see them here.";
 
 /* MARK: - Tab bar */
-"tab.tooltip.modified_externally" = "Modified outside Mindo — content reloaded";
+"tab.tooltip.modified_externally" = "Modified outside kep — content reloaded";
 "tab.tooltip.unsaved_changes" = "Unsaved changes";
 "tab.new_document" = "New Document";
 "tab.menu.close" = "Close Tab";
@@ -246,7 +246,7 @@
 
 /* MARK: - External-change conflict */
 "conflict.title" = "“%@” changed on disk";
-"conflict.message" = "This document was modified outside Mindo and you have unsaved changes here. What do you want to do?";
+"conflict.message" = "This document was modified outside kep and you have unsaved changes here. What do you want to do?";
 "conflict.button.reload" = "Reload from Disk";
 "conflict.button.keep_mine" = "Keep My Changes";
 "conflict.button.save_mine" = "Save My Changes";
@@ -285,7 +285,7 @@
 "prefs.general.section.privacy" = "Privacy";
 "prefs.general.block_remote_content" = "Block remote content in document previews";
 "prefs.general.block_remote_content.help" = "Stops note, Markdown, and PlantUML previews from loading remote images, scripts, or tracking pixels. Local images still work. Applies to documents opened after this change.";
-"quit.confirm.title" = "Quit Mindo?";
+"quit.confirm.title" = "Quit kep?";
 "quit.confirm.message" = "Any unsaved changes in open tabs may be lost.";
 "quit.confirm.quit" = "Quit";
 "quit.confirm.cancel" = "Cancel";
@@ -338,7 +338,7 @@
 "prefs.ai.streaming" = "Stream responses (recommended)";
 
 /* MARK: - Help / About */
-"menu.help.about" = "About Mindo";
+"menu.help.about" = "About kep";
 "menu.help.releases" = "Check for Updates…";
 "about.version_format" = "Version %@ (build %@)";
 "about.tagline" = "Native macOS port of Mindolph — knowledge management for mind maps, markdown, PlantUML, and CSV.";
@@ -351,7 +351,7 @@
 "error.rename_failed" = "Rename failed: %@";
 "error.delete_failed" = "Delete failed: %@";
 "error.create_failed" = "Create failed: %@";
-"error.alert_title" = "Mindo";
+"error.alert_title" = "kep";
 
 /* MARK: - File pickers */
 "picker.untitled_mindmap" = "Untitled.mmd";

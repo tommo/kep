@@ -14,7 +14,7 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_ROOT"
 
 VERSION="${1:-0.1}"
-APP_NAME="Mindo"
+APP_NAME="kep"
 APP_PATH="build/$APP_NAME.app"
 DMG_PATH="build/$APP_NAME-$VERSION.dmg"
 

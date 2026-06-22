@@ -166,6 +166,10 @@ struct MindoApp: App {
                     )
                 }
         }
+        // Reclaim the otherwise-empty title band: hide the native title bar so the
+        // tab strip / content sit at the top (traffic lights overlay the sidebar,
+        // which NavigationSplitView insets for).
+        .windowStyle(.hiddenTitleBar)
         .commands {
             // Close Tab (⌘W) — scoped to the document window via a focused scene
             // value, so it's INACTIVE when the Settings window is key (⌘W then

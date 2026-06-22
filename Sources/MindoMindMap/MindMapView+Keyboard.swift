@@ -237,14 +237,13 @@ extension MindMapView {
             if from === root { return from.isCollapsed ? nil : inwardChild(root.leftChildren) }
             return from.isLeftSide ? inwardChild(from.visibleChildren) : towardParent()
         case .up, .down:
-            // Spatial, NOT sibling-bound: the nearest visible node above/below on
-            // the same half of the map, so Up/Down walk the canvas in reading
-            // order and cross subtree boundaries instead of dead-ending at the
-            // first/last sibling. Same-side only (the map is mirrored about the
-            // root, so a left node is never directly "below" a right one).
-            let candidates = visibleElements().filter {
-                $0 !== from && $0 !== root && $0.isLeftSide == from.isLeftSide
-            }
+            // Purely POSITIONAL: the nearest visible node above/below anywhere on
+            // the canvas (nearest row, tie-broken by horizontal closeness), so
+            // Up/Down walk in reading order and cross subtree — and side —
+            // boundaries instead of dead-ending. The horizontal tie-break keeps
+            // you on your own branch while same-row neighbours exist, and only
+            // crosses to the other half when that's genuinely the nearest node.
+            let candidates = visibleElements().filter { $0 !== from && $0 !== root }
             guard let idx = Self.nearestVertical(from: from.frame,
                                                  candidates: candidates.map(\.frame),
                                                  goingDown: direction == .down) else { return nil }

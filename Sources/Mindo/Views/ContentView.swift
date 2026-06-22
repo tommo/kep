@@ -89,6 +89,9 @@ struct ContentView: View {
         } detail: {
             DetailArea(session: $session)
                 .background(RegionContainerTagger(session: session, region: .document))
+                // Keep the WINDOW fixed when a column collapses/expands (resize the
+                // sibling panes instead). Attached to the always-mounted detail.
+                .background(SplitCollapseBehaviorFixer())
                 // Doc focus hint is the tab strip's bottom border (see DetailArea)
                 // — a top ring sat under the hidden title bar.
                 // The tab strip sits flush in the top titlebar row. When the
@@ -653,5 +656,36 @@ private struct CollapsibleInspectorSection<Content: View>: View {
             }
         }
         .frame(maxHeight: isExpanded ? .infinity : nil)
+    }
+}
+
+/// Makes column collapse/expand keep the WINDOW fixed and resize the sibling
+/// panes instead. NavigationSplitView is backed by `NSSplitViewController`s
+/// whose items default to `.preferResizingSplitViewWithFixedSiblings` — so
+/// collapsing the sidebar holds the detail's width and shrinks the window, and
+/// re-expanding grows the window back. Flipping every split item to
+/// `.preferResizingSiblingsWithFixedSplitView` is the AppKit lever SwiftUI
+/// doesn't expose. Covers the sidebar's split controller and the inspector's.
+private struct SplitCollapseBehaviorFixer: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let v = NSView(frame: .zero)
+        DispatchQueue.main.async { Self.apply(from: v) }
+        return v
+    }
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async { Self.apply(from: nsView) }
+    }
+    static func apply(from view: NSView) {
+        guard let root = view.window?.contentViewController else { return }
+        var stack: [NSViewController] = [root]
+        while let vc = stack.popLast() {
+            if let split = vc as? NSSplitViewController {
+                for item in split.splitViewItems
+                where item.collapseBehavior != .preferResizingSiblingsWithFixedSplitView {
+                    item.collapseBehavior = .preferResizingSiblingsWithFixedSplitView
+                }
+            }
+            stack.append(contentsOf: vc.children)
+        }
     }
 }

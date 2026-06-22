@@ -13,7 +13,12 @@ public extension Notification.Name {
 /// Mirrors a small slice of `mindmap-panel`'s `MindMapPanel`/`MindMapViewSkin`.
 public final class MindMapView: NSView {
     public var theme: MindMapTheme = .light {
-        didSet { extraIconCache.removeAll(); needsDisplay = true }
+        // Keep the backing-layer fill in sync with the theme. Without this the
+        // layer stayed at the INITIAL (.light) paper while draw() filled the
+        // real (dark) paper — so the light layer peeked at the canvas edge as a
+        // bright, pan/zoom-dependent hairline. (The clip/scroll/container were
+        // already theme-synced; only the document view's layer was stale.)
+        didSet { extraIconCache.removeAll(); layer?.backgroundColor = theme.paperColor.cgColor; needsDisplay = true }
     }
 
     /// Cache of pre-tinted extra-type icons (note/link/file/jump badges),

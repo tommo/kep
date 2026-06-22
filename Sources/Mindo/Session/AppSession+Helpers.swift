@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 import MindoBase
 import MindoCore
+import MindoCSV
 import MindoMarkdown
 import MindoMindMap
 import MindoModel
@@ -59,6 +60,14 @@ extension AppSession {
         if let mv = content.firstSubview(ofType: NSScrollView.self, where: { $0.documentView is MindMapView })?
             .documentView as? MindMapView {
             win.makeFirstResponder(mv)
+            return
+        }
+        // CSV grid: a custom NSView documentView (not an NSTextView), so it needs
+        // its own case — otherwise Return-in-sidebar left focus on the tree and
+        // arrows kept navigating files instead of cells.
+        if let grid = content.firstSubview(ofType: NSScrollView.self, where: { $0.documentView is CSVGridView })?
+            .documentView as? CSVGridView {
+            win.makeFirstResponder(grid)
             return
         }
         if let tv = content.firstSubview(ofType: NSScrollView.self, where: { $0.documentView is NSTextView })?

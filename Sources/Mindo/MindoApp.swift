@@ -170,6 +170,12 @@ struct MindoApp: App {
         // tab strip / content sit at the top (traffic lights overlay the sidebar,
         // which NavigationSplitView insets for).
         .windowStyle(.hiddenTitleBar)
+        // Without this the window tracks the content's IDEAL width, so collapsing
+        // the sidebar shrinks the whole window by the sidebar's width (and
+        // expanding grows it back). `.contentMinSize` uses the content size only
+        // as the window's MINIMUM — the user's window frame is preserved and the
+        // detail column absorbs the freed space, like Mail/Notes/Obsidian.
+        .windowResizability(.contentMinSize)
         .commands {
             // Close Tab (⌘W) — scoped to the document window via a focused scene
             // value, so it's INACTIVE when the Settings window is key (⌘W then

@@ -35,7 +35,12 @@ struct DetailArea: View {
                 .padding(.horizontal, 8)
             }
             .frame(height: 32)
-            Divider()
+            // The tab strip's bottom border doubles as the document focus hint:
+            // an accent line when the doc region holds focus (the old top accent
+            // bar sat under the hidden title bar / window edge, unreadable).
+            Rectangle()
+                .fill(session.activeRegion == .document ? Color.accentColor : Color(nsColor: .separatorColor))
+                .frame(height: session.activeRegion == .document ? 2 : 1)
             if let doc = session.activeDocument {
                 EditorPane(session: $session, documentID: doc.id, theme: resolvedCanvasTheme)
                     .id(doc.id)

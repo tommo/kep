@@ -53,6 +53,12 @@ struct ContentView: View {
     /// A thin accent bar along the TOP edge of the region that holds keyboard
     /// focus (⌘1/2/3/⌘\) — shows focus without boxing in / dimming the content
     /// you're editing. The agent view lives in the inspector, so it lights it too.
+    /// The inspector column holds focus whether it's showing the panels or the
+    /// agent chat — both light its focus hint.
+    private var inspectorRegionFocused: Bool {
+        session.activeRegion == .inspector || session.activeRegion == .agent
+    }
+
     @ViewBuilder private func regionRing(_ region: AppSession.FocusRegion) -> some View {
         let active = session.activeRegion == region
             || (region == .inspector && session.activeRegion == .agent)
@@ -83,7 +89,8 @@ struct ContentView: View {
         } detail: {
             DetailArea(session: $session)
                 .background(RegionContainerTagger(session: session, region: .document))
-                .overlay(regionRing(.document))
+                // Doc focus hint is the tab strip's bottom border (see DetailArea)
+                // — a top ring sat under the hidden title bar.
                 // Fill the hidden-title-bar strip — no traffic lights over these
                 // columns, so the tab strip / inspector sit flush at the top.
                 .ignoresSafeArea(.container, edges: .top)
@@ -92,7 +99,7 @@ struct ContentView: View {
         .inspector(isPresented: inspectorPresented) {
             inspectorPane
                 .background(RegionContainerTagger(session: session, region: .inspector))
-                .overlay(regionRing(.inspector))
+                // Inspector focus hint is the switch-bar's bottom border (inside).
                 .ignoresSafeArea(.container, edges: .top)
                 .inspectorColumnWidth(min: 200, ideal: 280, max: 460)
         }
@@ -216,7 +223,11 @@ struct ContentView: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            Divider()
+            // Bottom border of the switch bar = inspector focus hint (accent when
+            // the inspector/agent region holds focus).
+            Rectangle()
+                .fill(inspectorRegionFocused ? Color.accentColor : Color(nsColor: .separatorColor))
+                .frame(height: inspectorRegionFocused ? 2 : 1)
             Group {
                 switch session.inspectorTab {
                 case .inspector: accordionInspector

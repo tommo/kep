@@ -226,9 +226,13 @@ extension AppSession {
         }
         setFolderExpanded(folder.url, isWorkspace: folder.isWorkspace, true)
         reloadWorkspace(containing: folder)
-        // Open AND focus the document so you can start typing immediately (the
-        // file keeps its Untitled name — rename via the row's context menu).
-        open(url: url, focusEditor: true)
+        // Open the doc (it becomes the active tab) but DON'T grab editor focus —
+        // instead drop the new sidebar row straight into inline rename so you can
+        // name it immediately (Enter commits and hands focus back to the list;
+        // Esc keeps the "Untitled" name). The new node exists now that the
+        // workspace reloaded above.
+        open(url: url, focusEditor: false)
+        renamingNodeURL = url.standardizedFileURL
         return url
     }
 

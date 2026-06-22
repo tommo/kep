@@ -220,6 +220,7 @@ extension AppSession {
     func cycleNextTab() {
         guard let current = activeDocumentID else { return }
         if let next = tabManager.nextMRU(after: current) {
+            pendingEditorFocus = true   // a deliberate switch focuses the editor
             activeDocumentID = next
             persistOpenTabs()
         }
@@ -228,6 +229,7 @@ extension AppSession {
     func cyclePreviousTab() {
         guard let current = activeDocumentID else { return }
         if let prev = tabManager.previousMRU(before: current) {
+            pendingEditorFocus = true   // a deliberate switch focuses the editor
             activeDocumentID = prev
             persistOpenTabs()
         }

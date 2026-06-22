@@ -50,6 +50,10 @@ struct DocumentTabBar: View {
                     )
                     .opacity(draggingID == doc.id ? 0.4 : 1.0)
                     .onTapGesture {
+                        // Clicking a tab is a deliberate switch — focus that
+                        // document's editor (one-shot), don't leave focus stranded
+                        // on the sidebar from a prior browse.
+                        session.pendingEditorFocus = true
                         session.activeDocumentID = doc.id
                         session.persistOpenTabs()
                     }

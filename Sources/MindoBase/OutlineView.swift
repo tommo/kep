@@ -51,6 +51,12 @@ public struct OutlinePanel: View {
 
     private func beginEdit(_ item: OutlineItem) {
         guard onRename != nil else { return }
+        // Commit any row already being edited first — otherwise starting a new
+        // edit overwrites the shared draft/editingID and the previous row's
+        // focus-loss commit is skipped (its typed rename would be lost).
+        if let cur = editingID, cur != item.id, let prev = items.first(where: { $0.id == cur }) {
+            commitEdit(prev)
+        }
         editDraft = item.title
         editingID = item.id
         editFieldFocused = true

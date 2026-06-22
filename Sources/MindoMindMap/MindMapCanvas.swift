@@ -14,6 +14,9 @@ public struct MindMapCanvas: NSViewRepresentable {
     /// Whether the canvas may take keyboard focus when it appears. False for a
     /// browse-open (sidebar single-click) so focus stays in the sidebar.
     public var shouldAutoFocus: () -> Bool = { true }
+    /// Called once after the canvas actually takes focus, so the host can clear a
+    /// one-shot "focus the editor" intent (otherwise re-renders keep re-grabbing).
+    public var onDidAutoFocus: () -> Void = {}
     /// External nav target — when this changes, navigate the canvas.
     public var navigationTarget: String?
     /// Substring to highlight on every topic whose text contains it
@@ -37,6 +40,7 @@ public struct MindMapCanvas: NSViewRepresentable {
         searchHighlight: String? = nil,
         onSelectionPath: ((String?) -> Void)? = nil,
         shouldAutoFocus: @escaping () -> Bool = { true },
+        onDidAutoFocus: @escaping () -> Void = {},
         loadViewState: (() -> CanvasViewState?)? = nil,
         saveViewState: ((CanvasViewState) -> Void)? = nil
     ) {
@@ -49,6 +53,7 @@ public struct MindMapCanvas: NSViewRepresentable {
         self.searchHighlight = searchHighlight
         self.onSelectionPath = onSelectionPath
         self.shouldAutoFocus = shouldAutoFocus
+        self.onDidAutoFocus = onDidAutoFocus
         self.loadViewState = loadViewState
         self.saveViewState = saveViewState
     }
@@ -83,6 +88,7 @@ public struct MindMapCanvas: NSViewRepresentable {
 
         let view = MindMapView(frame: .zero)
         view.autoFocusCheck = shouldAutoFocus
+        view.onDidGrabFocus = onDidAutoFocus
         view.theme = theme
         view.onChange = { newMap in
             onChange(newMap)
@@ -189,6 +195,7 @@ public struct MindMapCanvas: NSViewRepresentable {
             scroll.contentView.backgroundColor = theme.paperColor
         }
         view.autoFocusCheck = shouldAutoFocus
+        view.onDidGrabFocus = onDidAutoFocus
         view.onExtraFileTap = onExtraFileTap
         view.onOpenWikiLink = onOpenWikiLink
         view.loadViewState = loadViewState

@@ -334,7 +334,16 @@ public final class MindMapView: NSView {
         // the markdown editor's text view alike.)
         if window?.firstResponder is NSText { return }
         window?.makeFirstResponder(self)
+        // One-shot: tell the host the focus intent was consumed so it can clear
+        // the flag. Otherwise every later re-render would re-grab focus, yanking
+        // it back from the inspector / sidebar / agent the user just switched to.
+        onDidGrabFocus?()
     }
+
+    /// Called once after `grabFocus` actually takes first responder, so the host
+    /// can clear its one-shot "focus the editor" intent. Not called when the grab
+    /// is skipped (autofocus off, or a text editor holds focus) so it retries.
+    public var onDidGrabFocus: (() -> Void)?
 
     /// Local NSEvent monitor token. While installed, we intercept key
     /// events that should drive the canvas even when the SwiftUI sidebar

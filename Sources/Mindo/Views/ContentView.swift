@@ -89,9 +89,9 @@ struct ContentView: View {
         } detail: {
             DetailArea(session: $session)
                 .background(RegionContainerTagger(session: session, region: .document))
-                // Keep the WINDOW fixed when a column collapses/expands (resize the
-                // sibling panes instead). Attached to the always-mounted detail.
-                .background(SplitCollapseBehaviorFixer())
+                // Capture the host window so WindowWidthKeeper can pin its width
+                // across sidebar/inspector toggles (the detail is always mounted).
+                .background(WindowAccessor())
                 // Doc focus hint is the tab strip's bottom border (see DetailArea)
                 // — a top ring sat under the hidden title bar.
                 // The tab strip sits flush in the top titlebar row. When the
@@ -116,6 +116,10 @@ struct ContentView: View {
                 .ignoresSafeArea(.container, edges: .top)
                 .inspectorColumnWidth(min: 200, ideal: 280, max: 460)
         }
+        // Pin the window width across column toggles (see WindowWidthKeeper):
+        // SwiftUI would otherwise resize the whole window to preserve the detail.
+        .onChange(of: session.sidebarVisible) { _, _ in WindowWidthKeeper.shared.beginToggle() }
+        .onChange(of: session.outlineOpen) { _, _ in WindowWidthKeeper.shared.beginToggle() }
         .onChange(of: sidebarSelection) { _, new in
             // A nil here is almost never a real user deselect — SwiftUI's List
             // clears its selection binding when it resigns first responder, and
@@ -659,33 +663,61 @@ private struct CollapsibleInspectorSection<Content: View>: View {
     }
 }
 
-/// Makes column collapse/expand keep the WINDOW fixed and resize the sibling
-/// panes instead. NavigationSplitView is backed by `NSSplitViewController`s
-/// whose items default to `.preferResizingSplitViewWithFixedSiblings` — so
-/// collapsing the sidebar holds the detail's width and shrinks the window, and
-/// re-expanding grows the window back. Flipping every split item to
-/// `.preferResizingSiblingsWithFixedSplitView` is the AppKit lever SwiftUI
-/// doesn't expose. Covers the sidebar's split controller and the inspector's.
-private struct SplitCollapseBehaviorFixer: NSViewRepresentable {
+/// Keeps the WINDOW width fixed across a sidebar/inspector collapse.
+///
+/// SwiftUI's private `NavigationSplitViewController` resizes the *window* to
+/// preserve the detail pane's width when a column collapses/expands (verified:
+/// the AppKit `NSSplitViewItem.collapseBehavior` lever is ignored). We can't
+/// stop the resize at its source, so we counter it: track the user's chosen
+/// width continuously, and during a short window after a toggle clamp any
+/// resize back to it — the detail pane absorbs the change instead.
+final class WindowWidthKeeper {
+    static let shared = WindowWidthKeeper()
+
+    private weak var window: NSWindow?
+    private var stableWidth: CGFloat = 0
+    private var lockUntil = Date.distantPast
+    private var token: NSObjectProtocol?
+
+    /// Bind to the host window (idempotent). Starts observing live resizes.
+    func attach(_ w: NSWindow?) {
+        guard let w, w !== window else { return }
+        window = w
+        stableWidth = w.frame.width
+        if let token { NotificationCenter.default.removeObserver(token) }
+        token = NotificationCenter.default.addObserver(
+            forName: NSWindow.didResizeNotification, object: w, queue: .main
+        ) { [weak self] _ in self?.onResize() }
+    }
+
+    /// Call the instant the sidebar/inspector visibility flips, BEFORE the
+    /// framework resizes the window. Locks the tracked width for a beat so the
+    /// toggle-driven resize is clamped (but genuine user drags after aren't).
+    func beginToggle() { lockUntil = Date().addingTimeInterval(0.6) }
+
+    private func onResize() {
+        guard let w = window else { return }
+        if Date() < lockUntil {
+            if abs(w.frame.width - stableWidth) > 0.5 {
+                var f = w.frame
+                f.size.width = stableWidth   // keep the left edge (origin) put
+                w.setFrame(f, display: true)
+            }
+        } else {
+            stableWidth = w.frame.width   // genuine user resize — adopt it
+        }
+    }
+}
+
+/// Hands the host `NSWindow` to `WindowWidthKeeper`. Attached to the detail
+/// column, which is always mounted.
+private struct WindowAccessor: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView {
         let v = NSView(frame: .zero)
-        DispatchQueue.main.async { Self.apply(from: v) }
+        DispatchQueue.main.async { WindowWidthKeeper.shared.attach(v.window) }
         return v
     }
     func updateNSView(_ nsView: NSView, context: Context) {
-        DispatchQueue.main.async { Self.apply(from: nsView) }
-    }
-    static func apply(from view: NSView) {
-        guard let root = view.window?.contentViewController else { return }
-        var stack: [NSViewController] = [root]
-        while let vc = stack.popLast() {
-            if let split = vc as? NSSplitViewController {
-                for item in split.splitViewItems
-                where item.collapseBehavior != .preferResizingSiblingsWithFixedSplitView {
-                    item.collapseBehavior = .preferResizingSiblingsWithFixedSplitView
-                }
-            }
-            stack.append(contentsOf: vc.children)
-        }
+        DispatchQueue.main.async { WindowWidthKeeper.shared.attach(nsView.window) }
     }
 }

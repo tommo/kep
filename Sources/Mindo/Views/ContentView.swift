@@ -445,10 +445,14 @@ struct ContentView: View {
         VSplitView {
             OutlinePanel(
                 items: session.outlineItems,
-                selectedTarget: session.selectedOutlineTarget
-            ) { item in
-                session.requestOutlineNavigation(target: item.target)
-            }
+                selectedTarget: session.selectedOutlineTarget,
+                onSelect: { item in session.requestOutlineNavigation(target: item.target) },
+                // Inline rename is only meaningful for mind maps (a topic's text);
+                // markdown/PlantUML outline rows map to read-only source offsets.
+                onRename: session.activeFileType == .mindMap
+                    ? { item, newName in session.renameOutlineTopic(atOutlinePath: item.target, to: newName) }
+                    : nil
+            )
             .frame(minHeight: 100, idealHeight: 260)
 
             // Node content editor — the SAME markdown widget the .md document

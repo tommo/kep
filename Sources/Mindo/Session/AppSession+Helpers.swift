@@ -279,6 +279,16 @@ extension AppSession {
         if markerKeys.contains(key) { activeMindMapView?.rebuildElementsPublic() }
     }
 
+    /// Rename the topic at `path` (an outline index path) to `newText` through
+    /// the canvas undo path, so an inline outline edit relayouts, redraws, marks
+    /// the doc dirty and is undoable — the first two-way slice of T2 (#201).
+    @MainActor func renameOutlineTopic(atOutlinePath path: String, to newText: String) {
+        guard case .mindMap(let map)? = activeDocument?.kind,
+              let topic = map.topic(atOutlinePath: path),
+              let view = activeMindMapView else { return }
+        view.undoableSetText(topic, to: newText)
+    }
+
     /// Apply a built-in supertag template (keystone #200) to the selected node,
     /// stamping any missing typed properties with their defaults. Returns the
     /// keys that were added (empty if none/no selection/unknown template).

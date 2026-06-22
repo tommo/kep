@@ -10,16 +10,42 @@ public struct OutlinePanel: View {
     /// in sync with the graph. `nil` = no external selection.
     public var selectedTarget: String?
     public let onSelect: (OutlineItem) -> Void
+    /// Inline rename callback `(item, newTitle)`. When nil the rows are
+    /// read-only (markdown/PlantUML outlines); when set (mind maps) a row can be
+    /// edited in place via double-click or Return on the selected row.
+    public var onRename: ((OutlineItem, String) -> Void)?
     @State private var selection: OutlineItem.ID?
     @State private var filter: String = ""
     /// True while pushing the external `selectedTarget` into `selection`, so the
     /// selection `onChange` doesn't echo it back as a navigation request.
     @State private var syncing = false
+    /// The row currently being renamed in place (nil = none).
+    @State private var editingID: OutlineItem.ID?
+    @State private var editDraft: String = ""
+    @FocusState private var editFieldFocused: Bool
 
-    public init(items: [OutlineItem], selectedTarget: String? = nil, onSelect: @escaping (OutlineItem) -> Void) {
+    public init(items: [OutlineItem], selectedTarget: String? = nil,
+                onSelect: @escaping (OutlineItem) -> Void,
+                onRename: ((OutlineItem, String) -> Void)? = nil) {
         self.items = items
         self.selectedTarget = selectedTarget
         self.onSelect = onSelect
+        self.onRename = onRename
+    }
+
+    private func beginEdit(_ item: OutlineItem) {
+        guard onRename != nil else { return }
+        editDraft = item.title
+        editingID = item.id
+        editFieldFocused = true
+    }
+
+    private func commitEdit(_ item: OutlineItem) {
+        guard editingID == item.id else { return }
+        editingID = nil
+        let trimmed = editDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != item.title else { return }
+        onRename?(item, trimmed)
     }
 
     /// Map the external `selectedTarget` to the (per-render, UUID) row id so the
@@ -67,16 +93,32 @@ public struct OutlinePanel: View {
                         Image(systemName: icon(for: item.depth))
                             .font(.system(size: 8))
                             .foregroundStyle(.secondary)
-                        Text(item.title)
-                            .font(.system(size: 13))   // match mindmap node text size
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                        if !item.markers.isEmpty {
-                            Spacer(minLength: 4)
-                            ForEach(Array(item.markers.enumerated()), id: \.offset) { _, marker in
-                                Image(systemName: marker.symbolName)
-                                    .font(.system(size: 9))
-                                    .foregroundStyle(color(for: marker.tint))
+                        if editingID == item.id {
+                            TextField("", text: $editDraft)
+                                .textFieldStyle(.plain)
+                                .font(.system(size: 13))
+                                .focused($editFieldFocused)
+                                .onSubmit { commitEdit(item) }
+                                .onExitCommand { editingID = nil }   // Esc cancels
+                                .onChange(of: editFieldFocused) { _, focused in
+                                    if !focused { commitEdit(item) }  // commit on focus loss
+                                }
+                        } else {
+                            Text(item.title)
+                                .font(.system(size: 13))   // match mindmap node text size
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                                // Double-click renames in place (mind maps only —
+                                // onRename is nil otherwise). simultaneousGesture so
+                                // the List's own selection handling still fires.
+                                .simultaneousGesture(TapGesture(count: 2).onEnded { beginEdit(item) })
+                            if !item.markers.isEmpty {
+                                Spacer(minLength: 4)
+                                ForEach(Array(item.markers.enumerated()), id: \.offset) { _, marker in
+                                    Image(systemName: marker.symbolName)
+                                        .font(.system(size: 9))
+                                        .foregroundStyle(color(for: marker.tint))
+                                }
                             }
                         }
                     }
@@ -85,6 +127,15 @@ public struct OutlinePanel: View {
                 }
                 .listStyle(.plain)
                 .environment(\.defaultMinListRowHeight, 20)
+                // Return on the selected row begins an inline rename (keyboard
+                // parity with double-click). Ignored while already editing — the
+                // focused TextField handles Return as commit.
+                .onKeyPress(.return) {
+                    guard onRename != nil, editingID == nil, let id = selection,
+                          let item = items.first(where: { $0.id == id }) else { return .ignored }
+                    beginEdit(item)
+                    return .handled
+                }
                 // Navigate on real selection changes (not the programmatic sync)
                 // — drives off List selection so the row shows the normal arrow
                 // cursor, not the link/hand cursor an onTapGesture triggers.

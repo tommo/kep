@@ -8,6 +8,11 @@ import MindoModel
 /// touches private drag-state for the ghost overlay.
 extension MindMapView {
 
+    /// Map-attribute key for a per-document connector (curve) style override.
+    /// Stored in the `.mmd` so it travels with the file; falls back to the
+    /// global `PrefKeys.mindmapConnectorStyle` when absent.
+    public static let connectorStyleAttr = "connectorStyle"
+
     /// Render a faint dotted grid behind the canvas content. Called
     /// from `draw(_:)` after the paper fill but before connectors /
     /// topics so the grid sits at the bottom of the layer stack.
@@ -139,7 +144,7 @@ extension MindMapView {
         // Clickable collapsator: a small circle on the side facing children,
         // showing "+" when folded and "−" when expanded. Present for every
         // non-root parent so the mouse can fold/unfold without the menu.
-        if let rect = el.collapseIndicatorRect {
+        if let rect = el.collapseIndicatorRect, el.topic !== mindMap?.root {
             let color = theme.borderColor(forLevel: level)
             let circle = NSBezierPath(ovalIn: rect.insetBy(dx: 0.5, dy: 0.5))
             ctx.saveGState()
@@ -383,7 +388,9 @@ extension MindMapView {
             pStart = CGPoint(x: parent.frame.maxX, y: parent.frame.midY)
             pEnd = CGPoint(x: child.frame.minX, y: child.frame.midY)
         }
-        let style = ConnectorStyle.from(rawString: UserDefaults.standard.string(forKey: PrefKeys.mindmapConnectorStyle))
+        // Per-document override (map attribute) wins over the global pref.
+        let style = ConnectorStyle.from(rawString: mindMap?.attributes[MindMapView.connectorStyleAttr]
+            ?? UserDefaults.standard.string(forKey: PrefKeys.mindmapConnectorStyle))
         let width = CGFloat(PrefKeys.double(PrefKeys.mindmapConnectorWidth, fallback: Double(theme.connectorWidth)))
 
         ctx.beginPath()

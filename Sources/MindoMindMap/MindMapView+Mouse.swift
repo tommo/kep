@@ -616,7 +616,7 @@ extension MindMapView {
         var hit: MindMapElement?
         root.traverse { el in
             if hit != nil { return }
-            if let rect = el.collapseIndicatorRect, rect.contains(point) { hit = el }
+            if let rect = el.collapseIndicatorRect, el.topic !== mindMap?.root, rect.contains(point) { hit = el }
         }
         return hit
     }

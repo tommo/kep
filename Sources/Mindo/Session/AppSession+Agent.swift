@@ -49,7 +49,7 @@ extension AppSession {
             return try await provider.complete(input)
         }
         var usedTools: [String] = []
-        let reply = try await AgentLoop.run(backend: backend, maxIterations: 6) { call in
+        let reply = try await AgentLoop.run(backend: backend, maxIterations: 100) { call in
             usedTools.append(call.name)
             return tools.handle(name: call.name, argumentsJSON: call.argumentsJSON)
         }
@@ -79,6 +79,11 @@ extension AppSession {
         // Surface newly-created files in the sidebar.
         if !effects.createdFiles.isEmpty {
             reloadAllWorkspaces()
+        }
+        // The agent asked to point the user at a node (select_topic) — reveal +
+        // select it on the canvas.
+        if let path = effects.selectTopicPath {
+            requestOutlineNavigation(target: path)
         }
         // Show which tools ran, so the user sees what the agent did.
         guard !usedTools.isEmpty else { return reply }

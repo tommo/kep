@@ -377,6 +377,43 @@ extension AppSession {
         }
     }
 
+    // MARK: - Per-document mind-map theme
+
+    /// Map attribute key for a per-document theme override. Stored in the `.mmd`
+    /// map-level attributes so it travels with the file.
+    static let mapThemeAttr = "theme"
+
+    /// The active mind map's own theme override, or nil to use the global theme.
+    var activeMapThemeChoice: ThemeChoice? {
+        guard case .mindMap(let map)? = activeDocument?.kind,
+              let raw = map.attributes[Self.mapThemeAttr] else { return nil }
+        return ThemeChoice(rawValue: raw)
+    }
+
+    /// Set (or clear, with nil) the active mind map's theme override. Persists in
+    /// the map attributes and re-resolves the live canvas theme.
+    @MainActor func setActiveMapThemeChoice(_ choice: ThemeChoice?) {
+        guard case .mindMap(let map)? = activeDocument?.kind else { return }
+        map.setAttribute(Self.mapThemeAttr, choice?.rawValue)
+        markActiveDocumentDirty()
+        canvasThemeRevision &+= 1   // DetailArea reads this → re-resolves the theme
+    }
+
+    /// The active mind map's connector (curve) style override, or nil for global.
+    var activeMapConnectorStyle: ConnectorStyle? {
+        guard case .mindMap(let map)? = activeDocument?.kind,
+              let raw = map.attributes[MindMapView.connectorStyleAttr] else { return nil }
+        return ConnectorStyle(rawValue: raw)
+    }
+
+    /// Set (or clear, with nil) the active mind map's connector style and redraw.
+    @MainActor func setActiveMapConnectorStyle(_ style: ConnectorStyle?) {
+        guard case .mindMap(let map)? = activeDocument?.kind else { return }
+        map.setAttribute(MindMapView.connectorStyleAttr, style?.rawValue)
+        markActiveDocumentDirty()
+        activeMindMapView?.needsDisplay = true   // connector style is read at draw time
+    }
+
     // MARK: - Outline navigation
 
     /// Push a navigation target into the active editor. Tags the value with a

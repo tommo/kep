@@ -303,6 +303,29 @@ struct MindoApp: App {
                     Text(L("menu.view.theme.classic")).tag(ThemeChoice.classic)
                     Text(L("menu.view.theme.custom")).tag(ThemeChoice.custom)
                 }
+                // Per-document theme override (stored in the .mmd) — only for the
+                // active mind map. "Default" clears it and follows the global.
+                if session.activeFileType == .mindMap {
+                    Picker(L("menu.view.theme.document"), selection: Binding(
+                        get: { session.activeMapThemeChoice },
+                        set: { session.setActiveMapThemeChoice($0) }
+                    )) {
+                        Text(L("menu.view.theme.document.default")).tag(ThemeChoice?.none)
+                        Text(L("menu.view.theme.system")).tag(ThemeChoice?.some(.system))
+                        Text(L("menu.view.theme.light")).tag(ThemeChoice?.some(.light))
+                        Text(L("menu.view.theme.dark")).tag(ThemeChoice?.some(.dark))
+                        Text(L("menu.view.theme.classic")).tag(ThemeChoice?.some(.classic))
+                        Text(L("menu.view.theme.custom")).tag(ThemeChoice?.some(.custom))
+                    }
+                    Picker(L("menu.view.curve.document"), selection: Binding(
+                        get: { session.activeMapConnectorStyle },
+                        set: { session.setActiveMapConnectorStyle($0) }
+                    )) {
+                        Text(L("menu.view.curve.default")).tag(ConnectorStyle?.none)
+                        Text(L("menu.view.curve.curved")).tag(ConnectorStyle?.some(.bezier))
+                        Text(L("menu.view.curve.elbow")).tag(ConnectorStyle?.some(.polyline))
+                    }
+                }
                 Divider()
                 Button(session.sidebarVisible ? L("menu.view.hide_sidebar") : L("menu.view.show_sidebar")) {
                     session.sidebarVisible.toggle()

@@ -31,7 +31,7 @@ public enum AgentLoop {
     /// (JSON/text) to feed back to the model.
     @discardableResult
     public static func run(backend: Backend,
-                           maxIterations: Int = 6,
+                           maxIterations: Int = 100,
                            execute: (ToolCall) async -> String) async throws -> String {
         for _ in 0..<max(1, maxIterations) {
             switch try await backend.next() {

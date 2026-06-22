@@ -528,7 +528,13 @@ public final class MindMapView: NSView {
 
     private func rebuildElements() {
         guard let root = mindMap?.root else { rootElement = nil; return }
+        // Re-bind the selection to the freshly-built element for the SAME topic
+        // (the old element object is discarded), so the selection highlight
+        // tracks the node to its new position after a structural change
+        // (add / delete / move / fold) instead of being stranded at the old spot.
+        let selectedTopic = selectedElement?.topic
         rootElement = MindMapElement.build(from: root)
+        if let t = selectedTopic { selectedElement = element(forTopic: t) }
         relayout()
     }
 

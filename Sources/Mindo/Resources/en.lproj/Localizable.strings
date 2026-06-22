@@ -77,6 +77,13 @@
 "menu.view.theme.classic" = "Classic";
 "menu.view.theme.system" = "System (Light/Dark)";
 "menu.view.theme.custom" = "Custom";
+"menu.view.theme.document" = "Document Theme";
+"menu.view.theme.document.default" = "Use Global Default";
+"menu.view.curve.document" = "Document Curve Style";
+"menu.view.curve.default" = "Use Global Default";
+"menu.view.curve.curved" = "Curved";
+"menu.view.curve.straight" = "Straight";
+"menu.view.curve.elbow" = "Elbow";
 "prefs.mindmap.section.canvas_colors" = "Canvas Colors";
 "prefs.mindmap.canvas_colors_hint" = "Select the Custom mind-map theme to edit canvas colors.";
 "menu.view.show_sidebar" = "Show Sidebar";

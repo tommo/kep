@@ -14,7 +14,9 @@ struct DetailArea: View {
     /// appearance flips (via colorScheme) for the `.system` choice.
     private var resolvedCanvasTheme: MindMapTheme {
         _ = session.canvasThemeRevision
-        return session.theme.resolved(dark: colorScheme == .dark)
+        // A per-document theme override (stored in the map) wins over the global.
+        let choice = session.activeMapThemeChoice ?? session.theme
+        return choice.resolved(dark: colorScheme == .dark)
     }
 
     var body: some View {

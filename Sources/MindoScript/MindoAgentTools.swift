@@ -9,6 +9,9 @@ public final class AgentToolEffects {
     public var changedFiles: Set<URL> = []
     public var createdFiles: Set<URL> = []
     public var mapMutated = false
+    /// Outline path of a topic the agent asked to select/reveal on the canvas
+    /// (the `select_topic` tool). The host navigates + selects it after the run.
+    public var selectTopicPath: String?
     /// Live overlay of documents written *this run*, keyed by standardized URL.
     /// Lets a later tool call in the same agent loop read the freshest bytes
     /// (the start-of-run `corpus`/`allFiles` snapshot can't see same-run writes).
@@ -117,6 +120,8 @@ public struct MindoAgentTools {
          #"{"type":"object","properties":{"query":{"type":"string"},"path":{"type":"string"},"key":{"type":"string"},"value":{"type":"string"}},"required":["key"]}"#),
         ("find_topics_by_property", "Find topics by a typed user property: `key` is the property name (e.g. priority, done, tags, status, due). Optional `value` filters to that value (for a tags list, matches when the list contains it); omit `value` to find every topic that has the property. Hits are prefixed with [outline-path] and show the value.",
          #"{"type":"object","properties":{"key":{"type":"string"},"value":{"type":"string"}},"required":["key"]}"#),
+        ("select_topic", "Select and reveal a topic on the canvas (highlights it + scrolls it into view), targeted by `path` (outline index path like 0/2) or `query` (text substring). Use this to point the user at a specific node. Does not modify the map.",
+         #"{"type":"object","properties":{"query":{"type":"string"},"path":{"type":"string"}}}"#),
         ("query_topics", "Find topics with the query mini-language (more expressive than find_topics_by_property). Terms (space = AND, uppercase OR between groups, leading - negates a term): `key:value`, `key:` (property present), `#tag`, `tag:name`, `text:substr`, `/regex/`, `under:X` (any ancestor's text contains X — scope to a branch), and numeric comparisons on number properties `key>=N` `key<=N` `key>N` `key<N`. Example: `priority>=3 done:false under:Work`. Hits are prefixed with [outline-path].",
          #"{"type":"object","properties":{"query":{"type":"string"}},"required":["query"]}"#),
         ("set_topic_property", "Set a typed user property (e.g. priority=3, done=true, status=active, tags=[\"a\",\"b\"]) on a topic targeted by `path` or `query`. The value's type is inferred (number/checkbox/date/JSON list/text). Omit `value` to clear it. Built-in/reserved keys are rejected — use set_topic_attr for those.",
@@ -261,6 +266,11 @@ public struct MindoAgentTools {
                 hits.append("[\(t.outlinePath)] \(t.text) — \(key)=\(PropertyCodec.encode(val))")
             }
             return hits.isEmpty ? "(none)" : hits.joined(separator: "\n")
+
+        case "select_topic":
+            guard let t = resolveTopic(a) else { return "error: no topic matches the given path/query" }
+            effects.selectTopicPath = t.outlinePath
+            return "selected \"\(t.text)\" at [\(t.outlinePath)]"
 
         case "query_topics":
             guard let q = a.str("query"), !q.trimmingCharacters(in: .whitespaces).isEmpty else {

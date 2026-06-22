@@ -74,6 +74,13 @@
 "menu.view.theme.classic" = "经典";
 "menu.view.theme.system" = "跟随系统（浅色/深色）";
 "menu.view.theme.custom" = "自定义";
+"menu.view.theme.document" = "文档主题";
+"menu.view.theme.document.default" = "使用全局默认";
+"menu.view.curve.document" = "文档连线样式";
+"menu.view.curve.default" = "使用全局默认";
+"menu.view.curve.curved" = "曲线";
+"menu.view.curve.straight" = "直线";
+"menu.view.curve.elbow" = "折线";
 "prefs.mindmap.section.canvas_colors" = "画布颜色";
 "prefs.mindmap.canvas_colors_hint" = "选择「自定义」思维导图主题以编辑画布颜色。";
 "menu.view.show_sidebar" = "显示边栏";

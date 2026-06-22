@@ -115,6 +115,12 @@ private struct NodePropertyRowView: View {
         }
         .padding(.horizontal, 8)
         .onAppear { if !loaded { draft = PropertyCodec.encode(row.value); loaded = true } }
+        // Rows are keyed by property key, so SwiftUI reuses this view (keeping
+        // @State) when the selection moves to another node that has the same
+        // key. Reload the draft when the underlying value changes, otherwise the
+        // field shows — and a Stepper edit would commit — the previous node's
+        // value.
+        .onChange(of: row.value) { _, newValue in draft = PropertyCodec.encode(newValue) }
     }
 
     @ViewBuilder private var editor: some View {

@@ -48,6 +48,10 @@ struct DocumentTabBar: View {
                         RoundedRectangle(cornerRadius: 6)
                             .fill(doc.id == session.activeDocumentID ? Color.accentColor.opacity(0.18) : Color.clear)
                     )
+                    // The strip lives in the title-bar band, so AppKit would treat
+                    // a press-drag on a tab as a window move and swallow the
+                    // reorder drag. Mark the tab cell non-window-draggable.
+                    .background(WindowDragGuard())
                     .opacity(draggingID == doc.id ? 0.4 : 1.0)
                     .onTapGesture {
                         // Clicking a tab is a deliberate switch — focus that
@@ -83,16 +87,17 @@ struct DocumentTabBar: View {
                         .disabled(doc.fileURL == nil)
                     }
                 }
-                // Manual "new document view" button (Obsidian's +). Each entry
-                // creates a fresh untitled doc in its OWN tab — so you can spin
-                // up a new tab on demand instead of every open reusing one.
+                // "New document view" button (Obsidian's +). Each entry opens a
+                // fresh UNTITLED doc in its OWN tab held in memory — it does NOT
+                // write a file into the workspace (that's File ▸ New / the sidebar
+                // context menu). Save (⌘S) chooses the path later.
                 Menu {
-                    Button(L("menu.file.new_mindmap")) { session.newMindMap() }
-                    Button(L("menu.file.new_markdown")) { session.newMarkdown() }
-                    Button(L("menu.file.new_csv")) { session.newCSV() }
-                    Button(L("menu.file.new_plantuml")) { session.newPlantUML() }
-                    Button(L("menu.file.new_notebook")) { session.newResearchNotebook() }
-                    Button(L("menu.file.new_text")) { session.newTextFile() }
+                    Button(L("menu.file.new_mindmap")) { session.newDocViewTab(.mindMap) }
+                    Button(L("menu.file.new_markdown")) { session.newDocViewTab(.markdown) }
+                    Button(L("menu.file.new_csv")) { session.newDocViewTab(.csv) }
+                    Button(L("menu.file.new_plantuml")) { session.newDocViewTab(.plantUML) }
+                    Button(L("menu.file.new_notebook")) { session.newDocViewTab(.mindNotebook) }
+                    Button(L("menu.file.new_text")) { session.newDocViewTab(.plainText) }
                 } label: {
                     Image(systemName: "plus")
                         .font(.system(size: 11, weight: .medium))
@@ -161,4 +166,19 @@ private struct TabDropDelegate: DropDelegate {
     }
 
     func dropExited(info: DropInfo) {}
+}
+
+/// A zero-cost AppKit backing view that opts its region OUT of window dragging.
+/// The tab strip sits in the transparent title-bar band (the strip is pulled
+/// flush to the window top), where AppKit otherwise interprets a press-drag as
+/// "move the window" and never lets SwiftUI's `.onDrag` reorder begin. Using it
+/// as a tab's `.background` makes the tab the hit view with
+/// `mouseDownCanMoveWindow == false`, so the drag reorders instead. Empty strip
+/// gaps keep the default behaviour, so the window is still draggable there.
+struct WindowDragGuard: NSViewRepresentable {
+    final class GuardView: NSView {
+        override var mouseDownCanMoveWindow: Bool { false }
+    }
+    func makeNSView(context: Context) -> NSView { GuardView() }
+    func updateNSView(_ nsView: NSView, context: Context) {}
 }

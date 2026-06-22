@@ -119,6 +119,31 @@ extension AppSession {
         }
     }
 
+    /// Open a fresh UNTITLED document in its OWN new tab, held in memory (no file
+    /// is written to the workspace until ⌘S). This is what the tab-bar "+" uses:
+    /// it spins up a new doc *view*, which is what users expect from a tab "+",
+    /// rather than dropping a real file into the current workspace folder the way
+    /// File ▸ New does. Focuses the new editor.
+    func newDocViewTab(_ type: SupportedFileType) {
+        let doc: OpenDocument
+        switch type {
+        case .mindMap:
+            let map = MindMap()
+            map.root = Topic(text: "New Mind Map")
+            doc = OpenDocument(kind: .mindMap(map), fileURL: nil, title: "Untitled.mmd")
+        case .mindNotebook:
+            doc = OpenDocument(kind: .text("# New Research Notebook\n", fileType: .mindNotebook),
+                               fileURL: nil, title: "Untitled.mnb")
+        default:
+            doc = OpenDocument(kind: .text("", fileType: type),
+                               fileURL: nil, title: "Untitled.\(type.rawValue)")
+        }
+        openDocuments.append(doc)
+        pendingEditorFocus = true
+        activeDocumentID = doc.id
+        persistOpenTabs()
+    }
+
     func closeActive() {
         guard let id = activeDocumentID else { return }
         closeTab(id)

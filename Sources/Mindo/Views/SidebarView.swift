@@ -18,8 +18,10 @@ private struct InlineRenameField: NSViewRepresentable {
         field.font = .systemFont(ofSize: 12)
         field.lineBreakMode = .byTruncatingTail
         field.delegate = context.coordinator
-        field.target = context.coordinator
-        field.action = #selector(Coordinator.commit(_:))
+        // Commit/cancel are handled via the field-editor command delegate
+        // (`doCommandBy`), not target/action — Return via target/action is
+        // unreliable for an NSTextField embedded in a SwiftUI List (the backing
+        // table view can swallow the key).
         // Force first responder + select-all once the field is in the window.
         DispatchQueue.main.async {
             guard field.window?.makeFirstResponder(field) == true else { return }
@@ -37,37 +39,34 @@ private struct InlineRenameField: NSViewRepresentable {
         private var finished = false
         init(_ parent: InlineRenameField) { self.parent = parent }
 
-        @objc func commit(_ sender: NSTextField) {
-            guard !finished else { return }
-            finished = true
-            restoreListFocus(from: sender)   // Return: hand focus back to the list
-            parent.onCommit(sender.stringValue)
-        }
-
         func controlTextDidEndEditing(_ obj: Notification) {
+            // Only reached for a blur (click elsewhere) — Return/Esc are handled
+            // in doCommandBy below and set `finished` first. Commit the edit, but
+            // don't pull focus back: the user moved it on purpose.
             guard !finished, let field = obj.object as? NSTextField else { return }
             finished = true
-            // Return/Tab end the edit by keyboard → keep focus in the sidebar so
-            // the user can keep arrowing. A blur (NSOtherTextMovement, e.g. a
-            // click elsewhere) intentionally moved focus — don't yank it back.
-            let movement = (obj.userInfo?["NSTextMovement"] as? Int) ?? 0
-            if movement == NSTextMovement.return.rawValue
-                || movement == NSTextMovement.tab.rawValue
-                || movement == NSTextMovement.backtab.rawValue {
-                restoreListFocus(from: field)
-            }
-            parent.onCommit(field.stringValue)   // commit on focus loss
+            parent.onCommit(field.stringValue)
         }
 
         func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
-            if selector == #selector(NSResponder.cancelOperation(_:)) {   // Esc
+            switch selector {
+            case #selector(NSResponder.insertNewline(_:)):   // Return → commit
+                guard !finished else { return true }
+                finished = true
+                if let field = control as? NSTextField {
+                    restoreListFocus(from: field)
+                    parent.onCommit(field.stringValue)
+                }
+                return true
+            case #selector(NSResponder.cancelOperation(_:)):  // Esc → cancel
                 guard !finished else { return true }
                 finished = true
                 restoreListFocus(from: control)
                 parent.onCancel()
                 return true
+            default:
+                return false
             }
-            return false
         }
 
         /// After the rename field goes away (commit/cancel by keyboard), the

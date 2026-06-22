@@ -26,11 +26,12 @@ struct DetailArea: View {
                 // and NavigationSplitView floats its OWN sidebar-toggle there
                 // (an NSToolbar item that re-adds itself, so it can't be removed).
                 // It IS the reveal control. Measured in-window: traffic lights end
-                // ~79pt, the toggle item spans x≈100–148. Offset the tabs to 150pt
-                // so they clear it — no duplicate button, no overlap.
-                if !session.sidebarVisible {
-                    Color.clear.frame(width: 150)
-                }
+                // ~79pt, the toggle item spans x≈100–148, so the tabs clear it at
+                // 150pt. Keep the gutter ALWAYS in the layout and animate its WIDTH
+                // (0 ↔ 150) rather than inserting/removing the view — a structural
+                // pop didn't match the sidebar's continuous slide. Same trigger +
+                // curve as the column animation, so the tabs slide in lockstep.
+                Color.clear.frame(width: session.sidebarVisible ? 0 : 150)
                 DocumentTabBar(session: $session)
                 Divider()
                 Button {

@@ -35,7 +35,7 @@ public extension Outline {
     /// the canvas draws) to the dependency-free `OutlineMarker` the panel renders,
     /// so the outline shows priority/done/progress/tags inline (roadmap T2 #201).
     static func outlineMarkers(for topic: Topic) -> [OutlineMarker] {
-        PropertyMarkers.markerRow(for: topic).map { marker in
+        var markers: [OutlineMarker] = PropertyMarkers.markerRow(for: topic).map { marker in
             let tint: OutlineMarker.Tint
             switch marker.role {
             case .priority(let p): tint = .priority(p)
@@ -46,5 +46,13 @@ public extension Outline {
             }
             return OutlineMarker(symbolName: marker.symbolName, tint: tint)
         }
+        // A note indicator completes "shows …notes inline" (#201): a paper glyph
+        // for a plain note, a lock for an encrypted one.
+        if let note = (topic.extra(.note) as? ExtraNote)?.text, !note.isEmpty {
+            let encrypted = NoteEncryption.looksEncrypted(note)
+            markers.append(OutlineMarker(symbolName: encrypted ? "lock.fill" : "note.text",
+                                         tint: .neutral))
+        }
+        return markers
     }
 }

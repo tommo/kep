@@ -38,6 +38,19 @@ final class MindMapOutlineTests: XCTestCase {
         _ = plain
     }
 
+    func testOutlineShowsNoteIndicator() {
+        let map = MindMap()
+        let root = Topic(text: "Root")
+        map.root = root
+        let noted = root.addChild(text: "Has note")
+        noted.setExtra(ExtraNote(text: "some detail"))
+        _ = root.addChild(text: "Plain")
+
+        let items = Outline.fromMindMap(map)
+        XCTAssertEqual(items.first { $0.title == "Has note" }!.markers.map(\.symbolName), ["note.text"])
+        XCTAssertTrue(items.first { $0.title == "Plain" }!.markers.isEmpty)
+    }
+
     func testEmptyMapProducesNothing() {
         let map = MindMap()
         XCTAssertTrue(Outline.fromMindMap(map).isEmpty)

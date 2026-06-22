@@ -22,6 +22,19 @@ struct DetailArea: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
+                // When the sidebar is collapsed the detail column reaches the
+                // window's left edge — reserve the traffic-light gutter and add a
+                // reveal-sidebar button (Obsidian-style) so the tabs don't slide
+                // under the close/min/zoom controls.
+                if !session.sidebarVisible {
+                    Color.clear.frame(width: 70)
+                    Button { session.sidebarVisible = true } label: {
+                        Image(systemName: "sidebar.leading").foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help(L("menu.view.show_sidebar"))
+                    .padding(.trailing, 8)
+                }
                 DocumentTabBar(session: $session)
                 Divider()
                 Button {

@@ -37,6 +37,20 @@ final class AgentPropertyToolsTests: XCTestCase {
         XCTAssertFalse(r.contains("] C"), r)
     }
 
+    func testQueryTopicsMiniLanguage() {
+        let m = map()
+        // numeric comparison + AND
+        let r = tools(m).handle(name: "query_topics", argumentsJSON: #"{"query":"priority>=1 done:true"}"#)
+        XCTAssertTrue(r.contains("] B"), r)
+        XCTAssertFalse(r.contains("] A"), r)
+        // #tag shorthand
+        XCTAssertTrue(tools(m).handle(name: "query_topics",
+                                      argumentsJSON: ##"{"query":"#urgent"}"##).contains("] C"))
+        // empty / no match
+        XCTAssertEqual(tools(m).handle(name: "query_topics", argumentsJSON: #"{"query":"priority>9"}"#), "(none)")
+        XCTAssertTrue(tools(m).handle(name: "query_topics", argumentsJSON: #"{"query":"  "}"#).hasPrefix("error"))
+    }
+
     func testFindByPropertyPresenceAndTagMembership() {
         let m = map()
         XCTAssertTrue(tools(m).handle(name: "find_topics_by_property",

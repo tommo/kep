@@ -117,6 +117,8 @@ public struct MindoAgentTools {
          #"{"type":"object","properties":{"query":{"type":"string"},"path":{"type":"string"},"key":{"type":"string"},"value":{"type":"string"}},"required":["key"]}"#),
         ("find_topics_by_property", "Find topics by a typed user property: `key` is the property name (e.g. priority, done, tags, status, due). Optional `value` filters to that value (for a tags list, matches when the list contains it); omit `value` to find every topic that has the property. Hits are prefixed with [outline-path] and show the value.",
          #"{"type":"object","properties":{"key":{"type":"string"},"value":{"type":"string"}},"required":["key"]}"#),
+        ("query_topics", "Find topics with the query mini-language (more expressive than find_topics_by_property). Terms (space = AND, uppercase OR between groups, leading - negates a term): `key:value`, `key:` (property present), `#tag`, `tag:name`, `text:substr`, `/regex/`, `under:X` (any ancestor's text contains X — scope to a branch), and numeric comparisons on number properties `key>=N` `key<=N` `key>N` `key<N`. Example: `priority>=3 done:false under:Work`. Hits are prefixed with [outline-path].",
+         #"{"type":"object","properties":{"query":{"type":"string"}},"required":["query"]}"#),
         ("set_topic_property", "Set a typed user property (e.g. priority=3, done=true, status=active, tags=[\"a\",\"b\"]) on a topic targeted by `path` or `query`. The value's type is inferred (number/checkbox/date/JSON list/text). Omit `value` to clear it. Built-in/reserved keys are rejected — use set_topic_attr for those.",
          #"{"type":"object","properties":{"query":{"type":"string"},"path":{"type":"string"},"key":{"type":"string"},"value":{"type":"string"}},"required":["key"]}"#),
         ("list_supertags", "List the available supertag templates (named sets of typed properties) and the fields each one stamps.",
@@ -257,6 +259,16 @@ public struct MindoAgentTools {
                     guard matches else { return }
                 }
                 hits.append("[\(t.outlinePath)] \(t.text) — \(key)=\(PropertyCodec.encode(val))")
+            }
+            return hits.isEmpty ? "(none)" : hits.joined(separator: "\n")
+
+        case "query_topics":
+            guard let q = a.str("query"), !q.trimmingCharacters(in: .whitespaces).isEmpty else {
+                return "error: missing 'query'"
+            }
+            let hits = TopicQuery.evaluate(q, in: map).map { t -> String in
+                let text = t.text.isEmpty ? "(untitled)" : t.text
+                return "[\(t.outlinePath)] \(text)"
             }
             return hits.isEmpty ? "(none)" : hits.joined(separator: "\n")
 

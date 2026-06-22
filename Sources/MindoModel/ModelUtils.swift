@@ -127,11 +127,75 @@ public enum ModelUtils {
         return out
     }
 
-    /// Backtick-fence a value the way the Java side does for `key=` `value` in attribute lines.
+    /// Backtick-fence an attribute value (the `key=` `value` form on `> ` lines).
+    ///
+    /// Round-trips ANY string (#211). Steps:
+    /// 1. Escape `\`, newline and CR so the value stays on the single `> ` line
+    ///    (a raw newline would split the line and lose everything after it).
+    /// 2. Fence with `maxBacktickRun + 1` backticks (so internal runs can't close
+    ///    the span early).
+    /// 3. If the escaped value abuts the fence with a backtick, pad one space on
+    ///    each side — otherwise a value-edge backtick merges with the closing
+    ///    fence and the parser drops it. The reader strips that padding back off
+    ///    (CommonMark code-span rule). Normal values (no `\`, newline, or edge
+    ///    backtick) are emitted byte-for-byte as before.
     public static func makeMDCodeBlock(_ text: String) -> String {
-        let count = max(1, calcMaxBacktickRun(in: text) + 1)
+        let escaped = escapeAttributeValue(text)
+        let count = max(1, calcMaxBacktickRun(in: escaped) + 1)
         let fence = String(repeating: "`", count: count)
-        return fence + text + fence
+        let needsPad = escaped.first == "`" || escaped.last == "`"
+        let body = needsPad ? " " + escaped + " " : escaped
+        return fence + body + fence
+    }
+
+    /// Escape the characters that can't survive inside a single-line `> ` value:
+    /// backslash (the escape introducer) and the line breaks. Inverse of
+    /// `unescapeAttributeValue`.
+    public static func escapeAttributeValue(_ s: String) -> String {
+        var out = ""
+        out.reserveCapacity(s.count)
+        for ch in s {
+            switch ch {
+            case "\\": out += "\\\\"
+            case "\n": out += "\\n"
+            case "\r": out += "\\r"
+            default:   out.append(ch)
+            }
+        }
+        return out
+    }
+
+    /// Reverse `escapeAttributeValue`. An unknown `\x` escape is passed through
+    /// literally (keeps the backslash) so values from older files that contain a
+    /// raw backslash followed by an ordinary character are preserved.
+    public static func unescapeAttributeValue(_ s: String) -> String {
+        guard s.contains("\\") else { return s }
+        var out = ""
+        out.reserveCapacity(s.count)
+        var i = s.startIndex
+        while i < s.endIndex {
+            if s[i] == "\\", s.index(after: i) < s.endIndex {
+                let next = s.index(after: i)
+                switch s[next] {
+                case "\\": out.append("\\"); i = s.index(after: next); continue
+                case "n":  out.append("\n"); i = s.index(after: next); continue
+                case "r":  out.append("\r"); i = s.index(after: next); continue
+                default:   break   // unknown escape — keep the backslash literally
+                }
+            }
+            out.append(s[i])
+            i = s.index(after: i)
+        }
+        return out
+    }
+
+    /// CommonMark code-span rule: if a fenced value both begins and ends with a
+    /// space but isn't all spaces, one space is removed from each end. Undoes the
+    /// edge-backtick padding `makeMDCodeBlock` adds.
+    public static func stripCodeSpanPadding(_ s: String) -> String {
+        guard s.count >= 2, s.first == " ", s.last == " ",
+              s.contains(where: { $0 != " " }) else { return s }
+        return String(s.dropFirst().dropLast())
     }
 
     /// Longest run of consecutive backticks anywhere in `text`.

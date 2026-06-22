@@ -36,9 +36,12 @@ public enum PropertyValue: Equatable, Sendable {
 }
 
 /// The single authority for converting a `PropertyValue` to/from the plain
-/// string stored in `Topic.attributes`. Encodings are canonical and chosen so
-/// they round-trip losslessly through the existing `.mmd` `> ` attribute block
-/// (no newlines, no trailing backticks — the substrate gaps from #211):
+/// string stored in `Topic.attributes`. Encodings are canonical and round-trip
+/// losslessly through the `.mmd` `> ` attribute block. As of #211 the substrate
+/// escapes newlines/CR and pads edge backticks, so text values may now be
+/// multi-line and contain backticks anywhere (the only un-round-trippable shape
+/// is a value with BOTH a leading and trailing space — CommonMark strips one
+/// each side — which a trimmed text field never produces):
 ///   - text:     verbatim
 ///   - number:   shortest round-trippable decimal, no trailing `.0`
 ///   - date:     ISO-8601 `yyyy-MM-dd` (date-only / UTC midnight) or

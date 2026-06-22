@@ -97,31 +97,30 @@ final class MmdRoundTripCharacterizationTests: XCTestCase {
         }
     }
 
-    /// CHARACTERIZED SUBSTRATE GAPS (found by this Phase 0 suite): the `> ` line
-    /// uses a backtick-fence value encoding (``key=`value` ``) whose parser
-    /// regex `(\`+)(.*?)\2` mishandles three value shapes — a value containing a
-    /// newline (splits the line), a value ENDING in a backtick, and a lone
-    /// backtick. Each fails to round-trip today. They are wrapped as EXPECTED
-    /// failures so this suite stays green while tracking the bug: when the
-    /// serializer is fixed these flip to unexpected passes and flag the win.
-    /// Constraint for the typed layer until then: text property values must be
-    /// single-line and must not end in a backtick (lists use JSON, which is
-    /// safe). See [[card]] for the fix. The fix belongs to the writer/parser,
-    /// not the typed layer.
-    func testKnownAttributeSerializationGaps() throws {
-        let broken: [String: String] = [
-            "withNewline":   "line one\nline two",   // newline splits the `> ` line
-            "trailBacktick": "ends in tick`",         // greedy fence swallows the closer
+    /// FIXED (#211): the value shapes the `> ` backtick-fence encoder used to
+    /// mangle — a value containing a NEWLINE (split the line), a value ENDING in
+    /// a backtick (greedy fence swallowed the closer), and a LONE backtick — now
+    /// round-trip. The writer escapes `\`/newline/CR and pads edge backticks; the
+    /// reader reverses both. These were `XCTExpectFailure` characterizations;
+    /// they're now hard assertions, and the typed-property text layer is no
+    /// longer constrained to single-line / no-trailing-tick values.
+    func testFormerlyBrokenAttributeValuesRoundTrip() throws {
+        let cases: [String: String] = [
+            "withNewline":   "line one\nline two",   // newline no longer splits the `> ` line
+            "trailBacktick": "ends in tick`",         // trailing tick survives the fence
             "onlyBacktick":  "`",                      // lone backtick
+            "multiNewline":  "a\nb\nc",               // several lines
+            "leadBacktick":  "`starts with tick",      // leading tick too
         ]
-        for (k, v) in broken {
-            XCTExpectFailure("attribute value '\(k)' is a known serialization gap (#211)") {
-                let map = MindMap()
-                let root = Topic(text: "Root"); map.root = root
-                root.setAttribute(k, v)
-                let reparsed = try! MindMap(text: map.write())
-                XCTAssertEqual(reparsed.root?.attribute(k), v)
-            }
+        let map = MindMap()
+        let root = Topic(text: "Root"); map.root = root
+        for (k, v) in cases { root.setAttribute(k, v) }
+
+        let write1 = map.write()
+        let reparsed = try MindMap(text: write1)
+        XCTAssertEqual(reparsed.write(), write1, "attribute serialization must stay idempotent")
+        for (k, v) in cases {
+            XCTAssertEqual(reparsed.root?.attribute(k), v, "attribute \(k) must round-trip verbatim")
         }
     }
 

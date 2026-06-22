@@ -30,8 +30,31 @@ final class ModelUtilsTests: XCTestCase {
 
     func testMakeMDCodeBlockBumpsBacktickFenceCount() {
         XCTAssertEqual(ModelUtils.makeMDCodeBlock("plain"), "`plain`")
-        XCTAssertEqual(ModelUtils.makeMDCodeBlock("has `one`"), "``has `one```")
-        XCTAssertEqual(ModelUtils.makeMDCodeBlock("has ``two``"), "```has ``two`````")
+        // Internal backtick runs only widen the fence (no padding needed).
+        XCTAssertEqual(ModelUtils.makeMDCodeBlock("has `one` mid"), "``has `one` mid``")
+        // A value ENDING in a backtick is space-padded (#211) so the edge tick
+        // can't merge with the closing fence; fence width still tracks the run.
+        XCTAssertEqual(ModelUtils.makeMDCodeBlock("has `one`"), "`` has `one` ``")
+        XCTAssertEqual(ModelUtils.makeMDCodeBlock("has ``two``"), "``` has ``two`` ```")
+    }
+
+    func testAttributeValueEscapeRoundTrips() {
+        // NOTE: a value with BOTH leading and trailing spaces can't round-trip
+        // (CommonMark strips one space each side) — a known substrate limit; the
+        // typed-property text layer trims, so it never emits one.
+        for v in ["plain", "ends in tick`", "`", "a\nb", #"back\slash"#, "café 日本語"] {
+            let encoded = ModelUtils.makeMDCodeBlock(v)
+            // Peel the fence the same way the parser does, then reverse the codec.
+            let run = ModelUtils.calcMaxBacktickRun(in: encoded)
+            // The outer fence is the longest leading run of backticks.
+            var lead = 0
+            for ch in encoded { if ch == "`" { lead += 1 } else { break } }
+            XCTAssertGreaterThan(lead, 0)
+            XCTAssertLessThanOrEqual(lead, run)
+            let inner = String(encoded.dropFirst(lead).dropLast(lead))
+            let decoded = ModelUtils.unescapeAttributeValue(ModelUtils.stripCodeSpanPadding(inner))
+            XCTAssertEqual(decoded, v, "value \(String(reflecting: v)) must survive the attribute codec")
+        }
     }
 
     func testMakePreBlockEscapesAngles() {

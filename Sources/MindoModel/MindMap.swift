@@ -136,7 +136,11 @@ public final class MindMap {
         attributePattern.enumerateMatches(in: inside, range: insideRange) { match, _, _ in
             guard let match = match else { return }
             let key = nsInside.substring(with: match.range(at: 1))
-            let val = nsInside.substring(with: match.range(at: 3))
+            let raw = nsInside.substring(with: match.range(at: 3))
+            // Mirror makeMDCodeBlock: strip the edge-backtick pad, then unescape
+            // (backslash / newline / CR). Order matters — the writer pads AFTER
+            // escaping, so we un-pad before un-escaping.
+            let val = ModelUtils.unescapeAttributeValue(ModelUtils.stripCodeSpanPadding(raw))
             map[key] = val
             found = true
         }

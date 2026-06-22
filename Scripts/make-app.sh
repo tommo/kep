@@ -8,11 +8,15 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_ROOT"
 
 CONFIG="${CONFIG:-release}"
-# Brand "kep" is user-visible (bundle name, Dock, menu bar, About). The SPM
-# product / executable / bundle id stay "Mindo" so the prefs domain and
-# ~/Library/Application Support/Mindo (LLM config, collections) are preserved.
+# Brand "kep" is user-visible (bundle name, Dock, menu bar, About, AND the
+# installed executable / process name). The SPM build PRODUCT, the bundle id
+# (com.mindo.Mindo = the prefs domain) and the resource bundle (Mindo_Mindo
+# .bundle) stay "Mindo" so prefs and ~/Library/Application Support/Mindo (LLM
+# config, collections) are preserved — none of those depend on the executable's
+# file name, so we install it as "kep" to match the brand.
 APP_NAME="kep"
-PRODUCT="Mindo"
+PRODUCT="Mindo"      # SPM build product + resource-bundle target name (do NOT change)
+EXEC_NAME="kep"      # installed executable / CFBundleExecutable (cosmetic)
 APP_DIR="build/$APP_NAME.app"
 
 echo "==> swift build -c $CONFIG"
@@ -24,7 +28,7 @@ BIN_PATH="$(swift build -c "$CONFIG" --show-bin-path)/$PRODUCT"
 echo "==> assembling $APP_DIR"
 rm -rf "$APP_DIR"
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
-cp "$BIN_PATH" "$APP_DIR/Contents/MacOS/$PRODUCT"
+cp "$BIN_PATH" "$APP_DIR/Contents/MacOS/$EXEC_NAME"
 
 # Drag in localized resources + the Mindo SPM resource bundle.
 RES_BUNDLE_DIR="$(dirname "$BIN_PATH")"
@@ -52,7 +56,7 @@ cat > "$APP_DIR/Contents/Info.plist" <<EOF
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleExecutable</key>          <string>$PRODUCT</string>
+    <key>CFBundleExecutable</key>          <string>$EXEC_NAME</string>
 $ICON_KEY_INSERT
     <key>CFBundleIdentifier</key>          <string>com.mindo.Mindo</string>
     <key>CFBundleName</key>                <string>$APP_NAME</string>
@@ -92,4 +96,4 @@ $ICON_KEY_INSERT
 EOF
 
 echo "==> done: open '$APP_DIR'"
-echo "    or run directly: '$APP_DIR/Contents/MacOS/$PRODUCT'"
+echo "    or run directly: '$APP_DIR/Contents/MacOS/$EXEC_NAME'"

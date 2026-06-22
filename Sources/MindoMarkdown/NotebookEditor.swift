@@ -418,13 +418,14 @@ private struct NotebookCellRow: View {
 
     var body: some View {
         cellContent
-            .padding(6)
-            .background(RoundedRectangle(cornerRadius: 6).fill(isSelected ? Color.accentColor.opacity(0.06) : .clear))
-            .overlay(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 1.5)
-                    .fill(isSelected ? Color.accentColor : .clear)
-                    .frame(width: 3)
-            }
+            .padding(8)
+            // The current/active cell gets a clear accent border (+ faint tint).
+            // An editing cell is brighter still, so you can tell select vs edit.
+            .background(RoundedRectangle(cornerRadius: 8)
+                .fill(isSelected ? Color.accentColor.opacity(isEditing ? 0.10 : 0.05) : .clear))
+            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(
+                isSelected ? Color.accentColor.opacity(isEditing ? 1.0 : 0.6) : .clear,
+                lineWidth: isEditing ? 2 : 1.5))
             // Select on click without blocking the editors' own clicks.
             .simultaneousGesture(TapGesture().onEnded { model.selectedID = cell.id })
     }
@@ -498,13 +499,22 @@ private struct NotebookCellRow: View {
                 }
                 cellMenu
             }
-            TextField("Research question for the agent…", text: binding, axis: .vertical)
-                .textFieldStyle(.plain)
-                .font(.body.weight(.medium))
-                .lineLimit(1...4)
-                .focused(focus, equals: .edit(cell.id))
-                .onKeyPress(.escape) { focus.wrappedValue = .command; return .handled }
-                .onSubmit { Task { await model.runAgentCell(cell.id) } }
+            // Custom placeholder so an EMPTY agent cell reads as a faint hint,
+            // not real content (a plain TextField placeholder looked authored).
+            ZStack(alignment: .topLeading) {
+                if model.text(of: cell.id).isEmpty {
+                    Text("Research question for the agent…")
+                        .font(.body).italic().foregroundStyle(.tertiary)
+                        .allowsHitTesting(false)
+                }
+                TextField("", text: binding, axis: .vertical)
+                    .textFieldStyle(.plain)
+                    .font(.body.weight(.medium))
+                    .lineLimit(1...4)
+                    .focused(focus, equals: .edit(cell.id))
+                    .onKeyPress(.escape) { focus.wrappedValue = .command; return .handled }
+                    .onSubmit { Task { await model.runAgentCell(cell.id) } }
+            }
             let steps = model.agentSteps(of: cell.id)
             if !steps.isEmpty {
                 DisclosureGroup("Research steps (\(steps.count))") {

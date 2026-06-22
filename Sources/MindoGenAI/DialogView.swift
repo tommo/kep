@@ -1,5 +1,11 @@
 import SwiftUI
 
+public extension Notification.Name {
+    /// Posted by the host (⌘4 / Focus Agent) to move keyboard focus into the
+    /// assistant's message input even when the panel is already on screen.
+    static let focusAgentInput = Notification.Name("mindo.focusAgentInput")
+}
+
 /// Persistent conversational panel — multi-turn chat with the AI about the
 /// active document. The host supplies an optional context block (active doc /
 /// selection / resolved links) and an `onInsert` closure to drop a reply into
@@ -39,6 +45,10 @@ public struct DialogView: View {
         .onAppear {
             vm.refreshProviderLabel()   // pick up provider/model configured since init
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { inputFocused = true }
+        }
+        // ⌘4 / Focus Agent → focus the input even when the panel is already shown.
+        .onReceive(NotificationCenter.default.publisher(for: .focusAgentInput)) { _ in
+            inputFocused = true
         }
     }
 
@@ -124,10 +134,24 @@ public struct DialogView: View {
                 .padding(10)
             }
             .onChange(of: vm.conversation.turns.last?.content) { _, _ in
-                if let id = vm.conversation.turns.last?.id {
-                    withAnimation { proxy.scrollTo(id, anchor: .bottom) }
-                }
+                scrollToBottom(proxy)
             }
+            // Reveal the new message + the "Working…/Thinking…" indicator as soon
+            // as you send (a new turn appears or running flips on) — no manual
+            // scroll needed.
+            .onChange(of: vm.conversation.turns.count) { _, _ in scrollToBottom(proxy) }
+            .onChange(of: vm.isRunning) { _, running in
+                if running { withAnimation { proxy.scrollTo("busy", anchor: .bottom) } }
+                else { scrollToBottom(proxy) }
+            }
+        }
+    }
+
+    private func scrollToBottom(_ proxy: ScrollViewProxy) {
+        if vm.isRunning {
+            withAnimation { proxy.scrollTo("busy", anchor: .bottom) }
+        } else if let id = vm.conversation.turns.last?.id {
+            withAnimation { proxy.scrollTo(id, anchor: .bottom) }
         }
     }
 

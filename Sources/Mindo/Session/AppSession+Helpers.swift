@@ -96,7 +96,12 @@ extension AppSession {
             // Inspector content (Outline list) takes ↑↓ once shown.
         case .agent:
             outlineOpen = true
-            inspectorTab = .agent   // DialogView auto-focuses its input on appear
+            inspectorTab = .agent
+            // Focus the message input even if the panel was already shown (onAppear
+            // only fires on first reveal). Deferred so the view exists first.
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: .focusAgentInput, object: nil)
+            }
         }
     }
 

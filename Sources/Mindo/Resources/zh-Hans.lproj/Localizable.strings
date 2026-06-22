@@ -220,6 +220,7 @@
 "detail.empty.title" = "未打开文档";
 "detail.empty.description" = "请先打开一个工作区，然后在侧边栏中点击文件。";
 "detail.outline.title" = "大纲";
+"detail.new_document" = "新建";
 "outline.empty.title" = "暂无大纲";
 "outline.empty.description" = "添加标题或主题后会显示在此处。";
 

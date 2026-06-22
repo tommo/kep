@@ -46,7 +46,18 @@ extension AppSession {
     @MainActor
     func renameNode(_ node: NodeData) {
         guard !node.isWorkspace else { return }   // workspaces use removeWorkspace, not rename
-        renamingNodeURL = node.url.standardizedFileURL
+        // A modal prompt: an inline TextField inside the SwiftUI sidebar List
+        // never reliably takes first responder, so renaming silently did nothing.
+        let alert = NSAlert()
+        alert.messageText = L("sidebar.rename.title")
+        alert.addButton(withTitle: L("sidebar.rename.title"))   // default: Rename
+        alert.addButton(withTitle: L("button.cancel"))
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
+        field.stringValue = node.name
+        alert.accessoryView = field
+        alert.window.initialFirstResponder = field
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        renameNode(node, to: field.stringValue)
     }
 
     /// Commit a rename to disk. Empty / unchanged names quietly cancel. When
@@ -55,7 +66,6 @@ extension AppSession {
     /// so the inline editor closes.
     @MainActor
     func renameNode(_ node: NodeData, to newName: String) {
-        defer { renamingNodeURL = nil }
         let dir = node.url.deletingLastPathComponent()
         let outcome = RenamePlan.resolve(
             current: node.name,
@@ -139,11 +149,6 @@ extension AppSession {
         do {
             try FileManager.default.copyItem(at: node.url, to: target)
             reloadWorkspace(containing: node)
-            // Start an inline rename on the copy so the user can name it instead
-            // of being stuck with "… copy" (mirrors create-from-template).
-            DispatchQueue.main.async { [weak self] in
-                if let new = self?.nodeForURL(target) { self?.renamingNodeURL = new.url.standardizedFileURL }
-            }
         } catch {
             lastError = String(format: L("error.create_failed"), error.localizedDescription)
         }

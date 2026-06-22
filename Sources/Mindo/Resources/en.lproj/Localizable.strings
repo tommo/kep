@@ -223,6 +223,7 @@
 "detail.empty.title" = "No Document Open";
 "detail.empty.description" = "Open a workspace, then click a file in the sidebar.";
 "detail.outline.title" = "Outline";
+"detail.new_document" = "New";
 "outline.empty.title" = "No Outline";
 "outline.empty.description" = "Add headings or topics to see them here.";
 

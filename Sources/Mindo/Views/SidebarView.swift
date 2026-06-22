@@ -191,33 +191,6 @@ private struct WorkspaceDropDelegate: DropDelegate {
     }
 }
 
-/// Inline TextField that replaces a workspace row's static label while
-/// the user renames. Commits on Return; cancels on Esc or empty submit.
-/// Auto-focuses on appear via @FocusState.
-private struct InlineRenameField: View {
-    let initial: String
-    let onCommit: (String) -> Void
-    let onCancel: () -> Void
-
-    @State private var name: String
-    @FocusState private var focused: Bool
-
-    init(initial: String, onCommit: @escaping (String) -> Void, onCancel: @escaping () -> Void) {
-        self.initial = initial
-        self.onCommit = onCommit
-        self.onCancel = onCancel
-        _name = State(initialValue: initial)
-    }
-
-    var body: some View {
-        TextField("", text: $name, onCommit: { onCommit(name) })
-            .textFieldStyle(.plain)
-            .focused($focused)
-            .onAppear { focused = true }
-            .onExitCommand { onCancel() }
-    }
-}
-
 /// Recursive disclosure row for a workspace / folder / file.
 struct NodeRow: View {
     let node: NodeData
@@ -293,25 +266,14 @@ struct NodeRow: View {
         .contextMenu { menuItems }
     }
 
-    /// Either the static row name, or — when this node is the inline-rename
-    /// target — an editable NSTextField that commits on Return / blur and
-    /// cancels on Esc.
-    @ViewBuilder
+    /// The row name. Folders + workspaces always show their full name; only file
+    /// rows honor the Hide Extensions toggle so directories like `notes.archive`
+    /// keep their identifying suffix. (Renaming uses a modal prompt — see
+    /// AppSession.renameNode — since an inline List TextField can't hold focus.)
     private var label: some View {
-        if session.renamingNodeURL == node.url.standardizedFileURL {
-            InlineRenameField(initial: node.name) { newName in
-                session.renameNode(node, to: newName)
-            } onCancel: {
-                session.renamingNodeURL = nil
-            }
-        } else {
-            // Folders + workspaces always show their full name. Only file
-            // rows are subject to the Hide Extensions toggle so directories
-            // like `notes.archive` keep their identifying suffix.
-            Text(node.isFile
-                 ? SidebarLabel.displayName(node.name, hideExtensions: hideFileExtensions)
-                 : node.name)
-        }
+        Text(node.isFile
+             ? SidebarLabel.displayName(node.name, hideExtensions: hideFileExtensions)
+             : node.name)
     }
 
     @ViewBuilder

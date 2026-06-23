@@ -99,7 +99,7 @@ extension AppSession {
         // Read-only KB research + notebook authoring (no map/doc mutation).
         let allow: Set<String> = ["list_docs", "read_document", "resolve_link", "backlinks",
                                   "find_topics", "get_subtree", "semantic_search",
-                                  "notebook_add_note", "notebook_add_code"]
+                                  "notebook_add_note", "notebook_add_code", "notebook_eval"]
         let specs = MindoAgentTools.descriptors.filter { allow.contains($0.name) }
             .map { ToolSpec(name: $0.name, description: $0.description, parametersJSON: $0.parametersJSON) }
 
@@ -112,8 +112,11 @@ extension AppSession {
         names inline) and notebook_add_code (Lua over the `mindo` API to compute or verify a \
         point). These become real, editable cells in the document, so write them that way: \
         prefer several short notes and code cells over one long note, each a coherent step. \
-        Don't narrate to the user; put everything in the notebook. Stop when the question is \
-        answered.
+        Code cells share ONE live Lua session, so assign results to NAMED globals (e.g. \
+        `params = {...}`) that later cells reuse, and use notebook_eval to INSPECT values that \
+        earlier cells (or the cells above your block) computed — read real data instead of \
+        guessing. Don't narrate to the user; put everything in the notebook. Stop when the \
+        question is answered.
         """
         let notebookSoFar = context.trimmingCharacters(in: .whitespacesAndNewlines)
         var messages: [ChatMessage] = [.system(system)]
@@ -155,6 +158,17 @@ extension AppSession {
                 if let err = out.error { return "error: \(err)" }
                 return out.text.isEmpty ? "ran the cell (no output)" : "cell output:\n\(out.text)"
             }
+            // Read a value FROM the live kernel without authoring a cell — lets
+            // the agent inspect data that code cells computed.
+            if call.name == "notebook_eval", let code = Self.argString(call.argumentsJSON, "code") {
+                return await MainActor.run {
+                    let r = NotebookKernelStore.shared.kernel(for: docURL, restart: false,
+                                                              build: self.buildNotebookKernel)?.run(code)
+                        ?? ScriptRunResult(output: "", error: "executor unavailable")
+                    if let err = r.error { return "error: \(err)" }
+                    return r.output.isEmpty ? "(no value)" : r.output
+                }
+            }
             return tools.handle(name: call.name, argumentsJSON: call.argumentsJSON)
         }
         // Let the last streamed Task land before reporting / setting provenance.
@@ -185,6 +199,7 @@ extension AppSession {
         case "list_docs":        return "📑 listed documents"
         case "notebook_add_note": return "✎ wrote a note"
         case "notebook_add_code": return "λ ran a query"
+        case "notebook_eval":     return "λ inspected a value"
         default:                 return "• \(call.name)"
         }
     }

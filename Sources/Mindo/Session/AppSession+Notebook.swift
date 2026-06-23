@@ -95,17 +95,17 @@ extension AppSession {
         let tools = MindoAgentTools(map: MindMap(), corpus: corpus, allFiles: files,
                                     workspaceRoot: workspaceRoots.first?.url, effects: effects)
 
-        // CodeAct: the agent's unified action is Lua (`notebook_eval`) run in the
+        // CodeAct: the agent's SINGLE action is Lua (`notebook_eval`) run in the
         // notebook's shared kernel — research, compute, and authoring all happen
-        // in code. `semantic_search` stays a tool (embedding retrieval isn't in
-        // Lua). Wire the kernel's authoring hooks so `nb.note`/`nb.code` emit
-        // cells into THIS notebook; clear them when the run ends.
+        // in code (including embedding retrieval via mindo.semanticSearch). Wire
+        // the kernel's authoring hooks so `nb.note`/`nb.code` emit cells into THIS
+        // notebook; clear them when the run ends.
         let kernel = NotebookKernelStore.shared.kernel(for: docURL, restart: false, build: buildNotebookKernel)
         kernel?.onNote = { md in flag.authored = true; sink.agentAddProse(md) }
         kernel?.onCode = { src in flag.authored = true; sink.agentAddCode(src, output: nil) }
         defer { kernel?.onNote = nil; kernel?.onCode = nil }
 
-        let allow: Set<String> = ["notebook_eval", "semantic_search"]
+        let allow: Set<String> = ["notebook_eval"]
         let specs = MindoAgentTools.descriptors.filter { allow.contains($0.name) }
             .map { ToolSpec(name: $0.name, description: $0.description, parametersJSON: $0.parametersJSON) }
 
@@ -117,15 +117,14 @@ extension AppSession {
         NAMED globals to reuse.
 
         In Lua you can:
-        • Research the workspace knowledge base — mindo.search(query) returns matching snippets; \
-        mindo.docs() lists document names; mindo.readDoc(name) returns a document's text; \
-        mindo.backlinks(name) lists what links to it.
+        • Research the workspace knowledge base — mindo.semanticSearch(query [, k]) for \
+        meaning-based retrieval; mindo.search(query) for literal keyword snippets; mindo.docs() \
+        lists document names; mindo.readDoc(name) returns a document's text; mindo.backlinks(name) \
+        lists what links to it.
         • Author the notebook (this is HOW you produce the answer) — nb.note(markdown) adds a \
         prose cell (cite the source document names inline); nb.code(luaSource) adds a Lua code \
         cell the reader can run.
         • Compute and print(...) to observe.
-
-        You also have semantic_search(query) for meaning-based retrieval when keywords miss.
 
         Continue the notebook you're given (don't repeat what's above). Build the answer as \
         several short nb.note / nb.code cells grounded in what you actually read and computed. \

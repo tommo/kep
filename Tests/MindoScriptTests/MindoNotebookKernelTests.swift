@@ -80,6 +80,19 @@ final class MindoNotebookKernelTests: XCTestCase {
         XCTAssertEqual(k.run("return #mindo.search('xyznevermatches')").output, "0")
     }
 
+    func testMindoSemanticSearchCallable() throws {
+        let url = URL(fileURLWithPath: "/tmp/Grind.md")
+        let k = try MindoNotebookKernel(
+            map: MindMap(),
+            corpus: [(url: url, text: "Finer grind slows flow and raises extraction yield.")],
+            allFiles: [url])
+        // Returns a Lua array (count ≥ 0) and never errors — empty when on-device
+        // embeddings aren't available; non-empty when they are.
+        let r = k.run("return #mindo.semanticSearch('how does particle size change extraction')")
+        XCTAssertNil(r.error)
+        XCTAssertNotNil(Int(r.output))
+    }
+
     /// DOGFOOD: play a CodeAct agent over the real espresso-kb corpus — run the
     /// exact Lua actions a model would emit, observe outputs, author cells.
     /// Exercises mindo.search/docs/readDoc, nb.note/nb.code, persistent globals.
@@ -101,8 +114,9 @@ final class MindoNotebookKernelTests: XCTestCase {
         let actions: [String] = [
             // 1. orient
             "for _, d in ipairs(mindo.docs()) do print(d) end",
-            // 2. research
+            // 2. research — literal then meaning-based (embedding) retrieval
             "for _, h in ipairs(mindo.search('grind')) do print(h) end",
+            "for _, h in ipairs(mindo.semanticSearch('how does particle size change extraction', 3)) do print(h) end",
             // 3. read into shared globals
             "grind = mindo.readDoc('Grind'); extraction = mindo.readDoc('Extraction'); print('grind '..#grind..' / extraction '..#extraction)",
             // 4. compute over a PRIOR action's global, then author a finding

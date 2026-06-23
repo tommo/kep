@@ -179,6 +179,29 @@ public final class MindoLuaAPI {
             }
             return .array(hits)
         }
+        // Embedding-based (meaning) search over the corpus → up to k lines of
+        // "Doc [score]: passage". Same on-device index the agent's old JSON
+        // semantic_search used; empty array when embeddings are unavailable
+        // (the caller can fall back to the literal mindo.search).
+        engine.register("__mindo_semanticSearch") { [self] a in
+            let query = ((a.first ?? .nil).stringValue ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !query.isEmpty else { return .array([]) }
+            let k = (a.count > 1 ? a[1].intValue : nil) ?? 5
+            let embedder = NLTextEmbedder()
+            guard embedder.isAvailable else { return .array([]) }
+            let docs = corpus.map { (doc: baseName($0.url), text: $0.text) }
+            var hasher = Hasher()
+            for d in docs { hasher.combine(d.doc); hasher.combine(d.text) }
+            let index = SemanticIndexCache.shared.index(forKey: hasher.finalize()) {
+                SemanticIndex(documents: docs, embedder: embedder)
+            }
+            guard index.chunkCount > 0 else { return .array([]) }
+            return .array(index.query(query, embedder: embedder, topK: k).map { hit in
+                let snip = hit.text.replacingOccurrences(of: "\n", with: " ")
+                let capped = snip.count > 240 ? String(snip.prefix(240)) + "…" : snip
+                return .string("\(hit.doc) [\(String(format: "%.2f", hit.score))]: \(capped)")
+            })
+        }
         engine.register("__mindo_readDoc") { [self] a in
             let name = try string(a, 0)
             guard let url = WikiLinkResolver.resolve(name, in: allFiles) else { return .nil }
@@ -220,6 +243,7 @@ public final class MindoLuaAPI {
       docs = __mindo_docs,
       readDoc = __mindo_readDoc,
       search = __mindo_search,
+      semanticSearch = __mindo_semanticSearch,
     }
     """
 }

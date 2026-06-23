@@ -30,10 +30,10 @@ final class NotebookModelTests: XCTestCase {
         XCTAssertTrue(model.running.isEmpty)
     }
 
-    func testAgentBlockAuthorsIntoItsOwnResult() async {
+    func testAgentAuthorsRealCellsBelowTheBlock() async {
         var lastSerialized = ""
         let model = makeModel(text: "# Notes\n", serialized: { lastSerialized = $0 },
-            runAgent: { _, sink in
+            runAgent: { _, _, sink in
                 sink.agentAddProse("Found that X relates to Y.")
                 sink.agentAddCode("return 42", output: ExecOutput(text: "42"))
             })
@@ -42,18 +42,51 @@ final class NotebookModelTests: XCTestCase {
         model.updateText(agentID, "how do X and Y relate?")
         await model.runAgentCell(agentID)
 
-        // No new top-level cells — the agent's work lives INSIDE the block.
-        XCTAssertEqual(model.cells.count, 2)   // prose + agent
-        let result = model.agentResult(of: agentID)
-        XCTAssertTrue(result.contains("Found that X relates to Y."))
-        XCTAssertTrue(result.contains("return 42"))   // ran code captured in the block
-        XCTAssertTrue(lastSerialized.contains("mindo:agent"))
+        // The agent authored REAL cells into the flow, right after the prompt:
+        // [prose "# Notes", agent, prose "Found…", code "return 42"].
+        XCTAssertEqual(model.cells.count, 4)
+        let aIdx = model.cells.firstIndex { $0.id == agentID }!
+        if case .prose(_, let t) = model.cells[aIdx + 1] {
+            XCTAssertTrue(t.contains("Found that X relates to Y."))
+        } else { XCTFail("expected an authored prose cell after the agent block") }
+        if case .code(let cid, _, let code) = model.cells[aIdx + 2] {
+            XCTAssertEqual(code, "return 42")
+            XCTAssertEqual(model.output(for: cid)?.text, "42")   // authored output cached
+        } else { XCTFail("expected an authored code cell after the agent block") }
+        XCTAssertTrue(model.hasGenerated(agentID))
+        XCTAssertTrue(lastSerialized.contains("return 42"))   // round-trips as real cells
         XCTAssertFalse(model.agentBusy)
         XCTAssertTrue(model.running.isEmpty)
     }
 
+    func testAgentRerunReplacesPriorGeneration() async {
+        let model = makeModel(text: "# n\n", runAgent: { _, _, sink in
+            sink.agentAddProse("one")
+        })
+        model.addAgent()
+        let id = model.cells.last!.id
+        model.updateText(id, "q")
+        await model.runAgentCell(id)
+        XCTAssertEqual(model.cells.count, 3)   // prose, agent, authored prose
+        await model.runAgentCell(id)
+        XCTAssertEqual(model.cells.count, 3)   // prior generation replaced, not appended
+    }
+
+    func testAgentReceivesNotebookContextAbove() async {
+        var seenContext = ""
+        let model = makeModel(text: "Important premise about X.\n", runAgent: { _, context, sink in
+            seenContext = context
+            sink.agentAddProse("ok")
+        })
+        model.addAgent()
+        let id = model.cells.last!.id
+        model.updateText(id, "q")
+        await model.runAgentCell(id)
+        XCTAssertTrue(seenContext.contains("Important premise about X."))   // saw the cell above
+    }
+
     func testAgentTraceAccumulatesAndClearsOnRerun() async {
-        let model = makeModel(text: "# n\n", runAgent: { _, sink in
+        let model = makeModel(text: "# n\n", runAgent: { _, _, sink in
             sink.agentLog("🔎 searched: x")
             sink.agentLog("📄 read: Doc")
             sink.agentAddProse("done")

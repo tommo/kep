@@ -39,7 +39,7 @@ extension AppSession {
     /// Records authored cells during the loop, then applies them on the main
     /// actor afterwards (avoids touching the @MainActor sink mid-loop).
     @MainActor
-    func runNotebookAgent(_ question: String, into sink: NotebookAgentSink) async {
+    func runNotebookAgent(_ question: String, context: String, into sink: NotebookAgentSink) async {
         guard let (providerID, model) = LLMConfigStore.shared.activeSelection() else {
             sink.agentAddProse("> ⚠️ Configure an AI provider in Settings to use the research agent.")
             return
@@ -78,15 +78,23 @@ extension AppSession {
             .map { ToolSpec(name: $0.name, description: $0.description, parametersJSON: $0.parametersJSON) }
 
         let system = """
-        You are a research assistant writing INTO a notebook, not chatting. Research the \
-        user's question using the knowledge-base tools (semantic_search, read_document, \
-        backlinks, find_topics). Build the answer by calling notebook_add_note (Markdown \
-        prose findings — cite the source document names inline) and notebook_add_code (Lua \
-        over the `mindo` API to compute or verify a point). Prefer several short notes and \
-        code cells over one long note. Don't narrate to the user; put everything in the \
-        notebook. Stop when the question is answered.
+        You are a research assistant CONTINUING a notebook, not chatting. You are given the \
+        notebook so far (the cells above your block) as context — build on it; don't repeat \
+        what's already there. Research the user's question using the knowledge-base tools \
+        (semantic_search, read_document, backlinks, find_topics). Author your answer as new \
+        notebook cells by calling notebook_add_note (Markdown prose — cite source document \
+        names inline) and notebook_add_code (Lua over the `mindo` API to compute or verify a \
+        point). These become real, editable cells in the document, so write them that way: \
+        prefer several short notes and code cells over one long note, each a coherent step. \
+        Don't narrate to the user; put everything in the notebook. Stop when the question is \
+        answered.
         """
-        let messages: [ChatMessage] = [.system(system), .user(question)]
+        let notebookSoFar = context.trimmingCharacters(in: .whitespacesAndNewlines)
+        var messages: [ChatMessage] = [.system(system)]
+        if !notebookSoFar.isEmpty {
+            messages.append(.system("The notebook so far (cells above your block):\n\n\(notebookSoFar)"))
+        }
+        messages.append(.user(question))
         let backend = AgentToolBackend(messages: messages, tools: specs) { msgs, offered in
             let input = LLMInput(providerID: providerID.rawValue, model: model, text: "",
                                  messages: msgs, tools: offered, isStreaming: false)

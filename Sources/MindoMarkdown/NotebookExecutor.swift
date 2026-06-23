@@ -25,9 +25,10 @@ public protocol NotebookAgentSink: AnyObject {
     func agentLog(_ step: String)
 }
 
-/// Run the research agent for `question`, authoring cells into `sink`. Injected
-/// by the app (which owns the agent loop + MindoScript).
-public typealias NotebookAgentRunner = @MainActor (_ question: String, _ sink: NotebookAgentSink) async -> Void
+/// Run the research agent for `question`, given the notebook so far (`context`
+/// — the serialized cells ABOVE the agent block), authoring cells into `sink`.
+/// Injected by the app (which owns the agent loop + MindoScript).
+public typealias NotebookAgentRunner = @MainActor (_ question: String, _ context: String, _ sink: NotebookAgentSink) async -> Void
 
 public extension Notification.Name {
     /// App → notebook: take keyboard focus in command mode (⌘2 region focus).

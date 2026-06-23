@@ -37,32 +37,72 @@ final class NotebookModel: ObservableObject, NotebookAgentSink {
         self.outputs = documentURL.map { ExecOutputsStore.load(for: $0) } ?? ExecOutputs()
     }
 
-    // MARK: - Agent block (first-class, attributed, re-runnable)
+    // MARK: - Agent block (a cell-generating author)
 
-    /// The agent cell currently being authored into (set during runAgentCell).
+    /// The agent cell currently being authored from (set during runAgentCell).
     private var activeAgentCell: String?
+    /// The cell id after which the next agent-authored cell is inserted (walks
+    /// down as the agent emits cells).
+    private var agentInsertAfter: String?
+    /// Cells authored by each agent block this session, so a re-run can replace
+    /// the previous generation. (In-memory: after a reload the generated cells
+    /// are just ordinary cells the user owns; re-running then appends afresh.)
+    private var generatedByAgent: [String: [String]] = [:]
 
-    /// Run the agent for an agent cell's prompt — it authors its findings into
-    /// that block's result, streamed live. Re-running clears the prior result.
+    /// Run the agent for an agent cell's prompt. The agent sees the notebook so
+    /// far (cells ABOVE this block) as context, researches the KB, and AUTHORS
+    /// real prose + code cells immediately below the prompt — editable and
+    /// re-runnable like any other cell. Re-running replaces the prior generation.
     func runAgentCell(_ id: String) async {
         guard let runAgent,
               case .agent(_, let prompt, _, _)? = cells.first(where: { $0.id == id }),
               !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        setAgentResult(id, "")
+        clearGeneration(of: id)                 // drop the previous run's cells
         setAgentSources(id, [])
         agentTrace[id] = []
+        let context = contextAbove(id)
         activeAgentCell = id
+        agentInsertAfter = id
+        generatedByAgent[id] = []
         running.insert(id); agentBusy = true
-        await runAgent(prompt, self)
+        await runAgent(prompt, context, self)
         running.remove(id); agentBusy = false
         activeAgentCell = nil
+        agentInsertAfter = nil
         flushNow()
     }
 
-    private func setAgentResult(_ id: String, _ result: String) {
-        guard let i = index(of: id), case .agent(let cid, let prompt, _, let sources) = cells[i] else { return }
-        cells[i] = .agent(id: cid, prompt: prompt, result: result, sources: sources)
+    /// Remove the cells a previous run of this agent block authored.
+    private func clearGeneration(of agentID: String) {
+        guard let ids = generatedByAgent[agentID], !ids.isEmpty else { return }
+        let set = Set(ids)
+        cells.removeAll { set.contains($0.id) }
+        generatedByAgent[agentID] = []
     }
+
+    /// Serialize the cells above the agent block as plain context (most-recent
+    /// kept, clamped to a budget) so the agent continues the notebook's line of
+    /// inquiry instead of starting cold.
+    private func contextAbove(_ agentID: String) -> String {
+        guard let idx = index(of: agentID), idx > 0 else { return "" }
+        var parts: [String] = []
+        for cell in cells[0..<idx] {
+            switch cell {
+            case .prose(_, let t):
+                let s = t.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !s.isEmpty { parts.append(s) }
+            case .code(_, _, let code):
+                let out = outputs.output(forHash: MarkdownExecBlocks.hash(code))
+                let tail = out.map { "→ " + ($0.error ?? ($0.text.isEmpty ? "(no output)" : $0.text)) } ?? ""
+                parts.append("```lua\n\(code)\n```\n\(tail)")
+            case .agent(_, let p, let r, _):
+                parts.append("[Earlier agent task: \(p)]" + (r.isEmpty ? "" : "\n\(r)"))
+            }
+        }
+        let joined = parts.joined(separator: "\n\n")
+        return joined.count > 6000 ? String(joined.suffix(6000)) : joined
+    }
+
     private func setAgentSources(_ id: String, _ sources: [String]) {
         guard let i = index(of: id), case .agent(let cid, let prompt, let result, _) = cells[i] else { return }
         cells[i] = .agent(id: cid, prompt: prompt, result: result, sources: sources)
@@ -79,26 +119,31 @@ final class NotebookModel: ObservableObject, NotebookAgentSink {
         agentTrace[id, default: []].append(step)
     }
     func agentSteps(of id: String) -> [String] { agentTrace[id] ?? [] }
-    private func appendToAgentResult(_ id: String, _ markdown: String) {
-        let existing = agentResult(of: id)
-        setAgentResult(id, existing.isEmpty ? markdown : existing + "\n\n" + markdown)
+    /// Whether this agent block authored cells in the current session (drives
+    /// the run vs re-run affordance).
+    func hasGenerated(_ id: String) -> Bool { !(generatedByAgent[id]?.isEmpty ?? true) }
+
+    /// Insert an agent-authored cell into the flow, just after the last cell the
+    /// agent emitted (or the prompt), and record it so a re-run can replace it.
+    private func insertGenerated(_ cell: NotebookCell) {
+        if let after = agentInsertAfter, let i = index(of: after) {
+            cells.insert(cell, at: i + 1)
+        } else {
+            cells.append(cell)
+        }
+        agentInsertAfter = cell.id
+        if let a = activeAgentCell { generatedByAgent[a, default: []].append(cell.id) }
         flushNow()
     }
 
-    // NotebookAgentSink — authored content lands in the active agent block.
+    // NotebookAgentSink — the agent authors REAL, editable cells into the flow.
     func agentAddProse(_ text: String) {
-        guard let id = activeAgentCell else {
-            cells.append(.prose(id: freshID("prose"), text: text)); flushNow(); return
-        }
-        appendToAgentResult(id, text)
+        insertGenerated(.prose(id: freshID("prose"), text: text))
     }
     func agentAddCode(_ code: String, output: ExecOutput) {
-        let rendered = "```lua\n\(code)\n```\n→ " + (output.error ?? (output.text.isEmpty ? "(no output)" : output.text))
-        guard let id = activeAgentCell else {
-            cells.append(.code(id: freshID("code"), language: "lua", code: code))
-            outputs.set(output, forHash: MarkdownExecBlocks.hash(code)); flushNow(); return
-        }
-        appendToAgentResult(id, rendered)
+        insertGenerated(.code(id: freshID("code"), language: "lua", code: code))
+        outputs.set(output, forHash: MarkdownExecBlocks.hash(code))
+        flushNow()
     }
 
     private var ctx: NotebookRunContext { NotebookRunContext(documentURL: documentURL) }
@@ -598,11 +643,11 @@ private struct NotebookCellRow: View {
             if model.running.contains(cell.id) {
                 ProgressView().controlSize(.small)
             } else {
-                let hasResult = !model.agentResult(of: cell.id).isEmpty
+                let generated = model.hasGenerated(cell.id)
                 Button { Task { await model.runAgentCell(cell.id) } } label: {
-                    Image(systemName: hasResult ? "arrow.clockwise" : "play.fill")
+                    Image(systemName: generated ? "arrow.clockwise" : "play.fill")
                 }
-                .buttonStyle(.borderless).help(hasResult ? "Re-run" : "Run research")
+                .buttonStyle(.borderless).help(generated ? "Re-run (replaces the cells it wrote)" : "Run research")
             }
         }
     }
@@ -653,6 +698,12 @@ private struct NotebookCellRow: View {
                                   onEscape: { focusCtl.enterCommandMode() })
                     .frame(height: editorHeight(binding.wrappedValue, line: 19, min: 1))
             }
+            // The agent AUTHORS its answer as real prose/code cells BELOW this
+            // block (editable, re-runnable). What stays here is the task itself
+            // plus its provenance: a live step trace and the sources consulted.
+            if model.running.contains(cell.id) {
+                Text("Researching… (writing cells below)").font(.caption).foregroundStyle(.secondary)
+            }
             let steps = model.agentSteps(of: cell.id)
             if !steps.isEmpty {
                 DisclosureGroup("Research steps (\(steps.count))") {
@@ -664,14 +715,6 @@ private struct NotebookCellRow: View {
                     }
                 }
                 .font(.caption2).foregroundStyle(.secondary)
-            }
-            let result = model.agentResult(of: cell.id)
-            if !result.isEmpty {
-                Divider()
-                ProseRenderedView(markdown: result)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            } else if model.running.contains(cell.id) {
-                Text("Researching…").font(.caption).foregroundStyle(.secondary)
             }
             let sources = model.agentSources(of: cell.id)
             if !sources.isEmpty {

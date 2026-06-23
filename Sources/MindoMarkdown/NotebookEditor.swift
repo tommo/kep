@@ -407,10 +407,10 @@ final class NotebookCommandView: NSView {
         default: break
         }
         switch e.charactersIgnoringModifiers {
-        case "b": onCommand?(.addCode); return
-        case "m": onCommand?(.addProse); return
-        case "g": onCommand?(.addAgent); return
-        case "r": onCommand?(.run); return
+        case "t": onCommand?(.addProse); return   // Text
+        case "c": onCommand?(.addCode); return    // Code
+        case "a": onCommand?(.addAgent); return   // Agent
+        case "r": onCommand?(.run); return        // Run
         default: super.keyDown(with: e)
         }
     }
@@ -540,7 +540,7 @@ public struct NotebookEditor: View {
                 Label("Clear Outputs", systemImage: "eraser")
             }
             Spacer()
-            Text("↑↓ select · ⏎ edit · ⎋ done · ⌘↩ run · b/m/g add · ⌥↑↓ move · ⌦ delete")
+            Text("↑↓ select · ⏎ edit · ⎋ done · ⌘↩ run · t/c/a new Text/Code/Agent · ⌥↑↓ move · ⌦ delete")
                 .font(.caption2).foregroundStyle(.tertiary)
             if !model.running.isEmpty { ProgressView().controlSize(.small) }
         }

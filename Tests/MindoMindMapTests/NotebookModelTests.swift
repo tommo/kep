@@ -33,7 +33,7 @@ final class NotebookModelTests: XCTestCase {
     func testAgentAuthorsRealCellsBelowTheBlock() async {
         var lastSerialized = ""
         let model = makeModel(text: "# Notes\n", serialized: { lastSerialized = $0 },
-            runAgent: { _, _, sink in
+            runAgent: { _, _, _, sink in
                 sink.agentAddProse("Found that X relates to Y.")
                 sink.agentAddCode("return 42", output: ExecOutput(text: "42"))
             })
@@ -60,7 +60,7 @@ final class NotebookModelTests: XCTestCase {
     }
 
     func testAgentRerunReplacesPriorGeneration() async {
-        let model = makeModel(text: "# n\n", runAgent: { _, _, sink in
+        let model = makeModel(text: "# n\n", runAgent: { _, _, _, sink in
             sink.agentAddProse("one")
         })
         model.addAgent()
@@ -74,7 +74,7 @@ final class NotebookModelTests: XCTestCase {
 
     func testAgentReceivesNotebookContextAbove() async {
         var seenContext = ""
-        let model = makeModel(text: "Important premise about X.\n", runAgent: { _, context, sink in
+        let model = makeModel(text: "Important premise about X.\n", runAgent: { _, context, _, sink in
             seenContext = context
             sink.agentAddProse("ok")
         })
@@ -86,7 +86,7 @@ final class NotebookModelTests: XCTestCase {
     }
 
     func testAgentTraceAccumulatesAndClearsOnRerun() async {
-        let model = makeModel(text: "# n\n", runAgent: { _, _, sink in
+        let model = makeModel(text: "# n\n", runAgent: { _, _, _, sink in
             sink.agentLog("🔎 searched: x")
             sink.agentLog("📄 read: Doc")
             sink.agentAddProse("done")

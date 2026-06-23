@@ -121,7 +121,7 @@ struct EditorPane: View {
                 isDarkMode: colorScheme == .dark,
                 runOne: { src, ctx in await session.runNotebookCell(src, in: ctx) },
                 runAll: { nb, ctx in await session.runNotebookAll(nb, in: ctx) },
-                runAgent: { question, context, sink in await session.runNotebookAgent(question, context: context, into: sink) },
+                runAgent: { question, context, ctx, sink in await session.runNotebookAgent(question, context: context, in: ctx, into: sink) },
                 onOpenSource: { name in session.openWikiLink(target: name, heading: nil) },
                 shouldFocusOnAppear: { session.pendingEditorFocus })
         case .text(let body, _):

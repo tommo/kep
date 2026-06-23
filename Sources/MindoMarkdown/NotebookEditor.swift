@@ -65,7 +65,7 @@ final class NotebookModel: ObservableObject, NotebookAgentSink {
         agentInsertAfter = id
         generatedByAgent[id] = []
         running.insert(id); agentBusy = true
-        await runAgent(prompt, context, self)
+        await runAgent(prompt, context, ctx, self)
         running.remove(id); agentBusy = false
         activeAgentCell = nil
         agentInsertAfter = nil

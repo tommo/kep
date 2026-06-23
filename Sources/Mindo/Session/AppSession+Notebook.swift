@@ -4,22 +4,52 @@ import MindoMarkdown
 import MindoScript
 import MindoGenAI
 
+/// One persistent Lua kernel per open notebook, so block ORDER and cross-block
+/// DEPENDENCY behave like Jupyter: globals set in one cell are visible to later
+/// cells, whether you Run-All or run cells one at a time — and the agent runs in
+/// the SAME kernel, so it's a node in the chain (sees prior state, its code
+/// feeds later cells). Run All restarts the kernel (clean top-to-bottom =
+/// reproducible); per-cell Run and the agent use the live, accumulated state.
+@MainActor
+final class NotebookKernelStore {
+    static let shared = NotebookKernelStore()
+    private var kernels: [String: MindoNotebookKernel] = [:]
+    private func key(_ url: URL?) -> String { url?.standardizedFileURL.path ?? "·untitled·" }
+
+    /// The kernel for a notebook. `restart: true` builds a fresh one (Run All).
+    func kernel(for url: URL?, restart: Bool, build: () -> MindoNotebookKernel?) -> MindoNotebookKernel? {
+        let k = key(url)
+        if !restart, let existing = kernels[k] { return existing }
+        kernels[k] = build()
+        return kernels[k]
+    }
+    /// Drop a notebook's kernel (closed doc / explicit restart).
+    func reset(_ url: URL?) { kernels[key(url)] = nil }
+}
+
 /// Bridges the Research Notebook editor's injected run closures to the
 /// MindoScript Lua kernel. Lives in the app target (which imports both
 /// MindoMarkdown and MindoScript) so MindoMarkdown stays free of a scripting
 /// dependency — same pattern as the CSV agent-tool injection.
 extension AppSession {
 
-    /// Run every code cell against ONE shared kernel (globals persist across
-    /// cells), persist the outputs sidecar, return the full map.
+    /// Build a notebook kernel over the current workspace KB (scratch map — Lua
+    /// can read the KB and compute, but map mutations stay scratch-only so the
+    /// user's open mind map is never touched).
+    @MainActor
+    private func buildNotebookKernel() -> MindoNotebookKernel? {
+        let (files, corpus) = workspaceCorpus()
+        return try? MindoNotebookKernel(map: MindMap(), corpus: corpus, allFiles: files)
+    }
+
+    /// Run All — RESTART the shared kernel and run every code cell top-to-bottom
+    /// (the reproducible path). The post-run kernel state stays live, so later
+    /// per-cell runs and the agent continue from it.
     @MainActor
     func runNotebookAll(_ notebook: Notebook, in ctx: NotebookRunContext) async -> ExecOutputs {
-        let (files, corpus) = workspaceCorpus()
         var outputs = ctx.documentURL.map { ExecOutputsStore.load(for: $0) } ?? ExecOutputs()
-        // Scratch map: notebook Lua can read the KB (corpus/files) and compute;
-        // map mutations stay scratch-only so the user's open mind map is never
-        // touched. (Follow-up: opt-in run against the active map with undo.)
-        guard let kernel = try? MindoNotebookKernel(map: MindMap(), corpus: corpus, allFiles: files) else {
+        guard let kernel = NotebookKernelStore.shared.kernel(for: ctx.documentURL, restart: true,
+                                                             build: buildNotebookKernel) else {
             return outputs
         }
         var live = Set<String>()
@@ -39,7 +69,7 @@ extension AppSession {
     /// Records authored cells during the loop, then applies them on the main
     /// actor afterwards (avoids touching the @MainActor sink mid-loop).
     @MainActor
-    func runNotebookAgent(_ question: String, context: String, into sink: NotebookAgentSink) async {
+    func runNotebookAgent(_ question: String, context: String, in ctx: NotebookRunContext, into sink: NotebookAgentSink) async {
         guard let (providerID, model) = LLMConfigStore.shared.activeSelection() else {
             sink.agentAddProse("> ⚠️ Configure an AI provider in Settings to use the research agent.")
             return
@@ -61,13 +91,9 @@ extension AppSession {
             flag.authored = true
             Task { @MainActor in sink.agentAddProse(text) }
         }
-        effects.notebookRunCode = { code in
-            flag.authored = true
-            let r = MindoScriptRunner.run(code, on: MindMap(), corpus: corpus, allFiles: files)
-            let out = ExecOutput(text: r.output, error: r.error)
-            Task { @MainActor in sink.agentAddCode(code, output: out) }
-            return r.error.map { "error: \($0)" } ?? (r.output.isEmpty ? "(no output)" : r.output)
-        }
+        // notebook_add_code is handled in the execute closure below so it runs in
+        // the notebook's SHARED kernel (the agent is a chain node), not here.
+        let docURL = ctx.documentURL
         let tools = MindoAgentTools(map: MindMap(), corpus: corpus, allFiles: files,
                                     workspaceRoot: workspaceRoots.first?.url, effects: effects)
         // Read-only KB research + notebook authoring (no map/doc mutation).
@@ -111,6 +137,24 @@ extension AppSession {
             }
             let step = Self.describeCall(call)
             Task { @MainActor in sink.agentLog(step) }   // live "watch it work" trace
+
+            // Code runs in the notebook's PERSISTENT kernel so the agent is a node
+            // in the dependency chain: it sees globals from cells already run, and
+            // its own definitions persist for the cells it (and the user) add after.
+            // `await MainActor.run` hops to the kernel without blocking the loop.
+            if call.name == "notebook_add_code", let code = Self.argString(call.argumentsJSON, "code") {
+                flag.authored = true
+                let out: ExecOutput = await MainActor.run {
+                    let r = NotebookKernelStore.shared.kernel(for: docURL, restart: false,
+                                                              build: self.buildNotebookKernel)?.run(code)
+                        ?? ScriptRunResult(output: "", error: "executor unavailable")
+                    let o = ExecOutput(text: r.output, error: r.error)
+                    sink.agentAddCode(code, output: o)
+                    return o
+                }
+                if let err = out.error { return "error: \(err)" }
+                return out.text.isEmpty ? "ran the cell (no output)" : "cell output:\n\(out.text)"
+            }
             return tools.handle(name: call.name, argumentsJSON: call.argumentsJSON)
         }
         // Let the last streamed Task land before reporting / setting provenance.
@@ -145,12 +189,13 @@ extension AppSession {
         }
     }
 
-    /// Run a single cell in a fresh kernel; load-modify-save the sidecar so a
+    /// Run a single cell against the notebook's PERSISTENT kernel (Jupyter-style:
+    /// it sees globals from cells already run). Load-modify-save the sidecar so a
     /// one-cell run doesn't drop sibling outputs.
     @MainActor
     func runNotebookCell(_ source: String, in ctx: NotebookRunContext) async -> ExecOutput {
-        let (files, corpus) = workspaceCorpus()
-        let result = (try? MindoNotebookKernel(map: MindMap(), corpus: corpus, allFiles: files))?.run(source)
+        let result = NotebookKernelStore.shared.kernel(for: ctx.documentURL, restart: false,
+                                                       build: buildNotebookKernel)?.run(source)
             ?? ScriptRunResult(output: "", error: "executor unavailable")
         let out = ExecOutput(text: result.output, error: result.error)
         if let url = ctx.documentURL {

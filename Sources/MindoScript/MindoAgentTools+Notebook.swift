@@ -29,6 +29,11 @@ extension MindoAgentTools {
             guard let run = effects.notebookRunCode else { return "error: no notebook is open" }
             let output = run(code)
             return output.isEmpty ? "ran the cell (no output)" : "cell output:\n\(output)"
+        case "notebook_eval":
+            guard let code = a.str("code") else { return "error: missing 'code'" }
+            guard let eval = effects.notebookEval else { return "error: no notebook is open" }
+            let value = eval(code)
+            return value.isEmpty ? "(no value)" : value
         default:
             return nil
         }

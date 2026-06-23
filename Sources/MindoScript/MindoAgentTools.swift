@@ -28,6 +28,10 @@ public final class AgentToolEffects {
     /// so the agent sees the result and can reason about it.
     public var notebookAddProse: ((String) -> Void)?
     public var notebookRunCode: ((String) -> String)?
+    /// Evaluate Lua in the live session and return its value WITHOUT authoring a
+    /// cell (inspect data a code cell computed). The notebook agent runner wires
+    /// the actual live-kernel eval at the call site; this is the host hook.
+    public var notebookEval: ((String) -> String)?
     public init() {}
 }
 

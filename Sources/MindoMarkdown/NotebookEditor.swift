@@ -417,98 +417,116 @@ private struct NotebookCellRow: View {
         Binding(get: { model.text(of: cell.id) }, set: { model.updateText(cell.id, $0) })
     }
 
-    /// Grow the code editor with its content (no nested scroll); clamp so a huge
-    /// cell doesn't dominate the notebook.
-    private func codeHeight(_ code: String) -> CGFloat {
-        let lines = max(3, code.components(separatedBy: "\n").count)
-        return CGFloat(min(lines, 30)) * 18 + 16
+    /// Grow a text editor with its content (no nested scroll); clamp so one huge
+    /// cell can't dominate the notebook.
+    private func editorHeight(_ s: String, line: CGFloat, min minLines: Int) -> CGFloat {
+        let lines = max(minLines, s.components(separatedBy: "\n").count)
+        return CGFloat(Swift.min(lines, 30)) * line + 14
     }
 
-    var body: some View {
-        cellContent
-            .padding(8)
-            // The current/active cell gets a clear accent border (+ faint tint).
-            // An editing cell is brighter still, so you can tell select vs edit.
-            .background(RoundedRectangle(cornerRadius: 8)
-                .fill(isSelected ? Color.accentColor.opacity(isEditing ? 0.10 : 0.05) : .clear))
-            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(
-                isSelected ? Color.accentColor.opacity(isEditing ? 1.0 : 0.6) : .clear,
-                lineWidth: isEditing ? 2 : 1.5))
-            // Select on click without blocking the editors' own clicks.
-            .simultaneousGesture(TapGesture().onEnded { model.selectedID = cell.id })
-    }
-
-    @ViewBuilder private var cellContent: some View {
+    // Uniform chrome label for the cell type (UI text — never confusable with
+    // content: tiny, uppercase, tracked, secondary).
+    private var typeTag: String {
         switch cell {
-        case .prose:
-            HStack(alignment: .top, spacing: 6) {
-                Image(systemName: "text.alignleft").foregroundStyle(.secondary).font(.caption).padding(.top, 6)
-                if isEditing {
-                    TextEditor(text: binding)
-                        .font(.body)
-                        .frame(minHeight: 40)
-                        .scrollContentBackground(.hidden)
-                        .focused(focus, equals: .edit(cell.id))
-                        .onKeyPress(.escape) { focus.wrappedValue = .command; return .handled }
-                } else {
-                    ProseRenderedView(markdown: model.text(of: cell.id))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
-                        .onTapGesture { model.selectedID = cell.id; focus.wrappedValue = .edit(cell.id) }
-                }
-                cellMenu
-            }
-        case .code:
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
-                    Image(systemName: "chevron.left.forwardslash.chevron.right").foregroundStyle(.secondary).font(.caption)
-                    Text("lua").font(.caption2.monospaced()).foregroundStyle(.secondary)
-                    Spacer()
-                    if model.running.contains(cell.id) {
-                        ProgressView().controlSize(.small)
-                    } else {
-                        Button { Task { await model.run(cell.id) } } label: {
-                            Image(systemName: "play.fill")
-                        }
-                        .buttonStyle(.borderless)
-                        .help("Run cell (⌘↩)")
-                    }
-                    cellMenu
-                }
-                NotebookCodeView(text: binding, isEditing: isEditing,
-                                 onRun: { Task { await model.run(cell.id) } },
-                                 onEscape: { focus.wrappedValue = .command })
-                    .frame(height: codeHeight(binding.wrappedValue))
-                    .padding(6)
-                    .background(RoundedRectangle(cornerRadius: 6).fill(Color.gray.opacity(0.10)))
-                outputView
-            }
-        case .agent:
-            agentCell
+        case .prose: return "TEXT"
+        case .code:  return "LUA"
+        case .agent: return "AGENT"
         }
     }
 
-    /// First-class agent block: an attributed, re-runnable research prompt whose
-    /// authored result (prose + ran code) lives inside the block.
-    private var agentCell: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                Image(systemName: "sparkles").foregroundStyle(.purple)
-                Text("Agent").font(.caption.weight(.semibold)).foregroundStyle(.purple)
-                Spacer()
-                if model.running.contains(cell.id) {
-                    ProgressView().controlSize(.small)
-                } else {
-                    Button { Task { await model.runAgentCell(cell.id) } } label: {
-                        Image(systemName: model.agentResult(of: cell.id).isEmpty ? "play.fill" : "arrow.clockwise")
-                    }
-                    .buttonStyle(.borderless)
-                    .help(model.agentResult(of: cell.id).isEmpty ? "Run research" : "Re-run")
-                }
-                cellMenu
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            // The ONLY per-cell decoration: a slim left rule that signals
+            // selection (faint) vs editing (full accent). Replaces the old
+            // per-type borders, tints and colored backgrounds.
+            RoundedRectangle(cornerRadius: 1.5)
+                .fill(isSelected ? Color.accentColor.opacity(isEditing ? 1.0 : 0.45) : .clear)
+                .frame(width: 3)
+            VStack(alignment: .leading, spacing: 5) {
+                header
+                content
             }
-            // Custom placeholder so an EMPTY agent cell reads as a faint hint,
-            // not real content (a plain TextField placeholder looked authored).
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.vertical, 5)
+        .padding(.trailing, 6)
+        // A barely-there wash only while editing, so the active cell is obvious
+        // without boxing every cell in.
+        .background(isSelected && isEditing ? Color.primary.opacity(0.04) : .clear)
+        .contentShape(Rectangle())
+        .simultaneousGesture(TapGesture().onEnded { model.selectedID = cell.id })
+    }
+
+    // Consistent header for every cell type: type tag · run · ⋯ menu.
+    private var header: some View {
+        HStack(spacing: 8) {
+            Text(typeTag)
+                .font(.caption2.weight(.semibold)).tracking(0.6)
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 0)
+            runControl
+            cellMenu
+        }
+    }
+
+    @ViewBuilder private var runControl: some View {
+        switch cell {
+        case .prose:
+            EmptyView()
+        case .code:
+            if model.running.contains(cell.id) {
+                ProgressView().controlSize(.small)
+            } else {
+                Button { Task { await model.run(cell.id) } } label: { Image(systemName: "play.fill") }
+                    .buttonStyle(.borderless).help("Run cell (⌘↩)")
+            }
+        case .agent:
+            if model.running.contains(cell.id) {
+                ProgressView().controlSize(.small)
+            } else {
+                let hasResult = !model.agentResult(of: cell.id).isEmpty
+                Button { Task { await model.runAgentCell(cell.id) } } label: {
+                    Image(systemName: hasResult ? "arrow.clockwise" : "play.fill")
+                }
+                .buttonStyle(.borderless).help(hasResult ? "Re-run" : "Run research")
+            }
+        }
+    }
+
+    @ViewBuilder private var content: some View {
+        switch cell {
+        case .prose:
+            if isEditing {
+                NotebookProseView(text: binding, isEditing: isEditing,
+                                  onEscape: { focus.wrappedValue = .command })
+                    .frame(height: editorHeight(binding.wrappedValue, line: 19, min: 2))
+            } else {
+                ProseRenderedView(markdown: model.text(of: cell.id))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                    .onTapGesture { model.selectedID = cell.id; focus.wrappedValue = .edit(cell.id) }
+            }
+        case .code:
+            VStack(alignment: .leading, spacing: 4) {
+                NotebookCodeView(text: binding, isEditing: isEditing,
+                                 onRun: { Task { await model.run(cell.id) } },
+                                 onEscape: { focus.wrappedValue = .command })
+                    .frame(height: editorHeight(binding.wrappedValue, line: 18, min: 2))
+                    .padding(6)
+                    .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(0.045)))
+                outputView
+            }
+        case .agent:
+            agentContent
+        }
+    }
+
+    /// Agent block content (prompt + authored result). No colored container —
+    /// the uniform header's "AGENT" tag identifies it.
+    private var agentContent: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            // Custom placeholder so an EMPTY prompt reads as a faint hint, not
+            // authored content.
             ZStack(alignment: .topLeading) {
                 if model.text(of: cell.id).isEmpty {
                     Text("Research question for the agent…")
@@ -533,7 +551,7 @@ private struct NotebookCellRow: View {
                         }
                     }
                 }
-                .font(.caption2)
+                .font(.caption2).foregroundStyle(.secondary)
             }
             let result = model.agentResult(of: cell.id)
             if !result.isEmpty {
@@ -546,12 +564,10 @@ private struct NotebookCellRow: View {
             let sources = model.agentSources(of: cell.id)
             if !sources.isEmpty {
                 HStack(spacing: 4) {
-                    Image(systemName: "book.closed").font(.caption2).foregroundStyle(.secondary)
-                    Text("Sources:").font(.caption2).foregroundStyle(.secondary)
+                    Text("SOURCES").font(.caption2.weight(.semibold)).tracking(0.6).foregroundStyle(.tertiary)
                     ForEach(sources, id: \.self) { src in
                         if let open = onOpenSource {
-                            Button(src) { open(src) }
-                                .buttonStyle(.link).font(.caption2)
+                            Button(src) { open(src) }.buttonStyle(.link).font(.caption2)
                         } else {
                             Text(src).font(.caption2).foregroundStyle(.secondary)
                         }
@@ -560,9 +576,6 @@ private struct NotebookCellRow: View {
                 .padding(.top, 2)
             }
         }
-        .padding(8)
-        .background(RoundedRectangle(cornerRadius: 8).fill(Color.purple.opacity(0.06)))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.purple.opacity(0.18)))
     }
 
     @ViewBuilder private var outputView: some View {
@@ -579,7 +592,7 @@ private struct NotebookCellRow: View {
             }
             .padding(.horizontal, 6)
             .padding(.vertical, 4)
-            .background(RoundedRectangle(cornerRadius: 6).fill(Color.gray.opacity(0.05)))
+            .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(0.03)))
         }
     }
 
@@ -590,7 +603,7 @@ private struct NotebookCellRow: View {
             Divider()
             Button("Delete Cell", role: .destructive) { model.delete(cell.id) }
         } label: {
-            Image(systemName: "ellipsis.circle").foregroundStyle(.secondary)
+            Image(systemName: "ellipsis").foregroundStyle(.secondary)
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
@@ -638,6 +651,59 @@ struct NotebookCodeView: NSViewRepresentable {
             guard let tv = notification.object as? NSTextView, tv.string != text.wrappedValue else { return }
             text.wrappedValue = tv.string
         }
+    }
+}
+
+/// Proportional plain-text editor for a prose cell, backed by an NSTextView so
+/// keyboard focus + typing are reliable — a SwiftUI `TextEditor` inside a
+/// `LazyVStack` row frequently fails to take first responder (you couldn't type
+/// into a text cell). Esc returns to command mode; everything else is normal.
+struct NotebookProseView: NSViewRepresentable {
+    @Binding var text: String
+    var isEditing: Bool = false
+    var onEscape: () -> Void = {}
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let (scroll, tv) = CodeArea.makeMonospaced(text: text, delegate: context.coordinator) {
+            NotebookProseTextView()
+        }
+        scroll.hasVerticalScroller = false      // outer notebook ScrollView scrolls
+        scroll.drawsBackground = false
+        tv.drawsBackground = false
+        tv.font = .systemFont(ofSize: 13)       // proportional — prose, not code
+        (tv as? NotebookProseTextView)?.onEscape = onEscape
+        context.coordinator.textView = tv
+        return scroll
+    }
+
+    func updateNSView(_ scroll: NSScrollView, context: Context) {
+        guard let tv = scroll.documentView as? NSTextView else { return }
+        if tv.string != text { tv.string = text }
+        (tv as? NotebookProseTextView)?.onEscape = onEscape
+        if isEditing, tv.window != nil, tv.window?.firstResponder !== tv {
+            tv.window?.makeFirstResponder(tv)
+        }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
+
+    final class Coordinator: NSObject, NSTextViewDelegate {
+        let text: Binding<String>
+        weak var textView: NSTextView?
+        init(text: Binding<String>) { self.text = text }
+        func textDidChange(_ notification: Notification) {
+            guard let tv = notification.object as? NSTextView, tv.string != text.wrappedValue else { return }
+            text.wrappedValue = tv.string
+        }
+    }
+}
+
+/// NSTextView for a prose cell: Esc → command mode; Return inserts a newline.
+final class NotebookProseTextView: NSTextView {
+    var onEscape: (() -> Void)?
+    override func keyDown(with event: NSEvent) {
+        if event.keyCode == 53 { onEscape?(); return }   // Esc
+        super.keyDown(with: event)
     }
 }
 

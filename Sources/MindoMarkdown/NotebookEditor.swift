@@ -274,11 +274,16 @@ final class NotebookModel: ObservableObject, NotebookAgentSink {
 /// edit transitions. `@FocusState` is reduced to a single command-mode flag.
 @MainActor
 final class NotebookFocusController: ObservableObject {
-    /// The cell whose editor currently holds (or is being handed) first
-    /// responder. nil = command mode. Set optimistically by `beginEditing` so a
-    /// lazily-realized cell renders its editor, then confirmed by the editor's
-    /// `becomeFirstResponder`.
+    /// The cell whose editor currently holds first responder. nil = COMMAND mode
+    /// (the command view holds first responder). Set optimistically by
+    /// `beginEditing` so a lazily-realized cell renders its editor, then
+    /// confirmed by the editor's `becomeFirstResponder`. This is the ONE source
+    /// of truth — both block focus (command view) and edit focus (cell editor)
+    /// are ordinary AppKit first-responders; no SwiftUI focus involved.
     @Published private(set) var editingCellID: String?
+
+    /// The invisible AppKit view that owns COMMAND-mode keystrokes.
+    weak var commandView: NSView?
 
     private var pendingEdit: String?
     private var views: [String: NotebookCellTextView] = [:]
@@ -293,29 +298,102 @@ final class NotebookFocusController: ObservableObject {
         if views[id] === v { views[id] = nil }
     }
 
-    /// Enter edit mode on `id`. Optimistic so the row shows its editor even if it
-    /// must still be realized; the editor grabs first responder on register /
-    /// viewDidMoveToWindow. Parks the previously-edited cell first.
+    /// Enter EDIT mode on `id`. Optimistic so the row shows its editor even if it
+    /// must still be realized; the editor grabs first responder on register.
     func beginEditing(_ id: String) {
         guard editingCellID != id else { return }
-        let prev = editingCellID
         editingCellID = id
         pendingEdit = id
-        if let prev, let pv = views[prev] { pv.window?.makeFirstResponder(pv.window) }
-        if let v = views[id], v.window != nil { v.window?.makeFirstResponder(v) }
+        if let v = views[id], let w = v.window { w.makeFirstResponder(v) }
+        // else: the editor grabs first responder when it registers (window-attach)
     }
 
-    /// Leave edit mode (Esc) — park first responder on the window so the SwiftUI
-    /// command container can reclaim it.
-    func endEditing() {
-        if let id = editingCellID, let v = views[id] { v.window?.makeFirstResponder(v.window) }
+    /// Enter COMMAND mode — hand first responder to the command view, so arrow
+    /// navigation / b·m·g / run keys work. Called on Esc and on focus requests.
+    func enterCommandMode() {
         editingCellID = nil
         pendingEdit = nil
+        if let cv = commandView, let w = cv.window { w.makeFirstResponder(cv) }
     }
 
-    // Reported up from the NSTextView — first-responder reality, authoritative.
+    // Reported up from the actual first-responder — authoritative.
     func didBecomeFirstResponder(_ id: String) { editingCellID = id; pendingEdit = nil }
-    func didResignFirstResponder(_ id: String) { /* transitions handled by next beginEditing/endEditing */ }
+    func didResignFirstResponder(_ id: String) { /* next begin/enter handles it */ }
+    func commandViewBecameFirstResponder() { editingCellID = nil; pendingEdit = nil }
+}
+
+/// A command from the notebook's AppKit command view (command-mode keystrokes).
+enum NotebookCommand { case selectPrev, selectNext, moveUp, moveDown, edit, run, addCode, addProse, addAgent, delete }
+
+/// Invisible AppKit view that holds first responder in COMMAND mode and turns
+/// keystrokes into notebook commands. Block focus lives here (one responder),
+/// edit focus lives in the cell editors — never two focus systems at once.
+final class NotebookCommandView: NSView {
+    weak var controller: NotebookFocusController?
+    var onCommand: ((NotebookCommand) -> Void)?
+    /// One-shot: grab first responder once we're actually in a window.
+    var grabOnAttach = false
+
+    override var acceptsFirstResponder: Bool { true }
+    override var focusRingType: NSFocusRingType { get { .none } set {} }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if grabOnAttach, let w = window {
+            grabOnAttach = false
+            w.makeFirstResponder(self)
+        }
+    }
+
+    override func becomeFirstResponder() -> Bool {
+        let ok = super.becomeFirstResponder()
+        if ok { controller?.commandViewBecameFirstResponder() }
+        return ok
+    }
+
+    override func keyDown(with e: NSEvent) {
+        let opt = e.modifierFlags.contains(.option)
+        let runMod = e.modifierFlags.contains(.command) || e.modifierFlags.contains(.shift)
+        switch e.keyCode {
+        case 126: onCommand?(opt ? .moveUp : .selectPrev); return       // ↑
+        case 125: onCommand?(opt ? .moveDown : .selectNext); return     // ↓
+        case 36:  onCommand?(runMod ? .run : .edit); return             // ↩ (⌘/⇧ = run)
+        case 51, 117: onCommand?(.delete); return                       // ⌫ / ⌦
+        default: break
+        }
+        switch e.charactersIgnoringModifiers {
+        case "b": onCommand?(.addCode); return
+        case "m": onCommand?(.addProse); return
+        case "g": onCommand?(.addAgent); return
+        case "r": onCommand?(.run); return
+        default: super.keyDown(with: e)
+        }
+    }
+}
+
+/// Hosts the command view as a background of the notebook and makes it first
+/// responder on appear (unless it's a browse-open).
+struct NotebookCommandHost: NSViewRepresentable {
+    let controller: NotebookFocusController
+    let onCommand: (NotebookCommand) -> Void
+    let focusOnAppear: () -> Bool
+
+    func makeNSView(context: Context) -> NotebookCommandView {
+        let v = NotebookCommandView()
+        v.controller = controller
+        v.onCommand = onCommand
+        controller.commandView = v
+        if focusOnAppear() {
+            v.grabOnAttach = true   // consummated in viewDidMoveToWindow
+            DispatchQueue.main.async { if v.window != nil { v.window?.makeFirstResponder(v) } }
+        }
+        return v
+    }
+    func updateNSView(_ v: NotebookCommandView, context: Context) {
+        v.controller = controller
+        v.onCommand = onCommand
+        controller.commandView = v
+    }
 }
 
 public struct NotebookEditor: View {
@@ -328,8 +406,6 @@ public struct NotebookEditor: View {
     let shouldFocusOnAppear: () -> Bool
     @StateObject private var model: NotebookModel
     @StateObject private var focusCtl = NotebookFocusController()
-    /// Command mode = the notebook navigator holds focus (no cell is editing).
-    @FocusState private var commandFocus: Bool
 
     public init(text: Binding<String>, documentURL: URL?, isDarkMode: Bool,
                 runOne: @escaping NotebookRunOne, runAll: @escaping NotebookRunAll,
@@ -369,51 +445,36 @@ public struct NotebookEditor: View {
                 }
             }
         }
-        .focusable()
-        .focused($commandFocus)
-        .focusEffectDisabled()
-        .onKeyPress(phases: .down) { handleCommandKey($0) }
-        .onAppear {
-            model.selectFirstIfNeeded()                         // visual selection only
-            if shouldFocusOnAppear() { commandFocus = true }    // don't steal focus on a browse-open
-        }
-        // Single source of truth: when a cell starts/stops editing, sync the
-        // command navigator (release it while editing; reclaim it when done) and
-        // keep the selection cursor on the edited cell.
+        // Command-mode keystrokes are owned by an AppKit command view (one
+        // first-responder chain with the cell editors — no SwiftUI @FocusState).
+        .background(NotebookCommandHost(controller: focusCtl,
+                                        onCommand: handleCommand,
+                                        focusOnAppear: shouldFocusOnAppear))
+        .onAppear { model.selectFirstIfNeeded() }
+        // Keep the block-selection cursor on whatever cell is being edited
+        // (e.g. click-to-edit), so block focus and edit focus never diverge.
         .onChange(of: focusCtl.editingCellID) { _, editing in
-            if let editing { model.selectedID = editing; commandFocus = false }
-            else { commandFocus = true }
+            if let editing { model.selectedID = editing }
         }
         .onChange(of: text) { _, new in model.reload(from: new) }
         .onReceive(NotificationCenter.default.publisher(for: .focusNotebookCommand)) { _ in
-            focusCtl.endEditing(); model.selectFirstIfNeeded(); commandFocus = true
+            model.selectFirstIfNeeded(); focusCtl.enterCommandMode()
         }
     }
 
-    /// Command-mode keys (fire only when the notebook navigator — not a cell
-    /// editor — holds focus). Makes the notebook fully keyboard-operable.
-    private func handleCommandKey(_ press: KeyPress) -> KeyPress.Result {
-        let opt = press.modifiers.contains(.option)
-        switch press.key {
-        case .upArrow:   opt ? model.moveSelected(by: -1) : model.selectPrev(); return .handled
-        case .downArrow: opt ? model.moveSelected(by: 1) : model.selectNext(); return .handled
-        case .return:
-            if press.modifiers.contains(.command) || press.modifiers.contains(.shift) {
-                Task { await model.runSelected() }
-            } else if let id = model.selectedID {
-                focusCtl.beginEditing(id)
-            }
-            return .handled
-        case .deleteForward, .delete:
-            model.deleteSelected(); return .handled
-        default: break
-        }
-        switch press.characters {
-        case "b": model.addAfterSelection { model.addCode(after: $0) }; editSelected(); return .handled
-        case "m": model.addAfterSelection { model.addProse(after: $0) }; editSelected(); return .handled
-        case "g" where model.runAgent != nil: model.addAfterSelection { model.addAgent(after: $0) }; editSelected(); return .handled
-        case "r": Task { await model.runSelected() }; return .handled
-        default: return .ignored
+    /// Route a command-mode keystroke (from NotebookCommandView) to the model.
+    private func handleCommand(_ cmd: NotebookCommand) {
+        switch cmd {
+        case .selectPrev: model.selectPrev()
+        case .selectNext: model.selectNext()
+        case .moveUp:     model.moveSelected(by: -1)
+        case .moveDown:   model.moveSelected(by: 1)
+        case .edit:       if let id = model.selectedID { focusCtl.beginEditing(id) }
+        case .run:        Task { await model.runSelected() }
+        case .delete:     model.deleteSelected()
+        case .addCode:    model.addAfterSelection { model.addCode(after: $0) }; editSelected()
+        case .addProse:   model.addAfterSelection { model.addProse(after: $0) }; editSelected()
+        case .addAgent:   if model.runAgent != nil { model.addAfterSelection { model.addAgent(after: $0) }; editSelected() }
         }
     }
 
@@ -551,7 +612,7 @@ private struct NotebookCellRow: View {
         case .prose:
             if isEditing {
                 NotebookProseView(text: binding, cellID: cell.id, focusCtl: focusCtl,
-                                  onEscape: { focusCtl.endEditing() })
+                                  onEscape: { focusCtl.enterCommandMode() })
                     .frame(height: editorHeight(binding.wrappedValue, line: 19, min: 2))
             } else {
                 ProseRenderedView(markdown: model.text(of: cell.id))
@@ -563,7 +624,7 @@ private struct NotebookCellRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 NotebookCodeView(text: binding, cellID: cell.id, focusCtl: focusCtl,
                                  onRun: { Task { await model.run(cell.id) } },
-                                 onEscape: { focusCtl.endEditing() })
+                                 onEscape: { focusCtl.enterCommandMode() })
                     .frame(height: editorHeight(binding.wrappedValue, line: 18, min: 2))
                     .padding(6)
                     .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(0.045)))
@@ -589,7 +650,7 @@ private struct NotebookCellRow: View {
                 }
                 NotebookProseView(text: binding, cellID: cell.id, focusCtl: focusCtl,
                                   onRun: { Task { await model.runAgentCell(cell.id) } },
-                                  onEscape: { focusCtl.endEditing() })
+                                  onEscape: { focusCtl.enterCommandMode() })
                     .frame(height: editorHeight(binding.wrappedValue, line: 19, min: 1))
             }
             let steps = model.agentSteps(of: cell.id)

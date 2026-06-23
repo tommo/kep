@@ -80,6 +80,73 @@ final class MindoNotebookKernelTests: XCTestCase {
         XCTAssertEqual(k.run("return #mindo.search('xyznevermatches')").output, "0")
     }
 
+    /// DOGFOOD: play a CodeAct agent over the real espresso-kb corpus — run the
+    /// exact Lua actions a model would emit, observe outputs, author cells.
+    /// Exercises mindo.search/docs/readDoc, nb.note/nb.code, persistent globals.
+    func testDogfoodCodeActSessionOverRealCorpus() throws {
+        // Load the shipped example workspace as the corpus.
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let kb = root.appendingPathComponent("Examples/espresso-kb")
+        let files = (try FileManager.default.contentsOfDirectory(at: kb, includingPropertiesForKeys: nil))
+            .filter { ["md", "csv", "puml", "mmd"].contains($0.pathExtension) }
+        let corpus = files.map { (url: $0, text: (try? String(contentsOf: $0, encoding: .utf8)) ?? "") }
+        let k = try MindoNotebookKernel(map: MindMap(), corpus: corpus, allFiles: files)
+
+        var notes: [String] = [], codes: [String] = []
+        k.onNote = { notes.append($0) }
+        k.onCode = { codes.append($0) }
+
+        // The agent's sequence of code actions (research → read → compute → author).
+        let actions: [String] = [
+            // 1. orient
+            "for _, d in ipairs(mindo.docs()) do print(d) end",
+            // 2. research
+            "for _, h in ipairs(mindo.search('grind')) do print(h) end",
+            // 3. read into shared globals
+            "grind = mindo.readDoc('Grind'); extraction = mindo.readDoc('Extraction'); print('grind '..#grind..' / extraction '..#extraction)",
+            // 4. compute over a PRIOR action's global, then author a finding
+            """
+            local function has(t,w) return t:lower():find(w) ~= nil end
+            print('inverse: '..tostring(has(grind,'inverse'))..'  yield: '..tostring(has(extraction,'yield')))
+            nb.note('**Grind size is the dominant extraction lever.** Per [[Grind]], finer grind raises surface area and flow resistance, so contact time and yield climb; coarser does the reverse. [[Extraction]] lists grind first among the key variables (200-400 micron).')
+            return 'noted'
+            """,
+            // 5. author a reusable code cell
+            """
+            nb.code([[
+            -- Shot-time verdict from Grind.md's dial-in table (1:2 ratio)
+            function verdict(s)
+              if s < 20 then return 'under-extracted (sour) - grind finer'
+              elseif s > 35 then return 'over-extracted (bitter) - grind coarser'
+              else return 'balanced (25-35s)' end
+            end
+            for _, s in ipairs({18,30,40}) do print(s..'s -> '..verdict(s)) end
+            ]])
+            return 'authored a code cell'
+            """,
+        ]
+
+        print("DOGFOOD ===== CodeAct session: 'how does grind size affect extraction?' =====")
+        for (i, code) in actions.enumerated() {
+            let r = k.run(code)
+            print("DOGFOOD --- action \(i + 1) ---")
+            if let e = r.error { print("DOGFOOD  ERROR: \(e)") }
+            for line in r.output.split(separator: "\n") { print("DOGFOOD  > \(line)") }
+        }
+        print("DOGFOOD ===== authored \(notes.count) note(s), \(codes.count) code cell(s) =====")
+        for n in notes { print("DOGFOOD  NOTE: \(n.prefix(80))…") }
+        for c in codes { print("DOGFOOD  CODE:\n\(c)") }
+
+        // It actually worked end to end:
+        XCTAssertGreaterThanOrEqual(notes.count, 1, "agent authored a prose finding")
+        XCTAssertGreaterThanOrEqual(codes.count, 1, "agent authored a code cell")
+        // The authored code is valid Lua that runs in the same kernel.
+        XCTAssertNil(k.run(codes[0]).error, "authored code cell must run")
+        // Persistent globals across actions (the dependency chain).
+        XCTAssertEqual(k.run("return extraction ~= nil and grind ~= nil").output, "true")
+    }
+
     func testSandboxDeniesDangerousCapabilities() throws {
         let k = try kernel()
         // The capabilities that actually let a script touch the system must be

@@ -263,14 +263,59 @@ final class NotebookModel: ObservableObject, NotebookAgentSink {
     }
 }
 
-/// The cell-based Research Notebook editor: a vertical list of prose + code
-/// cells with per-cell run + a Run-All toolbar. Outputs render beneath code
-/// cells; a "stale" badge shows when a cell changed since its last run.
-/// Keyboard focus target for the notebook: command mode (cell navigation) or
-/// editing a specific cell.
-enum NotebookFocus: Hashable {
-    case command
-    case edit(String)
+/// The SINGLE source of truth for "which cell is being edited" in a notebook.
+///
+/// The previous design had two uncoordinated authorities — SwiftUI `@FocusState`
+/// (which only ever drove the container + the agent field) and the AppKit window
+/// first-responder (which the NSTextView cells set imperatively). They drifted,
+/// so keystrokes landed on the previously-edited cell. Here the AppKit
+/// first-responder is authoritative: each cell editor reports become/resign back
+/// to this controller, and the controller is the only thing that initiates
+/// edit transitions. `@FocusState` is reduced to a single command-mode flag.
+@MainActor
+final class NotebookFocusController: ObservableObject {
+    /// The cell whose editor currently holds (or is being handed) first
+    /// responder. nil = command mode. Set optimistically by `beginEditing` so a
+    /// lazily-realized cell renders its editor, then confirmed by the editor's
+    /// `becomeFirstResponder`.
+    @Published private(set) var editingCellID: String?
+
+    private var pendingEdit: String?
+    private var views: [String: NotebookCellTextView] = [:]
+
+    /// A cell editor entered the window — track it and, if it's the one we're
+    /// waiting to focus (realize race), grab first responder now.
+    func register(_ id: String, _ v: NotebookCellTextView) {
+        views[id] = v
+        if pendingEdit == id, let w = v.window { w.makeFirstResponder(v) }
+    }
+    func unregister(_ id: String, _ v: NotebookCellTextView) {
+        if views[id] === v { views[id] = nil }
+    }
+
+    /// Enter edit mode on `id`. Optimistic so the row shows its editor even if it
+    /// must still be realized; the editor grabs first responder on register /
+    /// viewDidMoveToWindow. Parks the previously-edited cell first.
+    func beginEditing(_ id: String) {
+        guard editingCellID != id else { return }
+        let prev = editingCellID
+        editingCellID = id
+        pendingEdit = id
+        if let prev, let pv = views[prev] { pv.window?.makeFirstResponder(pv.window) }
+        if let v = views[id], v.window != nil { v.window?.makeFirstResponder(v) }
+    }
+
+    /// Leave edit mode (Esc) — park first responder on the window so the SwiftUI
+    /// command container can reclaim it.
+    func endEditing() {
+        if let id = editingCellID, let v = views[id] { v.window?.makeFirstResponder(v.window) }
+        editingCellID = nil
+        pendingEdit = nil
+    }
+
+    // Reported up from the NSTextView — first-responder reality, authoritative.
+    func didBecomeFirstResponder(_ id: String) { editingCellID = id; pendingEdit = nil }
+    func didResignFirstResponder(_ id: String) { /* transitions handled by next beginEditing/endEditing */ }
 }
 
 public struct NotebookEditor: View {
@@ -282,7 +327,9 @@ public struct NotebookEditor: View {
     /// browse-open (sidebar single-click) so focus stays in the sidebar.
     let shouldFocusOnAppear: () -> Bool
     @StateObject private var model: NotebookModel
-    @FocusState private var focus: NotebookFocus?
+    @StateObject private var focusCtl = NotebookFocusController()
+    /// Command mode = the notebook navigator holds focus (no cell is editing).
+    @FocusState private var commandFocus: Bool
 
     public init(text: Binding<String>, documentURL: URL?, isDarkMode: Bool,
                 runOne: @escaping NotebookRunOne, runAll: @escaping NotebookRunAll,
@@ -308,8 +355,8 @@ public struct NotebookEditor: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 10) {
                         ForEach(model.cells) { cell in
-                            NotebookCellRow(model: model, cell: cell,
-                                            focus: $focus, isSelected: model.selectedID == cell.id,
+                            NotebookCellRow(model: model, focusCtl: focusCtl, cell: cell,
+                                            isSelected: model.selectedID == cell.id,
                                             onOpenSource: onOpenSource)
                                 .id(cell.id)
                         }
@@ -323,21 +370,27 @@ public struct NotebookEditor: View {
             }
         }
         .focusable()
-        .focused($focus, equals: .command)
+        .focused($commandFocus)
         .focusEffectDisabled()
         .onKeyPress(phases: .down) { handleCommandKey($0) }
         .onAppear {
-            model.selectFirstIfNeeded()           // visual selection only
-            if shouldFocusOnAppear() { focus = .command }   // don't steal focus on a browse-open
+            model.selectFirstIfNeeded()                         // visual selection only
+            if shouldFocusOnAppear() { commandFocus = true }    // don't steal focus on a browse-open
         }
-        .onChange(of: focus) { _, f in if case .edit(let id)? = f { model.selectedID = id } }
+        // Single source of truth: when a cell starts/stops editing, sync the
+        // command navigator (release it while editing; reclaim it when done) and
+        // keep the selection cursor on the edited cell.
+        .onChange(of: focusCtl.editingCellID) { _, editing in
+            if let editing { model.selectedID = editing; commandFocus = false }
+            else { commandFocus = true }
+        }
         .onChange(of: text) { _, new in model.reload(from: new) }
         .onReceive(NotificationCenter.default.publisher(for: .focusNotebookCommand)) { _ in
-            model.selectFirstIfNeeded(); focus = .command
+            focusCtl.endEditing(); model.selectFirstIfNeeded(); commandFocus = true
         }
     }
 
-    /// Command-mode keys (fire only when the notebook container — not a cell
+    /// Command-mode keys (fire only when the notebook navigator — not a cell
     /// editor — holds focus). Makes the notebook fully keyboard-operable.
     private func handleCommandKey(_ press: KeyPress) -> KeyPress.Result {
         let opt = press.modifiers.contains(.option)
@@ -348,7 +401,7 @@ public struct NotebookEditor: View {
             if press.modifiers.contains(.command) || press.modifiers.contains(.shift) {
                 Task { await model.runSelected() }
             } else if let id = model.selectedID {
-                focus = .edit(id)
+                focusCtl.beginEditing(id)
             }
             return .handled
         case .deleteForward, .delete:
@@ -366,7 +419,7 @@ public struct NotebookEditor: View {
 
     /// Drop straight into editing the (just-added) selected cell.
     private func editSelected() {
-        if let id = model.selectedID { focus = .edit(id) }
+        if let id = model.selectedID { focusCtl.beginEditing(id) }
     }
 
     private var toolbar: some View {
@@ -406,12 +459,12 @@ public struct NotebookEditor: View {
 
 private struct NotebookCellRow: View {
     @ObservedObject var model: NotebookModel
+    @ObservedObject var focusCtl: NotebookFocusController
     let cell: NotebookCell
-    var focus: FocusState<NotebookFocus?>.Binding
     let isSelected: Bool
     var onOpenSource: ((String) -> Void)?
 
-    private var isEditing: Bool { focus.wrappedValue == .edit(cell.id) }
+    private var isEditing: Bool { focusCtl.editingCellID == cell.id }
 
     private var binding: Binding<String> {
         Binding(get: { model.text(of: cell.id) }, set: { model.updateText(cell.id, $0) })
@@ -497,20 +550,20 @@ private struct NotebookCellRow: View {
         switch cell {
         case .prose:
             if isEditing {
-                NotebookProseView(text: binding, isEditing: isEditing,
-                                  onEscape: { focus.wrappedValue = .command })
+                NotebookProseView(text: binding, cellID: cell.id, focusCtl: focusCtl,
+                                  onEscape: { focusCtl.endEditing() })
                     .frame(height: editorHeight(binding.wrappedValue, line: 19, min: 2))
             } else {
                 ProseRenderedView(markdown: model.text(of: cell.id))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(Rectangle())
-                    .onTapGesture { model.selectedID = cell.id; focus.wrappedValue = .edit(cell.id) }
+                    .onTapGesture { model.selectedID = cell.id; focusCtl.beginEditing(cell.id) }
             }
         case .code:
             VStack(alignment: .leading, spacing: 4) {
-                NotebookCodeView(text: binding, isEditing: isEditing,
+                NotebookCodeView(text: binding, cellID: cell.id, focusCtl: focusCtl,
                                  onRun: { Task { await model.run(cell.id) } },
-                                 onEscape: { focus.wrappedValue = .command })
+                                 onEscape: { focusCtl.endEditing() })
                     .frame(height: editorHeight(binding.wrappedValue, line: 18, min: 2))
                     .padding(6)
                     .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(0.045)))
@@ -525,21 +578,19 @@ private struct NotebookCellRow: View {
     /// the uniform header's "AGENT" tag identifies it.
     private var agentContent: some View {
         VStack(alignment: .leading, spacing: 6) {
-            // Custom placeholder so an EMPTY prompt reads as a faint hint, not
-            // authored content.
+            // Same NSTextView editor as prose/code (one focus authority). Custom
+            // placeholder so an EMPTY prompt reads as a faint hint, not content.
+            // ⌘↩ runs the research; plain Return is a newline (multi-line prompts).
             ZStack(alignment: .topLeading) {
                 if model.text(of: cell.id).isEmpty {
-                    Text("Research question for the agent…")
+                    Text("Research question for the agent…  (⌘↩ to run)")
                         .font(.body).italic().foregroundStyle(.tertiary)
                         .allowsHitTesting(false)
                 }
-                TextField("", text: binding, axis: .vertical)
-                    .textFieldStyle(.plain)
-                    .font(.body.weight(.medium))
-                    .lineLimit(1...4)
-                    .focused(focus, equals: .edit(cell.id))
-                    .onKeyPress(.escape) { focus.wrappedValue = .command; return .handled }
-                    .onSubmit { Task { await model.runAgentCell(cell.id) } }
+                NotebookProseView(text: binding, cellID: cell.id, focusCtl: focusCtl,
+                                  onRun: { Task { await model.runAgentCell(cell.id) } },
+                                  onEscape: { focusCtl.endEditing() })
+                    .frame(height: editorHeight(binding.wrappedValue, line: 19, min: 1))
             }
             let steps = model.agentSteps(of: cell.id)
             if !steps.isEmpty {
@@ -615,7 +666,8 @@ private struct NotebookCellRow: View {
 /// Backed by an NSTextView (SwiftUI TextEditor can't intercept those keys).
 struct NotebookCodeView: NSViewRepresentable {
     @Binding var text: String
-    var isEditing: Bool = false
+    var cellID: String = "?"
+    var focusCtl: NotebookFocusController
     var onRun: () -> Void
     var onEscape: () -> Void = {}
 
@@ -624,21 +676,22 @@ struct NotebookCodeView: NSViewRepresentable {
             NotebookCodeTextView()
         }
         scroll.hasVerticalScroller = false   // outer notebook ScrollView scrolls
-        (tv as? NotebookCodeTextView)?.onRun = onRun
-        (tv as? NotebookCodeTextView)?.onEscape = onEscape
+        let cv = tv as? NotebookCodeTextView
+        cv?.onRun = onRun
+        cv?.onEscape = onEscape
+        cv?.cellID = cellID
+        cv?.controller = focusCtl
         context.coordinator.textView = tv
         return scroll
     }
 
     func updateNSView(_ scroll: NSScrollView, context: Context) {
-        guard let tv = scroll.documentView as? NSTextView else { return }
+        guard let tv = scroll.documentView as? NotebookCodeTextView else { return }
         if tv.string != text { tv.string = text }
-        (tv as? NotebookCodeTextView)?.onRun = onRun
-        (tv as? NotebookCodeTextView)?.onEscape = onEscape
-        // Bridge SwiftUI command-mode "edit" → make this the first responder.
-        if isEditing, tv.window != nil, tv.window?.firstResponder !== tv {
-            tv.window?.makeFirstResponder(tv)
-        }
+        tv.onRun = onRun
+        tv.onEscape = onEscape
+        tv.cellID = cellID
+        tv.controller = focusCtl
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
@@ -660,7 +713,10 @@ struct NotebookCodeView: NSViewRepresentable {
 /// into a text cell). Esc returns to command mode; everything else is normal.
 struct NotebookProseView: NSViewRepresentable {
     @Binding var text: String
-    var isEditing: Bool = false
+    var cellID: String = "?"
+    var focusCtl: NotebookFocusController
+    /// Optional run action (⌘↩) — used by the agent prompt; nil for plain prose.
+    var onRun: (() -> Void)? = nil
     var onEscape: () -> Void = {}
 
     func makeNSView(context: Context) -> NSScrollView {
@@ -671,18 +727,22 @@ struct NotebookProseView: NSViewRepresentable {
         scroll.drawsBackground = false
         tv.drawsBackground = false
         tv.font = .systemFont(ofSize: 13)       // proportional — prose, not code
-        (tv as? NotebookProseTextView)?.onEscape = onEscape
+        let pv = tv as? NotebookProseTextView
+        pv?.onRun = onRun
+        pv?.onEscape = onEscape
+        pv?.cellID = cellID
+        pv?.controller = focusCtl
         context.coordinator.textView = tv
         return scroll
     }
 
     func updateNSView(_ scroll: NSScrollView, context: Context) {
-        guard let tv = scroll.documentView as? NSTextView else { return }
+        guard let tv = scroll.documentView as? NotebookProseTextView else { return }
         if tv.string != text { tv.string = text }
-        (tv as? NotebookProseTextView)?.onEscape = onEscape
-        if isEditing, tv.window != nil, tv.window?.firstResponder !== tv {
-            tv.window?.makeFirstResponder(tv)
-        }
+        tv.onRun = onRun
+        tv.onEscape = onEscape
+        tv.cellID = cellID
+        tv.controller = focusCtl
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
@@ -698,10 +758,44 @@ struct NotebookProseView: NSViewRepresentable {
     }
 }
 
-/// NSTextView for a prose cell: Esc → command mode; Return inserts a newline.
-final class NotebookProseTextView: NSTextView {
+/// Base for the notebook's NSTextView cell editors. First-responder is the
+/// SINGLE source of truth: the view registers with the focus controller when it
+/// enters the window (consummating a pending edit if it's the awaited cell), and
+/// reports become/resign back so the controller's `editingCellID` always matches
+/// reality. No imperative "grab focus" guessing — the controller initiates every
+/// transition via beginEditing/endEditing.
+class NotebookCellTextView: NSTextView {
+    var cellID = "?"
+    weak var controller: NotebookFocusController?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window != nil { controller?.register(cellID, self) }
+        else { controller?.unregister(cellID, self) }
+    }
+
+    override func becomeFirstResponder() -> Bool {
+        let ok = super.becomeFirstResponder()
+        if ok { controller?.didBecomeFirstResponder(cellID) }
+        return ok
+    }
+    override func resignFirstResponder() -> Bool {
+        let ok = super.resignFirstResponder()
+        if ok { controller?.didResignFirstResponder(cellID) }
+        return ok
+    }
+}
+
+/// NSTextView for a prose / agent-prompt cell: ⌘↩/⇧↩ runs (if a run action is
+/// set — agent prompt), Esc → command mode, plain Return inserts a newline.
+final class NotebookProseTextView: NotebookCellTextView {
+    var onRun: (() -> Void)?
     var onEscape: (() -> Void)?
     override func keyDown(with event: NSEvent) {
+        if event.keyCode == 36, let onRun {   // Return
+            let mods = event.modifierFlags.intersection([.command, .shift, .option, .control])
+            if mods == .command || mods == .shift { onRun(); return }
+        }
         if event.keyCode == 53 { onEscape?(); return }   // Esc
         super.keyDown(with: event)
     }
@@ -709,7 +803,7 @@ final class NotebookProseTextView: NSTextView {
 
 /// NSTextView that runs its cell on ⌘↩ / ⇧↩ and otherwise behaves normally
 /// (plain Return inserts a newline).
-final class NotebookCodeTextView: NSTextView {
+final class NotebookCodeTextView: NotebookCellTextView {
     var onRun: (() -> Void)?
     var onEscape: (() -> Void)?
     override func keyDown(with event: NSEvent) {

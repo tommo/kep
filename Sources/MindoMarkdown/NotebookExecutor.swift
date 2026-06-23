@@ -18,7 +18,8 @@ public typealias NotebookRunAll = @MainActor (_ notebook: Notebook, _ ctx: Noteb
 @MainActor
 public protocol NotebookAgentSink: AnyObject {
     func agentAddProse(_ text: String)
-    func agentAddCode(_ code: String, output: ExecOutput)
+    /// Author a code cell. `output` nil = not run yet (shows stale until run).
+    func agentAddCode(_ code: String, output: ExecOutput?)
     /// Report the source documents consulted (provenance for the block).
     func agentSetSources(_ sources: [String])
     /// Report a research step as it happens (tool-call trace, "watch it work").

@@ -91,32 +91,45 @@ extension AppSession {
             flag.authored = true
             Task { @MainActor in sink.agentAddProse(text) }
         }
-        // notebook_add_code is handled in the execute closure below so it runs in
-        // the notebook's SHARED kernel (the agent is a chain node), not here.
         let docURL = ctx.documentURL
         let tools = MindoAgentTools(map: MindMap(), corpus: corpus, allFiles: files,
                                     workspaceRoot: workspaceRoots.first?.url, effects: effects)
-        // Read-only KB research + notebook authoring (no map/doc mutation).
-        let allow: Set<String> = ["list_docs", "read_document", "resolve_link", "backlinks",
-                                  "find_topics", "get_subtree", "semantic_search",
-                                  "notebook_add_note", "notebook_add_code", "notebook_eval"]
+
+        // CodeAct: the agent's unified action is Lua (`notebook_eval`) run in the
+        // notebook's shared kernel — research, compute, and authoring all happen
+        // in code. `semantic_search` stays a tool (embedding retrieval isn't in
+        // Lua). Wire the kernel's authoring hooks so `nb.note`/`nb.code` emit
+        // cells into THIS notebook; clear them when the run ends.
+        let kernel = NotebookKernelStore.shared.kernel(for: docURL, restart: false, build: buildNotebookKernel)
+        kernel?.onNote = { md in flag.authored = true; sink.agentAddProse(md) }
+        kernel?.onCode = { src in flag.authored = true; sink.agentAddCode(src, output: nil) }
+        defer { kernel?.onNote = nil; kernel?.onCode = nil }
+
+        let allow: Set<String> = ["notebook_eval", "semantic_search"]
         let specs = MindoAgentTools.descriptors.filter { allow.contains($0.name) }
             .map { ToolSpec(name: $0.name, description: $0.description, parametersJSON: $0.parametersJSON) }
 
         let system = """
-        You are a research assistant CONTINUING a notebook, not chatting. You are given the \
-        notebook so far (the cells above your block) as context — build on it; don't repeat \
-        what's already there. Research the user's question using the knowledge-base tools \
-        (semantic_search, read_document, backlinks, find_topics). Author your answer as new \
-        notebook cells by calling notebook_add_note (Markdown prose — cite source document \
-        names inline) and notebook_add_code (Lua over the `mindo` API to compute or verify a \
-        point). These become real, editable cells in the document, so write them that way: \
-        prefer several short notes and code cells over one long note, each a coherent step. \
-        Code cells share ONE live Lua session, so assign results to NAMED globals (e.g. \
-        `params = {...}`) that later cells reuse, and use notebook_eval to INSPECT values that \
-        earlier cells (or the cells above your block) computed — read real data instead of \
-        guessing. Don't narrate to the user; put everything in the notebook. Stop when the \
-        question is answered.
+        You are a research assistant working IN a notebook through CODE (CodeAct). Your main \
+        action is `notebook_eval`: write Lua, it runs in the notebook's LIVE shared session and \
+        returns its printed output, which you observe and build on. Iterate — inspect, refine — \
+        and fix your own Lua from any error message. State persists across actions, so assign \
+        NAMED globals to reuse.
+
+        In Lua you can:
+        • Research the workspace knowledge base — mindo.search(query) returns matching snippets; \
+        mindo.docs() lists document names; mindo.readDoc(name) returns a document's text; \
+        mindo.backlinks(name) lists what links to it.
+        • Author the notebook (this is HOW you produce the answer) — nb.note(markdown) adds a \
+        prose cell (cite the source document names inline); nb.code(luaSource) adds a Lua code \
+        cell the reader can run.
+        • Compute and print(...) to observe.
+
+        You also have semantic_search(query) for meaning-based retrieval when keywords miss.
+
+        Continue the notebook you're given (don't repeat what's above). Build the answer as \
+        several short nb.note / nb.code cells grounded in what you actually read and computed. \
+        Don't narrate to the user outside the notebook; reply with a one-line summary when done.
         """
         let notebookSoFar = context.trimmingCharacters(in: .whitespacesAndNewlines)
         var messages: [ChatMessage] = [.system(system)]
@@ -199,7 +212,7 @@ extension AppSession {
         case "list_docs":        return "📑 listed documents"
         case "notebook_add_note": return "✎ wrote a note"
         case "notebook_add_code": return "λ ran a query"
-        case "notebook_eval":     return "λ inspected a value"
+        case "notebook_eval":     return "λ ran code"
         default:                 return "• \(call.name)"
         }
     }

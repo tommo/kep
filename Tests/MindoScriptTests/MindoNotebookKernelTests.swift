@@ -47,6 +47,39 @@ final class MindoNotebookKernelTests: XCTestCase {
         XCTAssertEqual(good.output, "7")
     }
 
+    // MARK: - CodeAct primitives (agent acts through Lua)
+
+    func testNbAuthoringHooksFire() throws {
+        let k = try kernel()
+        var notes: [String] = []
+        var codes: [String] = []
+        k.onNote = { notes.append($0) }
+        k.onCode = { codes.append($0) }
+        let r = k.run("nb.note('a finding'); nb.code('return 1'); return 'ok'")
+        XCTAssertNil(r.error)
+        XCTAssertEqual(notes, ["a finding"])
+        XCTAssertEqual(codes, ["return 1"])
+    }
+
+    func testNbHooksNoopWhenUnset() throws {
+        let k = try kernel()   // onNote/onCode nil → calls must not crash
+        let r = k.run("nb.note('x'); nb.code('y'); return 'fine'")
+        XCTAssertNil(r.error)
+        XCTAssertEqual(r.output, "fine")
+    }
+
+    func testMindoSearchOverCorpus() throws {
+        let url = URL(fileURLWithPath: "/tmp/Extraction.md")
+        let k = try MindoNotebookKernel(
+            map: MindMap(),
+            corpus: [(url: url, text: "Grind size controls extraction time and yield.")],
+            allFiles: [url])
+        let hit = k.run("return #mindo.search('yield')")
+        XCTAssertNil(hit.error)
+        XCTAssertEqual(hit.output, "1")
+        XCTAssertEqual(k.run("return #mindo.search('xyznevermatches')").output, "0")
+    }
+
     func testSandboxDeniesDangerousCapabilities() throws {
         let k = try kernel()
         // The capabilities that actually let a script touch the system must be

@@ -160,6 +160,25 @@ public final class MindoLuaAPI {
         engine.register("__mindo_docs") { [self] _ in
             .array(allFiles.map { .string(baseName($0)) })
         }
+        // Literal keyword search over the workspace corpus → up to 20 lines of
+        // "Doc — …snippet…" (case-insensitive). For composable in-code research;
+        // the agent also has embedding-based semantic_search for meaning.
+        engine.register("__mindo_search") { [self] a in
+            let q = ((a.first ?? .nil).stringValue ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            guard !q.isEmpty else { return .array([]) }
+            var hits: [LuaValue] = []
+            for entry in corpus {
+                let text = entry.text
+                guard let r = text.range(of: q, options: .caseInsensitive) else { continue }
+                let lo = text.index(r.lowerBound, offsetBy: -50, limitedBy: text.startIndex) ?? text.startIndex
+                let hi = text.index(r.upperBound, offsetBy: 50, limitedBy: text.endIndex) ?? text.endIndex
+                let snippet = text[lo..<hi].replacingOccurrences(of: "\n", with: " ")
+                hits.append(.string("\(baseName(entry.url)) — …\(snippet)…"))
+                if hits.count >= 20 { break }
+            }
+            return .array(hits)
+        }
         engine.register("__mindo_readDoc") { [self] a in
             let name = try string(a, 0)
             guard let url = WikiLinkResolver.resolve(name, in: allFiles) else { return .nil }
@@ -200,6 +219,7 @@ public final class MindoLuaAPI {
       backlinks = __mindo_backlinks,
       docs = __mindo_docs,
       readDoc = __mindo_readDoc,
+      search = __mindo_search,
     }
     """
 }

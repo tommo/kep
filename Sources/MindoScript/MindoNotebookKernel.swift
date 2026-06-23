@@ -9,6 +9,13 @@ public final class MindoNotebookKernel {
     private let engine: LuaScriptEngine
     private var printBuffer: [String] = []
 
+    /// Authoring hooks for the CodeAct notebook agent: Lua `nb.note(md)` /
+    /// `nb.code(src)` call these to emit notebook cells. Set by the host around
+    /// an agent run; nil the rest of the time (the calls then no-op), so a user's
+    /// own code can't accidentally author cells.
+    public var onNote: ((String) -> Void)?
+    public var onCode: ((String) -> Void)?
+
     public init(map: MindMap,
                 corpus: [(url: URL, text: String)] = [],
                 allFiles: [URL] = []) throws {
@@ -19,6 +26,14 @@ public final class MindoNotebookKernel {
             return .nil
         }
         try MindoLuaAPI(map: map, corpus: corpus, allFiles: allFiles).install(on: engine)
+        // `nb` authoring API (CodeAct): the agent's code emits notebook cells.
+        engine.register("__nb_note") { [weak self] a in
+            if let s = a.first?.stringValue { self?.onNote?(s) }; return .nil
+        }
+        engine.register("__nb_code") { [weak self] a in
+            if let s = a.first?.stringValue { self?.onCode?(s) }; return .nil
+        }
+        try engine.run("nb = { note = __nb_note, code = __nb_code }")
     }
 
     /// Run one cell against the shared VM. Output = captured prints, then the

@@ -140,9 +140,9 @@ final class NotebookModel: ObservableObject, NotebookAgentSink {
     func agentAddProse(_ text: String) {
         insertGenerated(.prose(id: freshID("prose"), text: text))
     }
-    func agentAddCode(_ code: String, output: ExecOutput) {
+    func agentAddCode(_ code: String, output: ExecOutput?) {
         insertGenerated(.code(id: freshID("code"), language: "lua", code: code))
-        outputs.set(output, forHash: MarkdownExecBlocks.hash(code))
+        if let output { outputs.set(output, forHash: MarkdownExecBlocks.hash(code)) }   // nil → stale until run
         flushNow()
     }
 

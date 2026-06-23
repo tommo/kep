@@ -1,0 +1,45 @@
+# Espresso Extraction — a worked notebook
+
+A demo of how kep Research Notebooks work. It mixes three kinds of cell:
+
+- **Text** cells (like this one) — Markdown narrative.
+- **Code** cells — Lua over the `mindo` knowledge-base API. All code cells share **one** Lua session, so a value set in an earlier cell is visible to a later one. Run a single cell with `⌘↩`, or the whole notebook top‑to‑bottom with `⇧⌘↩`.
+- An **Agent** cell — give it a question; it researches this workspace and writes its findings as new cells *below* itself.
+
+```lua {exec id=c1}
+-- What can this notebook read? (the workspace knowledge base)
+docs = mindo.docs()
+print("workspace documents: " .. #docs)
+for _, name in ipairs(docs) do print("  - " .. name) end
+```
+
+```lua {exec id=c2}
+-- Load the Extraction note ONCE into a shared global the next cell reuses.
+extraction = mindo.readDoc("Extraction") or ""
+print("Extraction note: " .. #extraction .. " characters")
+```
+
+```lua {exec id=c3}
+-- Reuses `extraction` from the cell above (shared session state — run that
+-- cell first, or Run All). Which levers does the note talk about most?
+local function mentions(text, term)
+  local n = 0
+  for _ in text:lower():gmatch(term) do n = n + 1 end
+  return n
+end
+
+print(string.format("%-12s %s", "lever", "mentions"))
+for _, term in ipairs({"time", "temperature", "grind", "pressure", "ratio", "yield"}) do
+  print(string.format("%-12s %d", term, mentions(extraction, term)))
+end
+```
+
+## From counts to an explanation
+
+The most-mentioned terms above are the levers worth understanding first. The
+**Agent** cell below turns those raw counts into a cited explanation drawn from
+the workspace notes — and its answer will appear as new cells right beneath it.
+
+<!--mindo:agent {"prompt":"Using the workspace notes (Extraction, Grind, Bean Origins), explain how grind size, dose, and shot time interact to control espresso extraction, and how over- vs under-extraction taste and present. Cite the source notes inline, and add a short Lua cell that prints the workspace docs you drew from."}-->
+
+<!--/mindo:agent-->

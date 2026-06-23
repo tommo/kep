@@ -159,4 +159,26 @@ final class NotebookModelTests: XCTestCase {
         // No output cached yet → stale.
         XCTAssertTrue(model.isStale("c1"))
     }
+
+    /// The shipped example notebook parses to the intended cell layout and
+    /// round-trips (guards it against format drift).
+    func testExampleNotebookParses() throws {
+        // .../Tests/MindoMindMapTests/<this file> → repo root is three up.
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let url = root.appendingPathComponent("Examples/espresso-kb/Extraction Research.mnb")
+        let text = try String(contentsOf: url, encoding: .utf8)
+        let nb = NotebookFormat.parse(text)
+
+        // prose intro, 3 code cells, prose, 1 agent block.
+        XCTAssertEqual(nb.codeCells.count, 3)
+        XCTAssertTrue(nb.cells.contains { if case .agent = $0 { return true } else { return false } })
+        XCTAssertTrue(nb.cells.contains { if case .prose = $0 { return true } else { return false } })
+        if case .agent(_, let prompt, _, _) = nb.cells.first(where: { if case .agent = $0 { return true } else { return false } }) {
+            XCTAssertTrue(prompt.contains("grind size"))   // the prompt survived the comment codec
+        }
+        // Idempotent serialize.
+        XCTAssertEqual(NotebookFormat.serialize(NotebookFormat.parse(NotebookFormat.serialize(nb))),
+                       NotebookFormat.serialize(nb))
+    }
 }

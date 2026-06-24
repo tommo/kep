@@ -618,18 +618,22 @@ private struct NotebookCellRow: View {
         return CGFloat(Swift.min(lines, 30)) * line + 14
     }
 
-    /// The only per-cell decoration: a slim left rule. It does double duty —
-    /// when selected it's the accent (focus/selection cue); otherwise its color
-    /// distinguishes the block TYPE minimally (no bar for Text, a neutral bar for
-    /// Code, a purple bar for Agent). No buttons or menus — run with ⌘↩ / Run
-    /// All, move with ⌥↑↓, delete with ⌦.
+    /// TWO independent cues, two channels — never conflated:
+    ///   • the left RULE = block TYPE, always (no bar for Text, neutral for Code,
+    ///     purple for Agent). It does NOT change with selection.
+    ///   • the background WASH = selection/focus (accent), separate from the rule
+    ///     so the border never turns into "blue = a type".
+    /// No buttons or menus — run ⌘↩ / Run All, move ⌥↑↓, delete ⌦.
     private var ruleColor: Color {
-        if isSelected { return Color.accentColor.opacity(isEditing ? 1.0 : 0.5) }
         switch cell {
         case .prose: return .clear
-        case .code:  return Color.secondary.opacity(0.35)
+        case .code:  return Color.secondary.opacity(0.4)
         case .agent: return Color.purple.opacity(0.55)
         }
+    }
+    private var selectionWash: Color {
+        guard isSelected else { return .clear }
+        return Color.accentColor.opacity(isEditing ? 0.10 : 0.05)
     }
 
     var body: some View {
@@ -642,9 +646,7 @@ private struct NotebookCellRow: View {
         }
         .padding(.vertical, 5)
         .padding(.trailing, 6)
-        // A barely-there wash only while editing, so the active cell is obvious
-        // without boxing every cell in.
-        .background(isSelected && isEditing ? Color.primary.opacity(0.04) : .clear)
+        .background(selectionWash)
         .contentShape(Rectangle())
         .simultaneousGesture(TapGesture().onEnded { model.selectedID = cell.id })
     }

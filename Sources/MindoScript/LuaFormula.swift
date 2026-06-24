@@ -256,7 +256,8 @@ public final class LuaFormula {
 
     /// Lua prelude defining the spreadsheet functions over numbers + range
     /// tables. Ranges arrive as Lua arrays; scalars as numbers/strings.
-    private static let prelude = """
+    /// Public so the CSV block runner reuses the same SUM/AVERAGE/… library.
+    public static let prelude = """
     local function nums(t)
       local r = {}
       if type(t) == 'table' then for _,v in ipairs(t) do if type(v)=='number' then r[#r+1]=v end end

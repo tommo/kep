@@ -22,6 +22,23 @@ public struct CSVCellStyle: Equatable, Codable, Sendable {
     }
 }
 
+/// A user-composed Lua "sheet block": a named computation over the whole table
+/// (shown in the CSV inspector). Its `name` is a Lua identifier, so a block
+/// `total = sum(col("A"))` is referenceable from any cell formula as `=total`.
+public struct CSVEvalBlock: Equatable, Codable, Sendable, Identifiable {
+    public var id: String
+    public var name: String       // Lua identifier; referenceable as =name
+    public var source: String     // Lua chunk; its `return` value is the named result
+    public var output: String?    // last captured stdout/result (display cache)
+
+    public init(id: String = UUID().uuidString, name: String, source: String, output: String? = nil) {
+        self.id = id
+        self.name = name
+        self.source = source
+        self.output = output
+    }
+}
+
 /// The extended layer for a CSV document: the formula sources and per-cell
 /// styling kept in a sibling sidecar so the `.csv` itself stays plain — it holds
 /// only the baked (computed) values, which version-control and merge cleanly.
@@ -34,17 +51,31 @@ public struct CSVSheetExtras: Equatable, Codable, Sendable {
     public var formulas: [String: String]
     /// A1 → cell style.
     public var styles: [String: CSVCellStyle]
+    /// User-composed sheet blocks (inspector panel), in display order.
+    public var blocks: [CSVEvalBlock]
 
     public init(version: Int = 1,
                 formulas: [String: String] = [:],
-                styles: [String: CSVCellStyle] = [:]) {
+                styles: [String: CSVCellStyle] = [:],
+                blocks: [CSVEvalBlock] = []) {
         self.version = version
         self.formulas = formulas
         self.styles = styles
+        self.blocks = blocks
+    }
+
+    // Tolerant decoding so sidecars written before a field existed still parse.
+    enum CodingKeys: String, CodingKey { case version, formulas, styles, blocks }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        version = try c.decodeIfPresent(Int.self, forKey: .version) ?? 1
+        formulas = try c.decodeIfPresent([String: String].self, forKey: .formulas) ?? [:]
+        styles = try c.decodeIfPresent([String: CSVCellStyle].self, forKey: .styles) ?? [:]
+        blocks = try c.decodeIfPresent([CSVEvalBlock].self, forKey: .blocks) ?? []
     }
 
     /// Nothing to persist — the document is plain CSV with no extras.
-    public var isEmpty: Bool { formulas.isEmpty && styles.isEmpty }
+    public var isEmpty: Bool { formulas.isEmpty && styles.isEmpty && blocks.isEmpty }
 
     // MARK: - Mutation (drops entries that carry no information)
 

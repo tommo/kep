@@ -666,10 +666,20 @@ private struct NotebookCellRow: View {
                                   onEscape: { focusCtl.enterCommandMode() })
                     .frame(height: measuredEditorHeight)
             } else {
-                ProseRenderedView(markdown: model.text(of: cell.id))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
-                    .onTapGesture { model.selectedID = cell.id; focusCtl.beginEditing(cell.id) }
+                let md = model.text(of: cell.id)
+                if md.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text("Empty — ⏎ to write…").italic().foregroundStyle(.tertiary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                        .onTapGesture { model.selectedID = cell.id; focusCtl.beginEditing(cell.id) }
+                } else {
+                    // Native markdown (swift-markdown AST) — selectable, themed;
+                    // replaces the hand-rolled line renderer. ⏎ to edit.
+                    let st = MarkdownRenderStyle.resolved(dark: isDark)
+                    MarkdownBlocksView(blocks: NativeMarkdownRenderer.blocks(md, style: st), style: st)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .onTapGesture(count: 2) { model.selectedID = cell.id; focusCtl.beginEditing(cell.id) }
+                }
             }
         case .code:
             let out = model.output(for: cell.id)

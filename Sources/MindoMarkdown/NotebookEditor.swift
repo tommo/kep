@@ -667,8 +667,11 @@ private struct NotebookCellRow: View {
                     .onTapGesture { model.selectedID = cell.id; focusCtl.beginEditing(cell.id) }
             }
         case .code:
+            let out = model.output(for: cell.id)
             VStack(alignment: .leading, spacing: 4) {
-                NotebookCodeView(text: binding, cellID: cell.id, isDark: isDark, focusCtl: focusCtl,
+                NotebookCodeView(text: binding, cellID: cell.id, isDark: isDark,
+                                 errorLine: out?.error != nil ? out?.errorLine : nil,
+                                 focusCtl: focusCtl,
                                  onRun: { Task { await model.run(cell.id) } },
                                  onEscape: { focusCtl.enterCommandMode() })
                     .frame(height: editorHeight(binding.wrappedValue, line: 18, min: 2))
@@ -805,6 +808,9 @@ struct NotebookCodeView: NSViewRepresentable {
     @Binding var text: String
     var cellID: String = "?"
     var isDark: Bool = false
+    /// 1-based line the cell's last run errored on (nil = no current error) —
+    /// tinted in the editor so the "line N" badge points at something.
+    var errorLine: Int?
     var focusCtl: NotebookFocusController
     var onRun: () -> Void
     var onEscape: () -> Void = {}
@@ -821,6 +827,7 @@ struct NotebookCodeView: NSViewRepresentable {
         cv?.controller = focusCtl
         context.coordinator.textView = tv
         context.coordinator.dark = isDark
+        context.coordinator.errorLine = errorLine
         context.coordinator.highlight(tv)
         return scroll
     }
@@ -833,8 +840,9 @@ struct NotebookCodeView: NSViewRepresentable {
         tv.onEscape = onEscape
         tv.cellID = cellID
         tv.controller = focusCtl
-        if changed || context.coordinator.dark != isDark {
+        if changed || context.coordinator.dark != isDark || context.coordinator.errorLine != errorLine {
             context.coordinator.dark = isDark
+            context.coordinator.errorLine = errorLine
             context.coordinator.highlight(tv)
         }
     }
@@ -845,16 +853,37 @@ struct NotebookCodeView: NSViewRepresentable {
         let text: Binding<String>
         weak var textView: NSTextView?
         var dark = false
+        var errorLine: Int?
         init(text: Binding<String>) { self.text = text }
         func textDidChange(_ notification: Notification) {
             guard let tv = notification.object as? NSTextView, tv.string != text.wrappedValue else { return }
             text.wrappedValue = tv.string
+            // An edit invalidates the cached error → drop the error tint as we
+            // re-highlight (the cell is now stale until re-run).
+            errorLine = nil
             highlight(tv)
         }
         func highlight(_ tv: NSTextView) {
             guard let storage = tv.textStorage else { return }
             LuaHighlighter.apply(to: storage, dark: dark,
                                  font: tv.font ?? .monospacedSystemFont(ofSize: 13, weight: .regular))
+            // Tint the offending line on top of the syntax colors.
+            if let line = errorLine, let r = Self.range(ofLine: line, in: tv.string as NSString) {
+                storage.addAttribute(.backgroundColor, value: NSColor.systemRed.withAlphaComponent(0.16), range: r)
+            }
+        }
+        /// UTF-16 range of the 1-based `line` (including its terminator).
+        static func range(ofLine line: Int, in ns: NSString) -> NSRange? {
+            guard line >= 1 else { return nil }
+            var n = 1, loc = 0
+            while loc <= ns.length {
+                let r = ns.lineRange(for: NSRange(location: loc, length: 0))
+                if n == line { return r }
+                n += 1
+                loc = NSMaxRange(r)
+                if r.length == 0 { break }
+            }
+            return nil
         }
     }
 }

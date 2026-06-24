@@ -61,7 +61,8 @@ public struct MarkdownEditor: NSViewRepresentable {
 
         // Preview layout switch: none (editor only) / side-by-side / stacked.
         let modeControl = PreviewModeControl.make(target: context.coordinator,
-                                                   action: #selector(Coordinator.previewModeChanged(_:)))
+                                                   action: #selector(Coordinator.previewModeChanged(_:)),
+                                                   includePreviewOnly: true)
         context.coordinator.modeControl = modeControl
         // Compact note panel: no preview switch, force editor-only (don't read or
         // write the global markdown view-mode pref).
@@ -185,12 +186,13 @@ public struct MarkdownEditor: NSViewRepresentable {
         private var didPlaceDivider = false
         weak var modeControl: NSSegmentedControl?
 
-        /// Footer preview-layout switch: 0 none, 1 side-by-side, 2 stacked.
+        /// Footer preview switch: 0 editor, 1 side-by-side, 2 stacked, 3 reading.
         @objc func previewModeChanged(_ sender: NSSegmentedControl) {
             switch sender.selectedSegment {
             case 0: applyViewMode(.editor)
             case 1: setSplitVertical(true);  applyViewMode(.split)
             case 2: setSplitVertical(false); applyViewMode(.split)
+            case 3: applyViewMode(.preview)
             default: break
             }
         }
@@ -202,8 +204,11 @@ public struct MarkdownEditor: NSViewRepresentable {
         }
 
         func syncModeControl() {
-            modeControl?.selectedSegment = (viewMode != .split)
-                ? 0 : ((splitView?.isVertical ?? true) ? 1 : 2)
+            switch viewMode {
+            case .editor:  modeControl?.selectedSegment = 0
+            case .split:   modeControl?.selectedSegment = (splitView?.isVertical ?? true) ? 1 : 2
+            case .preview: modeControl?.selectedSegment = 3
+            }
         }
 
         /// An NSSplitView with two arranged subviews and no explicit position

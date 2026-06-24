@@ -633,7 +633,7 @@ private struct NotebookCellRow: View {
     }
     private var selectionWash: Color {
         guard isSelected else { return .clear }
-        return Color.accentColor.opacity(isEditing ? 0.10 : 0.05)
+        return Color.accentColor.opacity(isEditing ? 0.28 : 0.16)
     }
 
     var body: some View {

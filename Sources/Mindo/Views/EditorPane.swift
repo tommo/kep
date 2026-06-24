@@ -110,7 +110,8 @@ struct EditorPane: View {
         case .text(_, .csv):
             CSVEditor(text: textBinding(for: documentID),
                       findBarVisible: $session.csvFindOpen,
-                      documentURL: session.openDocuments.first(where: { $0.id == documentID })?.fileURL)
+                      documentURL: session.openDocuments.first(where: { $0.id == documentID })?.fileURL,
+                      onBlocksModel: { session.activeCSVBlocks = $0 })
         case .text(_, .mindNotebook):
             // LOAD-BEARING: must precede the `.text(let body, _)` catch-all
             // below — Swift matches top-down, else .mnb falls through to the

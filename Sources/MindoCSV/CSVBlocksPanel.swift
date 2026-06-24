@@ -3,10 +3,12 @@ import SwiftUI
 /// The CSV "sheet blocks" panel (right pane of the CSV editor): user-composed
 /// Lua computations over the table. Each block has a name (referenceable from
 /// cells as `=name`), a Lua source, and its last result/output inline.
-struct CSVBlocksPanel: View {
+public struct CSVBlocksPanel: View {
     @ObservedObject var model: CSVBlocksModel
 
-    var body: some View {
+    public init(model: CSVBlocksModel) { self.model = model }
+
+    public var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 6) {
                 Text("Blocks").font(.headline)

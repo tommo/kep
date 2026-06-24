@@ -6,6 +6,7 @@ import MindoMindMap
 import MindoModel
 import MindoMarkdown
 import MindoGenAI
+import MindoCSV
 
 /// Which surface the right inspector is showing: the document outline (+ node
 /// note), or the cross-document AI assistant.
@@ -459,6 +460,14 @@ struct ContentView: View {
                                             systemImage: "list.bullet.indent",
                                             isExpanded: $outlineExpanded) {
                     outlineInspector
+                }
+            } else if let blocks = session.activeCSVBlocks {
+                // CSV has no structural outline — this slot hosts the Sheet Blocks
+                // pane: user-composed Lua computations over the table.
+                CollapsibleInspectorSection(title: "Sheet Blocks",
+                                            systemImage: "function",
+                                            isExpanded: $outlineExpanded) {
+                    CSVBlocksPanel(model: blocks)
                 }
             }
             // The typed-properties panel only applies to a selected mind-map

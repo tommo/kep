@@ -467,6 +467,10 @@ final class AppSession {
     /// doesn't redraw rows; the sidebar `.id`s its list on this token to rebuild.
     var sidebarReloadToken = 0
     var openDocuments: [OpenDocument] = []
+    /// The active CSV editor's sheet-blocks model, published so the right
+    /// inspector can render the Sheet Blocks pane. Owned by the CSV editor's
+    /// coordinator (which keeps synchronous access to the live sheet).
+    var activeCSVBlocks: CSVBlocksModel?
     var activeDocumentID: OpenDocument.ID? {
         didSet {
             // Autosave the doc we just left — silent, only if it has a URL

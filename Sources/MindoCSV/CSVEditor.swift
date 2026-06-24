@@ -13,11 +13,17 @@ public struct CSVEditor: NSViewRepresentable {
     /// unsaved scratch document → no sidecar (the plain text still works).
     public var documentURL: URL?
 
+    /// Publishes the coordinator's sheet-blocks model to the host so the right
+    /// inspector can render the Sheet Blocks pane.
+    public var onBlocksModel: ((CSVBlocksModel) -> Void)?
+
     public init(text: Binding<String>, findBarVisible: Binding<Bool> = .constant(false),
-                documentURL: URL? = nil) {
+                documentURL: URL? = nil,
+                onBlocksModel: ((CSVBlocksModel) -> Void)? = nil) {
         self._text = text
         self._findBarVisible = findBarVisible
         self.documentURL = documentURL
+        self.onBlocksModel = onBlocksModel
     }
 
     public func makeNSView(context: Context) -> NSView {
@@ -140,19 +146,16 @@ public struct CSVEditor: NSViewRepresentable {
         context.coordinator.setupBlocks()
         context.coordinator.loadFromText()
         context.coordinator.refreshStatusFooter()
+        publishBlocks(context.coordinator)
+        return container
+    }
 
-        // Right pane: the sheet-blocks panel. Wrapping the fully-constrained
-        // `container` as one arranged subview keeps its internal layout intact.
-        let panelHost = NSHostingView(rootView: CSVBlocksPanel(model: context.coordinator.blocksModel))
-        let outer = NSSplitView()
-        outer.isVertical = true
-        outer.dividerStyle = .thin
-        outer.addArrangedSubview(container)
-        outer.addArrangedSubview(panelHost)
-        panelHost.isHidden = true          // collapsed until the toolbar ƒ toggle
-        context.coordinator.blocksPane = panelHost
-        context.coordinator.blocksSplit = outer
-        return outer
+    /// Hand the coordinator's blocks model to the host (→ session) so the right
+    /// inspector renders the Sheet Blocks pane. Async to avoid mutating observed
+    /// state during a SwiftUI view update.
+    private func publishBlocks(_ coordinator: Coordinator) {
+        let model = coordinator.blocksModel
+        DispatchQueue.main.async { [onBlocksModel] in onBlocksModel?(model) }
     }
 
     public func updateNSView(_ nsView: NSView, context: Context) {
@@ -161,6 +164,7 @@ public struct CSVEditor: NSViewRepresentable {
             context.coordinator.loadFromText()   // rebuilds + reloads the grid
         }
         context.coordinator.setFindBarVisible(findBarVisible)
+        publishBlocks(context.coordinator)        // keep the active CSV's blocks live in the inspector
     }
 
     public func makeCoordinator() -> Coordinator { Coordinator() }
@@ -264,17 +268,9 @@ public struct CSVEditor: NSViewRepresentable {
         formula.setContentHuggingPriority(.defaultLow, for: .horizontal)
         coordinator.formulaField = formula
 
-        let blocksBtn = NSButton(
-            image: NSImage(systemSymbolName: "function", accessibilityDescription: "Blocks") ?? NSImage(),
-            target: coordinator, action: #selector(Coordinator.toggleBlocks))
-        blocksBtn.bezelStyle = .texturedRounded
-        blocksBtn.toolTip = "Sheet blocks — Lua computations over the table"
-        blocksBtn.setContentHuggingPriority(.required, for: .horizontal)
-
         stack.addArrangedSubview(nameBox)
         stack.addArrangedSubview(fx)
         stack.addArrangedSubview(formula)
-        stack.addArrangedSubview(blocksBtn)
         return stack
     }
 
@@ -302,10 +298,9 @@ public struct CSVEditor: NSViewRepresentable {
         private var sheet = CSVSheet(document: CSVDocument())
         private var doc: CSVDocument { sheet.document }
 
-        /// Sheet-blocks panel (right pane): model + its hosting view / split.
+        /// Sheet-blocks model, rendered by the right inspector (published via
+        /// the editor's onBlocksModel). Owned here for synchronous sheet access.
         let blocksModel = CSVBlocksModel()
-        weak var blocksPane: NSView?
-        weak var blocksSplit: NSSplitView?
 
         /// Wire the panel's persist/apply closures to the live sheet. Called
         /// before the first load so `runAll` works.
@@ -334,12 +329,6 @@ public struct CSVEditor: NSViewRepresentable {
             var byID: [String: CSVBlockResult] = [:]
             for (b, r) in zip(sheet.extras.blocks, rs) { byID[b.id] = r }
             blocksModel.results = byID
-        }
-
-        @objc func toggleBlocks() {
-            guard let pane = blocksPane, let split = blocksSplit else { return }
-            pane.isHidden.toggle()
-            if !pane.isHidden { split.setPosition(max(0, split.bounds.width - 280), ofDividerAt: 0) }
         }
 
         // MARK: - Wiring

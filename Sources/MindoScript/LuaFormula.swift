@@ -78,6 +78,23 @@ public final class LuaFormula {
     /// recompute pass.
     public func invalidate() { cache.removeAll(keepingCapacity: true) }
 
+    /// Define a named global in the engine so formulas can reference it by name
+    /// (e.g. a sheet block `total` → `=total`). The transpiler leaves bare
+    /// identifiers as Lua globals, so this is all the wiring `=total` needs.
+    public func define(_ name: String, _ value: Value) {
+        switch value {
+        case .number(let n): _ = try? engine.run("\(name) = \(n)")
+        case .bool(let b):   _ = try? engine.run("\(name) = \(b)")
+        case .text(let s):   _ = try? engine.run("\(name) = \(Self.luaString(s))")
+        case .empty, .error: _ = try? engine.run("\(name) = nil")
+        }
+    }
+
+    /// A Lua double-quoted string literal with the contents escaped.
+    private static func luaString(_ s: String) -> String {
+        "\"" + s.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
+    }
+
     /// Display string for a value (what lands in the plain `.csv`).
     public static func display(_ v: Value) -> String {
         switch v {

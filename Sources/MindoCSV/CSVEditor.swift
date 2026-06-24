@@ -137,9 +137,22 @@ public struct CSVEditor: NSViewRepresentable {
         context.coordinator.grid = grid
         context.coordinator.parent = self
         context.coordinator.statusFooter = footer
+        context.coordinator.setupBlocks()
         context.coordinator.loadFromText()
         context.coordinator.refreshStatusFooter()
-        return container
+
+        // Right pane: the sheet-blocks panel. Wrapping the fully-constrained
+        // `container` as one arranged subview keeps its internal layout intact.
+        let panelHost = NSHostingView(rootView: CSVBlocksPanel(model: context.coordinator.blocksModel))
+        let outer = NSSplitView()
+        outer.isVertical = true
+        outer.dividerStyle = .thin
+        outer.addArrangedSubview(container)
+        outer.addArrangedSubview(panelHost)
+        panelHost.isHidden = true          // collapsed until the toolbar ƒ toggle
+        context.coordinator.blocksPane = panelHost
+        context.coordinator.blocksSplit = outer
+        return outer
     }
 
     public func updateNSView(_ nsView: NSView, context: Context) {
@@ -251,9 +264,17 @@ public struct CSVEditor: NSViewRepresentable {
         formula.setContentHuggingPriority(.defaultLow, for: .horizontal)
         coordinator.formulaField = formula
 
+        let blocksBtn = NSButton(
+            image: NSImage(systemSymbolName: "function", accessibilityDescription: "Blocks") ?? NSImage(),
+            target: coordinator, action: #selector(Coordinator.toggleBlocks))
+        blocksBtn.bezelStyle = .texturedRounded
+        blocksBtn.toolTip = "Sheet blocks — Lua computations over the table"
+        blocksBtn.setContentHuggingPriority(.required, for: .horizontal)
+
         stack.addArrangedSubview(nameBox)
         stack.addArrangedSubview(fx)
         stack.addArrangedSubview(formula)
+        stack.addArrangedSubview(blocksBtn)
         return stack
     }
 
@@ -281,6 +302,46 @@ public struct CSVEditor: NSViewRepresentable {
         private var sheet = CSVSheet(document: CSVDocument())
         private var doc: CSVDocument { sheet.document }
 
+        /// Sheet-blocks panel (right pane): model + its hosting view / split.
+        let blocksModel = CSVBlocksModel()
+        weak var blocksPane: NSView?
+        weak var blocksSplit: NSSplitView?
+
+        /// Wire the panel's persist/apply closures to the live sheet. Called
+        /// before the first load so `runAll` works.
+        func setupBlocks() {
+            blocksModel.persist = { [weak self] bs in
+                guard let self else { return }
+                self.sheet.extras.blocks = bs
+                self.writeSidecar()
+            }
+            blocksModel.apply = { [weak self] bs in
+                guard let self else { return [] }
+                self.sheet.extras.blocks = bs
+                let results = CSVBlockRunner.run(bs, over: self.doc)
+                self.sheet.recompute()    // re-bake cells (a block may feed =name)
+                self.writeSidecar()
+                self.applyChange()        // reload grid with new baked values
+                return results
+            }
+        }
+
+        /// Sync the panel from the current sheet (no recompute / no notify) — used
+        /// on document load to avoid a reload loop.
+        func refreshBlocksPanel() {
+            blocksModel.blocks = sheet.extras.blocks
+            let rs = CSVBlockRunner.run(sheet.extras.blocks, over: doc)
+            var byID: [String: CSVBlockResult] = [:]
+            for (b, r) in zip(sheet.extras.blocks, rs) { byID[b.id] = r }
+            blocksModel.results = byID
+        }
+
+        @objc func toggleBlocks() {
+            guard let pane = blocksPane, let split = blocksSplit else { return }
+            pane.isHidden.toggle()
+            if !pane.isHidden { split.setPosition(max(0, split.bounds.width - 280), ofDividerAt: 0) }
+        }
+
         // MARK: - Wiring
 
         func loadFromText() {
@@ -300,6 +361,7 @@ public struct CSVEditor: NSViewRepresentable {
             grid?.sheet = sheet
             grid?.reload()
             syncFormulaBar()
+            refreshBlocksPanel()
         }
 
         // MARK: - Grid callbacks

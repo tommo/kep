@@ -61,6 +61,14 @@ public final class CSVSheet {
             expandRange: { a, b in CSVCellRef.parseRange("\(a):\(b)")?.map(\.a1) ?? [] }
         ) else { return false }
 
+        // Run sheet blocks first and inject each one's result as a named global,
+        // so cells can reference a block by name (`=total`). Blocks read the
+        // current baked values; a block fed by a formula cell converges over the
+        // next recompute (one-pass lag, acceptable for the common literal-data case).
+        for r in CSVBlockRunner.run(extras.blocks, over: document) where r.error == nil {
+            engine.define(r.name, Double(r.value).map { .number($0) } ?? .text(r.value))
+        }
+
         for a1 in extras.formulas.keys {
             guard let ref = CSVCellRef(a1: a1) else { continue }
             let baked = LuaFormula.display(engine.value(of: a1))

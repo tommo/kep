@@ -58,6 +58,16 @@ final class CSVBlockRunnerTests: XCTestCase {
         XCTAssertEqual(r[0].value, "")
     }
 
+    func testFormulaReferencesBlockByName() {
+        let document = CSVDocument(rows: [["Qty", "Out"], ["10", ""], ["20", ""], ["30", ""]], hasHeader: true)
+        let extras = CSVSheetExtras(formulas: ["B2": "=total*2"],
+                                    blocks: [CSVEvalBlock(name: "total", source: #"return sum(col("Qty"))"#)])
+        let sheet = CSVSheet(document: document, extras: extras)
+        XCTAssertTrue(sheet.recompute())
+        // total = 60 → =total*2 bakes 120 into B2 (row 1, col 1).
+        XCTAssertEqual(sheet.value(at: CSVCellRef(a1: "B2")!), "120")
+    }
+
     // MARK: - Sidecar
 
     func testBlocksRoundTripInSidecar() {

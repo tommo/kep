@@ -115,12 +115,16 @@ private struct ListView: View {
     }
 }
 
-/// GFM table laid out with a Grid, honoring per-column alignment.
+/// GFM table — equal-width columns via nested HStack/VStack (robust where a
+/// SwiftUI Grid with mixed Divider/greedy cells collapses), honoring per-column
+/// alignment.
 private struct TableView: View {
     let header: [AttributedString]
     let rows: [[AttributedString]]
     let align: [MarkdownColumnAlign]
     let style: MarkdownRenderStyle
+
+    private var columns: Int { max(header.count, rows.map(\.count).max() ?? 0) }
 
     private func alignment(_ col: Int) -> Alignment {
         switch align.indices.contains(col) ? align[col] : .leading {
@@ -128,26 +132,27 @@ private struct TableView: View {
         }
     }
 
-    var body: some View {
-        Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 5) {
-            GridRow {
-                ForEach(Array(header.enumerated()), id: \.offset) { col, cell in
-                    Text(cell).font(.system(size: style.bodyFont.pointSize, weight: .semibold))
-                        .frame(maxWidth: .infinity, alignment: alignment(col))
-                }
+    @ViewBuilder private func rowView(_ cells: [AttributedString], bold: Bool) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            ForEach(0..<columns, id: \.self) { c in
+                Text(c < cells.count ? cells[c] : AttributedString(""))
+                    .font(.system(size: style.bodyFont.pointSize, weight: bold ? .semibold : .regular))
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: alignment(c))
             }
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            rowView(header, bold: true)
             Divider()
             ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-                GridRow {
-                    ForEach(Array(row.enumerated()), id: \.offset) { col, cell in
-                        Text(cell).font(.system(size: style.bodyFont.pointSize))
-                            .textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: alignment(col))
-                    }
-                }
+                rowView(row, bold: false)
             }
         }
         .padding(8)
         .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(0.03)))
+        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.primary.opacity(0.12)))
     }
 }

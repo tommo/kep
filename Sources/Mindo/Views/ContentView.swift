@@ -452,10 +452,14 @@ struct ContentView: View {
     /// old one-at-a-time tabs. The chat lives in its own full pane (`.agent`).
     private var accordionInspector: some View {
         VStack(spacing: 0) {
-            CollapsibleInspectorSection(title: L("detail.outline.title"),
-                                        systemImage: "list.bullet.indent",
-                                        isExpanded: $outlineExpanded) {
-                outlineInspector
+            // A flat CSV has no structural outline — its analysis lives in the
+            // editor's Sheet Blocks pane (toolbar ƒ), so skip the empty Outline.
+            if session.activeFileType != .csv {
+                CollapsibleInspectorSection(title: L("detail.outline.title"),
+                                            systemImage: "list.bullet.indent",
+                                            isExpanded: $outlineExpanded) {
+                    outlineInspector
+                }
             }
             // The typed-properties panel only applies to a selected mind-map
             // node; hide it entirely for other doc types / no selection.

@@ -60,3 +60,85 @@ drafts a concrete dial-in routine grounded in the notes and these targets.
 <!--mindo:agent {"prompt":"Using the workspace notes (Grind, Extraction, Brewing Process) and the roast→ratio targets computed above, write a concise step-by-step routine for dialing in a NEW bag of coffee, from first shot to balanced. Cite the source notes inline. Then add a Lua code cell that, given dose and a target ratio, prints the yield to pull and the shot-time window to aim for."}-->
 
 <!--/mindo:agent-->
+
+## Step-by-Step Dial-In Routine
+
+Based on **Extraction**, **Grind**, and the **Brewing Process** from the vault, here's a repeatable routine for dialing in any new bag of coffee.
+
+### 1. Lock in your dose and target ratio
+Pick a dose (e.g., 18 g) and, using the roast–ratio map above, your target ratio and yield (*Extraction*: "A 1:2 ratio … is a common baseline"). The cell below automates this.
+
+### 2. Distribute and tamp evenly
+*Brewing Process* diagrams: dose → distribute → tamp → lock. Use a WDT tool to break clumps, then a level tamp. Poor distribution causes channeling, which no grind adjustment can fix (*Grind*: "Check for channeling … grind is too fine or distribution is poor").
+
+### 3. Pull the first shot to the target yield
+Start the pump and stop at your target yield (scale under the cup). Time from first drop. *Extraction* gives the ideal window: **25–35 s** for a 1:2 ratio; lighter roasts are harder to extract, so favour the longer end.
+
+### 4. Evaluate: taste, then adjust one variable
+| Taste | Diagnosis (*Extraction*) | Fix (*Grind*) |
+|-------|-------------------------|---------------|
+| Sour, thin | Under-extracted | **Grind finer** (slows flow, raises extraction) |
+| Bitter, harsh, dry | Over-extracted | **Grind coarser** (speeds flow, lowers extraction) |
+| Sour *and* bitter | Ratio may be off | Adjust yield before changing grind (*Grind* pro tip) |
+
+*Grind*: "Start with a consistent dose and yield. Fix your dose … and target yield … Only adjust grind."
+
+### 5. Make small changes and repeat
+Adjust the grinder by one tiny step (≈1–2 s change in shot time). Repeat steps 2–4. The *Brewing Process* loop says: ran too fast/slow? → adjust grind → repeat. When balanced → serve.
+
+### 6. Document
+Log your winning settings (grind mark, dose, yield, time) so you can reproduce them.
+
+
+```lua {exec id=ucode-2}
+-- Dial-in helper: given dose and target ratio, compute the yield
+-- and the recommended shot-time window from Extraction.md (25–35 s).
+-- Adjust the window slightly by roast: light roasts favour the longer end,
+-- dark roasts the shorter end.
+function dialInTargets(dose, targetRatio, roast)
+  local yield = dose * targetRatio
+  local tLow, tHigh
+  local r = (roast or ""):lower()
+  if r:find("light") then
+    tLow, tHigh = 28, 35
+  elseif r:find("dark") then
+    tLow, tHigh = 25, 30
+  else
+    tLow, tHigh = 25, 35
+  end
+  print(string.format("Dose:       %.1f g", dose))
+  print(string.format("Target ratio: 1:%.2f", targetRatio))
+  print(string.format("Yield:      %.1f g  (pull this weight)", yield))
+  print(string.format("Time window: %d–%d s  (from first drop)", tLow, tHigh))
+  print("")
+  print("→ Aim for the middle of the window on your first shot.")
+  print("  Taste first, then adjust grind by tiny steps.")
+  return yield, tLow, tHigh
+end
+
+-- Example: 18 g dose, 1:2.5 ratio (light roast)
+print("=== Light roast example ===")
+dialInTargets(18, 2.5, "Light")
+
+print("")
+
+print("=== Medium roast example ===")
+dialInTargets(18, 2.0, "Medium")
+
+print("")
+
+print("=== Dark roast example ===")
+dialInTargets(18, 1.8, "Dark")
+
+```
+
+### Putting it all together
+
+1. From your new bag, note the roast level → look up the starting ratio in the table above.
+2. Set `dose` and call `dialInTargets(dose, ratio, roast)` to get your yield and time window.
+3. **Grind**, distribute, tamp, pull to that yield, and note the time.
+4. Taste: sour → finer grind (slower, more extraction). Bitter → coarser grind (faster, less extraction). (*Grind*, *Extraction*)
+5. Repeat until balanced, adjusting only the grind each shot (*Brewing Process* loop).
+6. Log your winning settings and enjoy.
+
+The `dialInTargets` function defined above is available in this session — just call it with your numbers.

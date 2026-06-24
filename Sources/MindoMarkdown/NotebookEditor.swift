@@ -618,8 +618,11 @@ private struct NotebookCellRow: View {
     /// TWO independent cues, two channels — never conflated:
     ///   • the left RULE = block TYPE, always (no bar for Text, neutral for Code,
     ///     purple for Agent). It does NOT change with selection.
-    ///   • the background WASH = selection/focus (accent), separate from the rule
-    ///     so the border never turns into "blue = a type".
+    /// Three distinct states, three cues:
+    ///   • selected (command cursor) → a faint background WASH.
+    ///   • editing → an accent BORDER that "contains" the cell, so it reads as a
+    ///     box you're inside and ⎋ (escape) to step out of is intuitive.
+    ///   • idle → nothing but the type rule.
     /// No buttons or menus — run ⌘↩ / Run All, move ⌥↑↓, delete ⌦.
     private var ruleColor: Color {
         switch cell {
@@ -629,8 +632,8 @@ private struct NotebookCellRow: View {
         }
     }
     private var selectionWash: Color {
-        guard isSelected else { return .clear }
-        return Color.accentColor.opacity(isEditing ? 0.28 : 0.16)
+        guard isSelected, !isEditing else { return .clear }   // wash = selected-not-editing
+        return Color.accentColor.opacity(0.16)
     }
 
     var body: some View {
@@ -642,8 +645,14 @@ private struct NotebookCellRow: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.vertical, 5)
-        .padding(.trailing, 6)
-        .background(selectionWash)
+        .padding(.horizontal, 6)
+        .background(RoundedRectangle(cornerRadius: 7).fill(selectionWash))
+        // Editing draws a contained accent box (⎋ to leave); selection is a wash.
+        .overlay(
+            RoundedRectangle(cornerRadius: 7)
+                .strokeBorder(Color.accentColor, lineWidth: 1.5)
+                .opacity(isEditing ? 1 : 0)
+        )
         .contentShape(Rectangle())
         .simultaneousGesture(TapGesture().onEnded { model.selectedID = cell.id })
     }

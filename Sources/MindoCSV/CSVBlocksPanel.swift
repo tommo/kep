@@ -1,10 +1,12 @@
 import SwiftUI
+import MindoBase
 
 /// The CSV "sheet blocks" panel (right pane of the CSV editor): user-composed
 /// Lua computations over the table. Each block has a name (referenceable from
 /// cells as `=name`), a Lua source, and its last result/output inline.
 public struct CSVBlocksPanel: View {
     @ObservedObject var model: CSVBlocksModel
+    @Environment(\.colorScheme) private var colorScheme
 
     public init(model: CSVBlocksModel) { self.model = model }
 
@@ -55,10 +57,8 @@ public struct CSVBlocksPanel: View {
                 Button { model.deleteBlock(id) } label: { Image(systemName: "trash") }
                     .buttonStyle(.borderless).help("Delete block")
             }
-            TextEditor(text: block.source)
-                .font(.system(.callout, design: .monospaced))
+            LuaCodeEditor(text: block.source, isDark: colorScheme == .dark)
                 .frame(minHeight: 46, maxHeight: 140)
-                .padding(4)
                 .overlay(RoundedRectangle(cornerRadius: 5).stroke(Color.primary.opacity(0.15)))
                 .onChange(of: block.wrappedValue.source) { _, _ in model.edited() }
 

@@ -451,24 +451,24 @@ struct ContentView: View {
     /// document Outline and the Linked Mentions — each independently
     /// collapsible so both can be visible at once (Obsidian-style), unlike the
     /// old one-at-a-time tabs. The chat lives in its own full pane (`.agent`).
-    private var accordionInspector: some View {
+    @ViewBuilder private var accordionInspector: some View {
+        // CSV has no structural outline; its whole inspector IS the Sheet Blocks
+        // pane (which carries its own header + add/run controls), filling the
+        // column rather than being a foldable accordion section.
+        if session.activeFileType == .csv, let blocks = session.activeCSVBlocks {
+            CSVBlocksPanel(model: blocks)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        } else {
+            documentAccordion
+        }
+    }
+
+    private var documentAccordion: some View {
         VStack(spacing: 0) {
-            // A flat CSV has no structural outline — its analysis lives in the
-            // editor's Sheet Blocks pane (toolbar ƒ), so skip the empty Outline.
-            if session.activeFileType != .csv {
-                CollapsibleInspectorSection(title: L("detail.outline.title"),
-                                            systemImage: "list.bullet.indent",
-                                            isExpanded: $outlineExpanded) {
-                    outlineInspector
-                }
-            } else if let blocks = session.activeCSVBlocks {
-                // CSV has no structural outline — this slot hosts the Sheet Blocks
-                // pane: user-composed Lua computations over the table.
-                CollapsibleInspectorSection(title: "Sheet Blocks",
-                                            systemImage: "function",
-                                            isExpanded: $outlineExpanded) {
-                    CSVBlocksPanel(model: blocks)
-                }
+            CollapsibleInspectorSection(title: L("detail.outline.title"),
+                                        systemImage: "list.bullet.indent",
+                                        isExpanded: $outlineExpanded) {
+                outlineInspector
             }
             // The typed-properties panel only applies to a selected mind-map
             // node; hide it entirely for other doc types / no selection.
@@ -672,7 +672,7 @@ private struct CollapsibleInspectorSection<Content: View>: View {
             .buttonStyle(.plain)
 
             if isExpanded {
-                content().frame(maxWidth: .infinity, maxHeight: .infinity)
+                content().frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
         }
         .frame(maxHeight: isExpanded ? .infinity : nil)

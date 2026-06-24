@@ -22,11 +22,10 @@ public struct CSVBlocksPanel: View {
             Divider()
 
             if model.blocks.isEmpty {
-                ContentUnavailableView {
-                    Label("No blocks", systemImage: "function")
-                } description: {
-                    Text("Add a Lua block to compute over the sheet — e.g. `return sum(col(\"A\"))`. Name it and reference it from a cell as `=name`.")
-                }
+                Text("No blocks — + to add")
+                    .font(.caption).foregroundStyle(.tertiary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(8)
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {

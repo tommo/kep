@@ -66,9 +66,31 @@ final class AgentCSVToolsTests: XCTestCase {
         XCTAssertFalse(effects.changedFiles.contains(URL(fileURLWithPath: "/ws/data.csv")))
     }
 
+    func testAddCsvBlockRoutesToEffect() {
+        var captured: (URL, String, String)?
+        let effects = AgentToolEffects()
+        effects.csvAddBlock = { url, name, src in captured = (url, name, src); return "= 60" }
+        let result = tools(effects).handle(
+            name: "add_csv_block",
+            argumentsJSON: #"{"name":"data","block_name":"total","source":"return sum(col(\"A\"))"}"#)
+        XCTAssertEqual(captured?.1, "total")
+        XCTAssertEqual(captured?.2, #"return sum(col("A"))"#)
+        XCTAssertEqual(captured?.0.lastPathComponent, "data.csv")
+        XCTAssertTrue(result.contains("total"))
+        XCTAssertTrue(result.contains("= 60"))
+        XCTAssertTrue(effects.changedFiles.contains(URL(fileURLWithPath: "/ws/data.csv")))
+    }
+
+    func testAddCsvBlockUnavailableWhenNoEffect() {
+        let result = tools(AgentToolEffects()).handle(
+            name: "add_csv_block", argumentsJSON: #"{"name":"data","block_name":"t","source":"return 1"}"#)
+        XCTAssertTrue(result.contains("unavailable"))
+    }
+
     func testCsvToolsInDescriptors() {
         let names = MindoAgentTools.descriptors.map(\.name)
         XCTAssertTrue(names.contains("set_csv_cell"))
         XCTAssertTrue(names.contains("read_csv_cell"))
+        XCTAssertTrue(names.contains("add_csv_block"))
     }
 }

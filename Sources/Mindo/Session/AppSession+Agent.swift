@@ -35,6 +35,7 @@ extension AppSession {
         // Inject CSV cell read/write (the spreadsheet model lives in MindoCSV).
         effects.csvCellValue = { url, a1 in Self.csvReadCell(url, a1) }
         effects.csvSetCell = { url, a1, value in Self.csvWriteCell(url, a1, value) }
+        effects.csvAddBlock = { url, name, source in Self.csvAddBlock(url, name, source) }
         let tools = MindoAgentTools(map: map, corpus: corpus, allFiles: files,
                                     workspaceRoot: workspaceRoots.first?.url, effects: effects)
         // Without an open mind map, omit the map-editing tools — their changes
@@ -117,6 +118,28 @@ extension AppSession {
 
     /// Set a cell (literal or "=formula") at an A1 ref, growing the sheet to fit,
     /// then write the baked `.csv` + the sidecar back to disk. Returns success.
+    /// Author a named Lua sheet block into a CSV on disk (parity with
+    /// csvWriteCell): append the block, recompute (bakes any cell that references
+    /// it via =name), persist CSV + sidecar. Returns the block's computed result
+    /// or an error for the agent's tool response.
+    static func csvAddBlock(_ url: URL, _ name: String, _ source: String) -> String {
+        let sheet = loadSheet(url)
+        sheet.extras.blocks.append(CSVEvalBlock(name: name, source: source))
+        let result = CSVBlockRunner.run(sheet.extras.blocks, over: sheet.document).last
+        sheet.recompute()   // no-op if no formula cells; bakes any =name references
+        do {
+            try sheet.bakedCSV().write(to: url, atomically: true, encoding: .utf8)
+            let sidecar = CSVSheetExtras.sidecarURL(for: url)
+            if let json = sheet.sidecarJSON() {
+                try json.write(to: sidecar, atomically: true, encoding: .utf8)
+            }
+        } catch {
+            return "error: couldn't save"
+        }
+        if let e = result?.error { return "errored: \(e)" }
+        return "= \(result?.value ?? "")"
+    }
+
     static func csvWriteCell(_ url: URL, _ a1: String, _ value: String) -> Bool {
         guard let ref = CSVCellRef(a1: a1) else { return false }
         let sheet = loadSheet(url)

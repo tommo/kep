@@ -22,6 +22,9 @@ public final class AgentToolEffects {
     /// a value/formula at an A1 ref and persists, returning success.
     public var csvCellValue: ((URL, String) -> String?)?
     public var csvSetCell: ((URL, String, String) -> Bool)?
+    /// Author a named Lua sheet block into a CSV (url, blockName, luaSource);
+    /// returns a status string (the computed result or an error).
+    public var csvAddBlock: ((URL, String, String) -> String)?
     /// Host-provided Research-Notebook authoring (the notebook model lives in the
     /// app/MindoMarkdown layer). `notebookAddProse` appends a prose cell;
     /// `notebookRunCode` appends a Lua code cell, runs it, and returns its output

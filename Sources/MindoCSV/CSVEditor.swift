@@ -50,6 +50,8 @@ public struct CSVEditor: NSViewRepresentable {
         grid.onPaste = { [weak coord] in coord?.pasteCells() }
         grid.onAddColumn = { [weak coord] in coord?.appendColumn() }
         grid.onAddRow    = { [weak coord] in coord?.appendRow() }
+        grid.onInsertRow    = { [weak coord] below in coord?.keyInsertRow(below: below) }
+        grid.onInsertColumn = { [weak coord] right in coord?.keyInsertColumn(right: right) }
         grid.onDropFile  = { [weak coord] ref, url in coord?.dropFile(ref, url) }
         // Right-click context menu — same coordinator selectors as the toolbar.
         let menu = NSMenu()
@@ -58,12 +60,12 @@ public struct CSVEditor: NSViewRepresentable {
             i.target = coord
             return i
         }
-        menu.addItem(item("Insert Row Above",     #selector(Coordinator.insertRowBefore)))
-        menu.addItem(item("Insert Row Below",     #selector(Coordinator.insertRowAfter)))
+        menu.addItem(item("Insert Row Above  ⌥⌘↑", #selector(Coordinator.insertRowBefore)))
+        menu.addItem(item("Insert Row Below  ⌥⌘↓", #selector(Coordinator.insertRowAfter)))
         menu.addItem(item("Delete Selected Rows", #selector(Coordinator.removeRow)))
         menu.addItem(NSMenuItem.separator())
-        menu.addItem(item("Insert Column Left",   #selector(Coordinator.insertColumnBefore)))
-        menu.addItem(item("Insert Column Right",  #selector(Coordinator.insertColumnAfter)))
+        menu.addItem(item("Insert Column Left  ⌥⌘←",  #selector(Coordinator.insertColumnBefore)))
+        menu.addItem(item("Insert Column Right  ⌥⌘→", #selector(Coordinator.insertColumnAfter)))
         menu.addItem(item("Delete Selected Cols", #selector(Coordinator.removeColumn)))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(item("Copy",  #selector(Coordinator.copyCells)))
@@ -319,6 +321,26 @@ public struct CSVEditor: NSViewRepresentable {
         /// "+" tail affordances: append a row / column (one undo step + reload).
         func appendRow()    { performUndoable(actionName: "Add Row") { doc.appendRow() } }
         func appendColumn() { performUndoable(actionName: "Add Column") { doc.appendColumn() } }
+
+        /// Keyboard expansion (⌥⌘ + arrow): insert a row/column relative to the
+        /// selection, then move the selection onto the new cell so the user can
+        /// type immediately.
+        func keyInsertRow(below: Bool) {
+            let at = below ? selection.bottom + 1 : selection.top
+            let col = selection.active.col
+            performUndoable(actionName: below ? "Insert Row Below" : "Insert Row Above") { doc.insertRow(at: at) }
+            let sel = CSVSelectionModel(CSVCellRef(row: at, col: col))
+            selection = sel; grid?.setSelection(sel)
+        }
+        func keyInsertColumn(right: Bool) {
+            let at = right ? selection.right + 1 : selection.left
+            let row = selection.active.row
+            performUndoable(actionName: right ? "Insert Column Right" : "Insert Column Left", rebuildColumns: true) {
+                doc.insertColumn(at: at)
+            }
+            let sel = CSVSelectionModel(CSVCellRef(row: row, col: at))
+            selection = sel; grid?.setSelection(sel)
+        }
 
         /// A workspace file was dropped onto a cell — store its path relative to
         /// the CSV file's directory, select the cell, and commit as one undo step.

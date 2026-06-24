@@ -35,6 +35,10 @@ public final class CSVGridView: NSView, NSTextFieldDelegate {
     /// The "+" affordances at the tail of the header / gutter append a column / row.
     public var onAddColumn: (() -> Void)?
     public var onAddRow: (() -> Void)?
+    /// Keyboard expansion: insert a row (below/above) or column (right/left)
+    /// relative to the selection, moving the selection onto the new cell.
+    public var onInsertRow: ((_ below: Bool) -> Void)?
+    public var onInsertColumn: ((_ right: Bool) -> Void)?
     /// A workspace file was dropped onto a cell — host turns it into a link.
     public var onDropFile: ((CSVCellRef, URL) -> Void)?
 
@@ -455,13 +459,24 @@ public final class CSVGridView: NSView, NSTextFieldDelegate {
     public override func keyDown(with event: NSEvent) {
         guard editingRef == nil else { super.keyDown(with: event); return }
         let shift = event.modifierFlags.contains(.shift)
+        // ⌥⌘ + arrow → insert a row/column in that direction (keyboard expansion).
+        if event.modifierFlags.contains(.command), event.modifierFlags.contains(.option) {
+            switch event.keyCode {
+            case 123: onInsertColumn?(false); return   // ⌥⌘← column left
+            case 124: onInsertColumn?(true);  return   // ⌥⌘→ column right
+            case 125: onInsertRow?(true);     return   // ⌥⌘↓ row below
+            case 126: onInsertRow?(false);    return   // ⌥⌘↑ row above
+            default: break
+            }
+        }
         switch event.keyCode {
         case 123: move(dRow: 0, dCol: -1, extend: shift)   // ←
         case 124: move(dRow: 0, dCol: 1, extend: shift)    // →
         case 125: move(dRow: 1, dCol: 0, extend: shift)    // ↓
         case 126: move(dRow: -1, dCol: 0, extend: shift)   // ↑
         case 36:  beginEditing(selection.active, seed: nil)            // Return → edit
-        case 48:  move(dRow: 0, dCol: shift ? -1 : 1, extend: false)   // Tab
+        case 48:                                                       // Tab
+            if shift { move(dRow: 0, dCol: -1, extend: false) } else { tabForward() }
         case 51, 117:                                                  // Delete / fwd-Delete
             onClearRange?(selection.cells)
         case 53: break                                                 // Esc (no edit) → no-op
@@ -474,6 +489,20 @@ public final class CSVGridView: NSView, NSTextFieldDelegate {
                 super.keyDown(with: event)
             }
         }
+    }
+
+    /// Tab forward: move right, or at the last column wrap to the next row's
+    /// first cell — appending a row when we're on the last row (fluid entry).
+    private func tabForward() {
+        let cur = selection.active
+        if cur.col + 1 < colCount {
+            move(dRow: 0, dCol: 1, extend: false)
+            return
+        }
+        if cur.row + 1 >= rowCount { onAddRow?() }        // grow at the bottom
+        let next = CSVCellRef(row: min(cur.row + 1, rowCount - 1), col: 0)
+        selection.moveActive(to: next)
+        finishSelectionChange()
     }
 
     private func move(dRow: Int, dCol: Int, extend: Bool) {
@@ -533,8 +562,13 @@ public final class CSVGridView: NSView, NSTextFieldDelegate {
 
     public func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
         switch selector {
-        case #selector(NSResponder.insertNewline(_:)):    commitEditing(moveTo: (1, 0)); return true
-        case #selector(NSResponder.insertTab(_:)):        commitEditing(moveTo: (0, 1)); return true
+        case #selector(NSResponder.insertNewline(_:)):
+            // Commit; at the last row, append a row and drop into it (fluid entry).
+            let wasLast = (editingRef?.row ?? 0) + 1 >= rowCount
+            commitEditing(moveTo: wasLast ? nil : (1, 0))
+            if wasLast { onAddRow?(); move(dRow: 1, dCol: 0, extend: false) }
+            return true
+        case #selector(NSResponder.insertTab(_:)):        commitEditing(moveTo: nil); tabForward(); return true
         case #selector(NSResponder.insertBacktab(_:)):    commitEditing(moveTo: (0, -1)); return true
         case #selector(NSResponder.cancelOperation(_:)):  cancelEditing(); return true
         default: return false

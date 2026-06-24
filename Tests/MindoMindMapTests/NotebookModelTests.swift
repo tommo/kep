@@ -183,25 +183,28 @@ final class NotebookModelTests: XCTestCase {
         XCTAssertTrue(model.isStale("b"))
     }
 
-    /// The shipped example notebook parses to the intended cell layout and
-    /// round-trips (guards it against format drift).
-    func testExampleNotebookParses() throws {
+    /// Every shipped example notebook parses to a sensible layout (code + agent
+    /// + prose) and serializes idempotently — guards them against format drift.
+    func testExampleNotebooksParse() throws {
         // .../Tests/MindoMindMapTests/<this file> → repo root is three up.
         let root = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-        let url = root.appendingPathComponent("Examples/espresso-kb/Extraction Research.mnb")
-        let text = try String(contentsOf: url, encoding: .utf8)
-        let nb = NotebookFormat.parse(text)
+        let dir = root.appendingPathComponent("Examples/espresso-kb")
+        let mnbs = try FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)
+            .filter { $0.pathExtension == "mnb" }
+        XCTAssertGreaterThanOrEqual(mnbs.count, 2, "expected the shipped example notebooks")
 
-        // prose intro, 3 code cells, prose, 1 agent block.
-        XCTAssertEqual(nb.codeCells.count, 3)
-        XCTAssertTrue(nb.cells.contains { if case .agent = $0 { return true } else { return false } })
-        XCTAssertTrue(nb.cells.contains { if case .prose = $0 { return true } else { return false } })
-        if case .agent(_, let prompt, _, _) = nb.cells.first(where: { if case .agent = $0 { return true } else { return false } }) {
-            XCTAssertTrue(prompt.contains("grind size"))   // the prompt survived the comment codec
+        for url in mnbs {
+            let nb = NotebookFormat.parse(try String(contentsOf: url, encoding: .utf8))
+            let name = url.lastPathComponent
+            XCTAssertGreaterThanOrEqual(nb.codeCells.count, 1, "\(name): expected code cells")
+            XCTAssertTrue(nb.cells.contains { if case .agent = $0 { return true } else { return false } },
+                          "\(name): expected an agent block")
+            XCTAssertTrue(nb.cells.contains { if case .prose = $0 { return true } else { return false } },
+                          "\(name): expected prose")
+            // Idempotent serialize (the agent comment codec + code fences round-trip).
+            XCTAssertEqual(NotebookFormat.serialize(NotebookFormat.parse(NotebookFormat.serialize(nb))),
+                           NotebookFormat.serialize(nb), "\(name): not idempotent")
         }
-        // Idempotent serialize.
-        XCTAssertEqual(NotebookFormat.serialize(NotebookFormat.parse(NotebookFormat.serialize(nb))),
-                       NotebookFormat.serialize(nb))
     }
 }

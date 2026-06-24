@@ -1,0 +1,39 @@
+# Dialing In an Espresso Shot
+
+A worked notebook that pulls this vault's dial-in rules into runnable checks. It
+leans on three helpers from `notebook.lua` (the vault's Lua library, auto-loaded
+into every notebook here): `mindo.headings`, `mentions`, and `shotVerdict`.
+
+> Run a cell with `⌘↩`, or the whole notebook with `⇧⌘↩`. Cells share one Lua
+> session, so a later cell reuses values an earlier one set.
+
+```lua {exec id=d1}
+-- What does the Grind note cover? (mindo.headings is defined in notebook.lua)
+for _, h in ipairs(mindo.headings("Grind")) do print(h) end
+```
+
+```lua {exec id=d2}
+-- Which levers does the Extraction note emphasize? `mentions` is a vault helper.
+extraction = mindo.readDoc("Extraction") or ""
+for _, lever in ipairs({"grind", "dose", "yield", "time", "temperature", "pressure"}) do
+  print(string.format("%-12s %d", lever, mentions(extraction, lever)))
+end
+```
+
+```lua {exec id=d3}
+-- Turn shot time into a verdict (shotVerdict from notebook.lua; 1:2 ratio).
+-- Reuses nothing but the library — works standalone or after the cells above.
+for _, seconds in ipairs({18, 28, 35, 42}) do
+  print(seconds .. "s -> " .. shotVerdict(seconds))
+end
+```
+
+## Putting it together
+
+Grind is the master lever; dose and yield set the ratio; shot time is the
+read-out. The agent below drafts a step-by-step dial-in routine grounded in
+these notes — its findings and any code it runs land as new cells beneath it.
+
+<!--mindo:agent {"prompt":"Draft a concise step-by-step routine for dialing in a new espresso, grounded in the workspace notes (Grind, Extraction, Brewing Process). Cite the source notes inline, and add a Lua code cell that prints a sane starting dose, yield, ratio, and shot-time target."}-->
+
+<!--/mindo:agent-->

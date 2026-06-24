@@ -8,14 +8,14 @@ A demo of how kep Research Notebooks work. It mixes three kinds of cell:
 
 ```lua {exec id=c1}
 -- What can this notebook read? (the workspace knowledge base)
-docs = mindo.docs()
+docs = kep.docs()
 print("workspace documents: " .. #docs)
 for _, name in ipairs(docs) do print("  - " .. name) end
 ```
 
 ```lua {exec id=c2}
 -- Load the Extraction note ONCE into a shared global the next cell reuses.
-extraction = mindo.readDoc("Extraction") or ""
+extraction = kep.readDoc("Extraction") or ""
 print("Extraction note: " .. #extraction .. " characters")
 ```
 

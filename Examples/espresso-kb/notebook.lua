@@ -19,11 +19,11 @@ function shotVerdict(seconds)
   else return "balanced (25–35s)" end
 end
 
--- Example of EXTENDING the built-in namespace: mindo.headings(name) → the ATX
+-- Example of EXTENDING the built-in namespace: kep.headings(name) → the ATX
 -- headings of a workspace doc.
-function mindo.headings(name)
+function kep.headings(name)
   local out = {}
-  for line in (mindo.readDoc(name) or ""):gmatch("[^\n]+") do
+  for line in (kep.readDoc(name) or ""):gmatch("[^\n]+") do
     if line:match("^#+%s") then out[#out + 1] = line end
   end
   return out

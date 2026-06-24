@@ -13,7 +13,7 @@ extension MindoAgentTools {
          "Append a Lua code cell to the notebook, run it against the `mindo` API + knowledge base, and return its output. Use to compute/verify a claim. The output is also shown in the notebook beneath the cell. Tip: assign results to NAMED globals (e.g. `params = {...}`) so later cells — and you — can reuse them.",
          #"{"type":"object","properties":{"code":{"type":"string"}},"required":["code"]}"#),
         ("notebook_eval",
-         "Run Lua in the notebook's LIVE shared session and get its printed output back — your main action (CodeAct). Research with mindo.search/docs/readDoc/backlinks, author cells with nb.note(markdown) and nb.code(luaSource), and compute. State persists across calls, so assign named globals to reuse. Iterate: observe the output, fix any error, continue.",
+         "Run Lua in the notebook's LIVE shared session and get its printed output back — your main action (CodeAct). Research with kep.search/docs/readDoc/backlinks, author cells with nb.note(markdown) and nb.code(luaSource), and compute. State persists across calls, so assign named globals to reuse. Iterate: observe the output, fix any error, continue.",
          #"{"type":"object","properties":{"code":{"type":"string"}},"required":["code"]}"#),
     ]
 

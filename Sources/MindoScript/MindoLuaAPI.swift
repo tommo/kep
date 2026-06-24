@@ -217,9 +217,11 @@ public final class MindoLuaAPI {
         try engine.run(Self.prelude)
     }
 
-    /// Lua prelude wiring the registered globals into the `mindo` namespace.
+    /// Lua prelude wiring the registered globals into the `kep` namespace.
+    /// `mindo` remains as a back-compat alias (same table) for notebooks/scripts
+    /// written before the rebrand and for any `notebook.lua` that extends it.
     static let prelude = """
-    mindo = {
+    kep = {
       root = __mindo_root,
       all = __mindo_all,
       parent = __mindo_parent,
@@ -248,5 +250,6 @@ public final class MindoLuaAPI {
       search = __mindo_search,
       semanticSearch = __mindo_semanticSearch,
     }
+    mindo = kep   -- deprecated alias (pre-rebrand notebooks/scripts)
     """
 }

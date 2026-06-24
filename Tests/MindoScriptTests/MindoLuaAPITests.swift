@@ -13,6 +13,19 @@ final class MindoLuaAPITests: XCTestCase {
         return try engine.run(script)
     }
 
+    func testKepIsPrimaryAndMindoIsAlias() throws {
+        let map = MindMap(root: Topic(text: "Root"))
+        // `kep` is the user-facing namespace after the rebrand; `mindo` is the
+        // same table (deprecated alias) so pre-rebrand notebooks keep working.
+        let r = try run("""
+            local sameTable = (mindo == kep)
+            local viaKep = kep.text(kep.root())
+            local viaAlias = mindo.text(mindo.root())
+            return tostring(sameTable) .. "/" .. viaKep .. "/" .. viaAlias
+            """, map: map)
+        XCTAssertEqual(r.stringValue, "true/Root/Root")
+    }
+
     func testBuildTree() throws {
         let map = MindMap(root: Topic(text: "Espresso"))
         _ = try run("""

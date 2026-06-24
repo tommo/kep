@@ -117,7 +117,7 @@ extension AppSession {
 
         // CodeAct: the agent's SINGLE action is Lua (`notebook_eval`) run in the
         // notebook's shared kernel — research, compute, and authoring all happen
-        // in code (including embedding retrieval via mindo.semanticSearch). Wire
+        // in code (including embedding retrieval via kep.semanticSearch). Wire
         // the kernel's authoring hooks so `nb.note`/`nb.code` emit cells into THIS
         // notebook; clear them when the run ends.
         let kernel = NotebookKernelStore.shared.kernel(for: docURL, restart: false, build: buildNotebookKernel)
@@ -137,9 +137,9 @@ extension AppSession {
         NAMED globals to reuse.
 
         In Lua you can:
-        • Research the workspace knowledge base — mindo.semanticSearch(query [, k]) for \
-        meaning-based retrieval; mindo.search(query) for literal keyword snippets; mindo.docs() \
-        lists document names; mindo.readDoc(name) returns a document's text; mindo.backlinks(name) \
+        • Research the workspace knowledge base — kep.semanticSearch(query [, k]) for \
+        meaning-based retrieval; kep.search(query) for literal keyword snippets; kep.docs() \
+        lists document names; kep.readDoc(name) returns a document's text; kep.backlinks(name) \
         lists what links to it.
         • Author the notebook (this is HOW you produce the answer) — nb.note(markdown) adds a \
         prose cell (cite the source document names inline); nb.code(luaSource) adds a Lua code \

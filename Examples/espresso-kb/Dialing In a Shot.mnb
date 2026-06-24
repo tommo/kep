@@ -35,7 +35,7 @@ end
 
 ```lua {exec id=d3}
 -- Apply the rule to every bean in Bean Origins.csv (roast is the 3rd field).
-local csv = mindo.readDoc("Bean Origins") or ""
+local csv = kep.readDoc("Bean Origins") or ""
 local first = true
 for line in csv:gmatch("[^\n]+") do
   if first then first = false                 -- skip the header row

@@ -76,7 +76,7 @@ extension AppSession {
         for case .code(_, _, let code) in notebook.cells {
             let result = kernel.run(code)
             let hash = MarkdownExecBlocks.hash(code)
-            outputs.set(ExecOutput(text: result.output, error: result.error), forHash: hash)
+            outputs.set(ExecOutput(text: result.output, error: result.error, errorLine: result.errorLine), forHash: hash)
             live.insert(hash)
         }
         outputs.prune(keeping: live)
@@ -183,7 +183,7 @@ extension AppSession {
                     let r = NotebookKernelStore.shared.kernel(for: docURL, restart: false,
                                                               build: self.buildNotebookKernel)?.run(code)
                         ?? ScriptRunResult(output: "", error: "executor unavailable")
-                    let o = ExecOutput(text: r.output, error: r.error)
+                    let o = ExecOutput(text: r.output, error: r.error, errorLine: r.errorLine)
                     sink.agentAddCode(code, output: o)
                     return o
                 }
@@ -244,7 +244,7 @@ extension AppSession {
         let result = NotebookKernelStore.shared.kernel(for: ctx.documentURL, restart: false,
                                                        build: buildNotebookKernel)?.run(source)
             ?? ScriptRunResult(output: "", error: "executor unavailable")
-        let out = ExecOutput(text: result.output, error: result.error)
+        let out = ExecOutput(text: result.output, error: result.error, errorLine: result.errorLine)
         if let url = ctx.documentURL {
             var store = ExecOutputsStore.load(for: url)
             store.set(out, forHash: MarkdownExecBlocks.hash(source))

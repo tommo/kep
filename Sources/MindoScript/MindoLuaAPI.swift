@@ -3,9 +3,12 @@ import LuaSwift
 import MindoModel
 import MindoCore
 
-struct MindoScriptError: Error, CustomStringConvertible {
+struct MindoScriptError: Error, CustomStringConvertible, LocalizedError {
     let message: String
     var description: String { message }
+    // So a host-callback failure surfaces `message` (not the opaque localized
+    // NSError) when LuaSwift wraps it as "Swift callback error: …".
+    var errorDescription: String? { message }
 }
 
 /// Binds a `mindo` API into a Lua engine so scripts can build, traverse, and

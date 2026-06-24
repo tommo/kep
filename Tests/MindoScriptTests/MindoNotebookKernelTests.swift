@@ -177,6 +177,33 @@ final class MindoNotebookKernelTests: XCTestCase {
         XCTAssertEqual(k.run("return 1 + 1").output, "2")
     }
 
+    // MARK: - Clean error UX
+
+    func testRuntimeErrorIsCleanWithLine() throws {
+        let k = try kernel()
+        let r = k.run("local x = nil\nreturn x.field")
+        XCTAssertEqual(r.errorLine, 2)
+        XCTAssertEqual(r.error, "attempt to index a nil value (local 'x')")
+        XCTAssertFalse(r.error!.contains("LuaRuntimeFailure"))   // no wrapper noise
+        XCTAssertFalse(r.error!.contains("[string"))             // no source prefix
+    }
+
+    func testSyntaxErrorIsCleanWithLine() throws {
+        let k = try kernel()
+        let r = k.run("return 1 +")
+        XCTAssertEqual(r.errorLine, 1)
+        XCTAssertTrue(r.error!.contains("unexpected symbol"))
+        XCTAssertFalse(r.error!.contains("syntaxError"))
+    }
+
+    func testHostCallbackErrorSurfacesCleanMessage() throws {
+        let k = try kernel()
+        let r = k.run("return mindo.readDoc()")   // missing required arg
+        XCTAssertNotNil(r.error)
+        XCTAssertTrue(r.error!.contains("expected"))             // the MindoScriptError message
+        XCTAssertFalse(r.error!.contains("MindoScriptError"))    // not the opaque NSError
+    }
+
     func testSandboxDeniesDangerousCapabilities() throws {
         let k = try kernel()
         // The capabilities that actually let a script touch the system must be

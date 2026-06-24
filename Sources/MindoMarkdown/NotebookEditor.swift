@@ -478,7 +478,7 @@ public struct NotebookEditor: View {
                         ForEach(model.cells) { cell in
                             NotebookCellRow(model: model, focusCtl: focusCtl, cell: cell,
                                             isSelected: model.selectedID == cell.id,
-                                            onOpenSource: onOpenSource)
+                                            isDark: isDarkMode, onOpenSource: onOpenSource)
                                 .id(cell.id)
                         }
                         addBar
@@ -568,6 +568,7 @@ private struct NotebookCellRow: View {
     @ObservedObject var focusCtl: NotebookFocusController
     let cell: NotebookCell
     let isSelected: Bool
+    var isDark: Bool = false
     var onOpenSource: ((String) -> Void)?
 
     private var isEditing: Bool { focusCtl.editingCellID == cell.id }
@@ -667,7 +668,7 @@ private struct NotebookCellRow: View {
             }
         case .code:
             VStack(alignment: .leading, spacing: 4) {
-                NotebookCodeView(text: binding, cellID: cell.id, focusCtl: focusCtl,
+                NotebookCodeView(text: binding, cellID: cell.id, isDark: isDark, focusCtl: focusCtl,
                                  onRun: { Task { await model.run(cell.id) } },
                                  onEscape: { focusCtl.enterCommandMode() })
                     .frame(height: editorHeight(binding.wrappedValue, line: 18, min: 2))
@@ -735,20 +736,52 @@ private struct NotebookCellRow: View {
 
     @ViewBuilder private var outputView: some View {
         if let out = model.output(for: cell.id) {
-            VStack(alignment: .leading, spacing: 2) {
-                if model.isStale(cell.id) {
-                    Text("stale — re-run").font(.caption2).foregroundStyle(.orange)
+            VStack(alignment: .leading, spacing: 4) {
+                // Any captured stdout (present even when the cell later errored).
+                if !out.text.isEmpty {
+                    VStack(alignment: .leading, spacing: 2) {
+                        if out.error == nil, model.isStale(cell.id) {
+                            Text("stale — re-run").font(.caption2).foregroundStyle(.orange)
+                        }
+                        Text(out.text)
+                            .font(.system(.callout, design: .monospaced))
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(.horizontal, 6).padding(.vertical, 4)
+                    .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(0.03)))
                 }
-                Text(out.error ?? out.text)
-                    .font(.system(.callout, design: .monospaced))
-                    .foregroundStyle(out.error != nil ? Color.red : Color.primary)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                if let err = out.error { errorBox(err, line: out.errorLine) }
             }
-            .padding(.horizontal, 6)
-            .padding(.vertical, 4)
-            .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(0.03)))
         }
+    }
+
+    /// A readable Lua-error panel: an icon + ERROR tag + a "line N" badge, then
+    /// the clean message (no LuaSwift wrapper noise). Visually distinct from
+    /// normal output so a failure is unmistakable.
+    @ViewBuilder private func errorBox(_ message: String, line: Int?) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 5) {
+                Image(systemName: "exclamationmark.triangle.fill").font(.caption2)
+                Text("ERROR").font(.caption2.weight(.bold)).tracking(0.6)
+                if let line {
+                    Text("line \(line)").font(.caption2.weight(.medium))
+                        .padding(.horizontal, 5).padding(.vertical, 1)
+                        .background(Capsule().fill(Color.red.opacity(0.18)))
+                }
+                if model.isStale(cell.id) { Text("· edited since").font(.caption2).foregroundStyle(.orange) }
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(.red)
+            Text(message)
+                .font(.system(.callout, design: .monospaced))
+                .foregroundStyle(.red)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.horizontal, 8).padding(.vertical, 6)
+        .background(RoundedRectangle(cornerRadius: 6).fill(Color.red.opacity(0.08)))
+        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.red.opacity(0.25)))
     }
 
     private var cellMenu: some View {
@@ -771,6 +804,7 @@ private struct NotebookCellRow: View {
 struct NotebookCodeView: NSViewRepresentable {
     @Binding var text: String
     var cellID: String = "?"
+    var isDark: Bool = false
     var focusCtl: NotebookFocusController
     var onRun: () -> Void
     var onEscape: () -> Void = {}
@@ -786,16 +820,23 @@ struct NotebookCodeView: NSViewRepresentable {
         cv?.cellID = cellID
         cv?.controller = focusCtl
         context.coordinator.textView = tv
+        context.coordinator.dark = isDark
+        context.coordinator.highlight(tv)
         return scroll
     }
 
     func updateNSView(_ scroll: NSScrollView, context: Context) {
         guard let tv = scroll.documentView as? NotebookCodeTextView else { return }
-        if tv.string != text { tv.string = text }
+        let changed = tv.string != text
+        if changed { tv.string = text }
         tv.onRun = onRun
         tv.onEscape = onEscape
         tv.cellID = cellID
         tv.controller = focusCtl
+        if changed || context.coordinator.dark != isDark {
+            context.coordinator.dark = isDark
+            context.coordinator.highlight(tv)
+        }
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
@@ -803,10 +844,17 @@ struct NotebookCodeView: NSViewRepresentable {
     final class Coordinator: NSObject, NSTextViewDelegate {
         let text: Binding<String>
         weak var textView: NSTextView?
+        var dark = false
         init(text: Binding<String>) { self.text = text }
         func textDidChange(_ notification: Notification) {
             guard let tv = notification.object as? NSTextView, tv.string != text.wrappedValue else { return }
             text.wrappedValue = tv.string
+            highlight(tv)
+        }
+        func highlight(_ tv: NSTextView) {
+            guard let storage = tv.textStorage else { return }
+            LuaHighlighter.apply(to: storage, dark: dark,
+                                 font: tv.font ?? .monospacedSystemFont(ofSize: 13, weight: .regular))
         }
     }
 }

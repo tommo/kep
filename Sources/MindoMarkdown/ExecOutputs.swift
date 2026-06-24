@@ -4,9 +4,12 @@ import Foundation
 public struct ExecOutput: Codable, Equatable, Sendable {
     public var text: String
     public var error: String?
-    public init(text: String, error: String? = nil) {
+    /// 1-based source line the error points at (when Lua reported one).
+    public var errorLine: Int?
+    public init(text: String, error: String? = nil, errorLine: Int? = nil) {
         self.text = text
         self.error = error
+        self.errorLine = errorLine
     }
 }
 

@@ -64,8 +64,9 @@ public final class MindoNotebookKernel {
             }
             return ScriptRunResult(output: out, error: nil)
         } catch {
+            let e = MindoScriptRunner.cleanError(error)
             return ScriptRunResult(output: printBuffer.joined(separator: "\n"),
-                                   error: String(describing: error))
+                                   error: e.message, errorLine: e.line)
         }
     }
 }

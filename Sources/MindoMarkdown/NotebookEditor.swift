@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 import MindoBase
 
 /// Observable state for an open notebook: the ordered cells, cached outputs,
@@ -614,6 +615,8 @@ private struct NotebookCellRow: View {
     /// The cell's one editor sizes itself to its laid-out content (reported via
     /// onHeight) so there's no painful inner scroll — including soft-wrapped lines.
     @State private var measuredEditorHeight: CGFloat = 44
+    /// Bumped on a live editor-theme change to re-resolve rendered-markdown colors.
+    @State private var themeTick = 0
 
     /// TWO independent cues, two channels — never conflated:
     ///   • the left RULE = block TYPE, always (no bar for Text, neutral for Code,
@@ -655,6 +658,7 @@ private struct NotebookCellRow: View {
         )
         .contentShape(Rectangle())
         .simultaneousGesture(TapGesture().onEnded { model.selectedID = cell.id })
+        .onReceive(NotificationCenter.default.publisher(for: .editorThemeChanged)) { _ in themeTick += 1 }
     }
 
     @ViewBuilder private var content: some View {
@@ -673,10 +677,15 @@ private struct NotebookCellRow: View {
                         .contentShape(Rectangle())
                         .onTapGesture { model.selectedID = cell.id; focusCtl.beginEditing(cell.id) }
                 } else {
-                    // Native markdown (swift-markdown AST) — selectable, themed;
-                    // replaces the hand-rolled line renderer. ⏎ to edit.
+                    // Native markdown (swift-markdown AST) — selectable, themed,
+                    // wiki-links clickable; replaces the hand-rolled line renderer.
+                    // ⏎ (or double-click) to edit. `themeTick` forces a re-resolve
+                    // on a live editor-theme change.
+                    let _ = themeTick
                     let st = MarkdownRenderStyle.resolved(dark: isDark)
-                    MarkdownBlocksView(blocks: NativeMarkdownRenderer.blocks(md, style: st), style: st)
+                    MarkdownBlocksView(blocks: NativeMarkdownRenderer.blocks(md, style: st, linkifyWiki: true),
+                                       style: st,
+                                       onOpenWikiLink: { target, _ in onOpenSource?(target) })
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .onTapGesture(count: 2) { model.selectedID = cell.id; focusCtl.beginEditing(cell.id) }
                 }
@@ -1033,88 +1042,5 @@ final class NotebookCodeTextView: NotebookCellTextView {
         }
         if event.keyCode == 53 { onEscape?(); return }   // Esc → back to command mode
         super.keyDown(with: event)
-    }
-}
-
-/// Read view for a prose cell: renders markdown line-by-line (headings, bullets,
-/// inline emphasis) without a WKWebView. Click to switch to editing.
-private struct ProseRenderedView: View {
-    let markdown: String
-
-    var body: some View {
-        let lines = ProseMarkdown.lines(markdown)
-        if lines.allSatisfy({ $0 == .blank }) {
-            Text("Empty — click to write…").foregroundStyle(.tertiary).italic()
-        } else {
-            VStack(alignment: .leading, spacing: 3) {
-                // Group consecutive ``` fenced lines into a monospaced block;
-                // render everything else line-by-line.
-                let raw = markdown.components(separatedBy: "\n")
-                let groups = Self.group(raw)
-                ForEach(Array(groups.enumerated()), id: \.offset) { _, g in
-                    if g.isCode {
-                        Text(g.text)
-                            .font(.system(.callout, design: .monospaced))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(6)
-                            .background(RoundedRectangle(cornerRadius: 5).fill(Color.gray.opacity(0.10)))
-                            .textSelection(.enabled)
-                    } else {
-                        ForEach(Array(ProseMarkdown.lines(g.text).enumerated()), id: \.offset) { _, line in
-                            lineView(line)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    /// Split markdown into prose vs fenced-code groups (drops the ``` fences).
-    static func group(_ lines: [String]) -> [(isCode: Bool, text: String)] {
-        var groups: [(Bool, String)] = []
-        var buf: [String] = []
-        var inCode = false
-        func flush(_ code: Bool) {
-            if !buf.isEmpty { groups.append((code, buf.joined(separator: "\n"))); buf.removeAll() }
-        }
-        for line in lines {
-            if line.trimmingCharacters(in: .whitespaces).hasPrefix("```") {
-                flush(inCode); inCode.toggle()
-            } else { buf.append(line) }
-        }
-        flush(inCode)
-        return groups
-    }
-
-    @ViewBuilder private func lineView(_ line: ProseLine) -> some View {
-        switch line {
-        case .blank:
-            Spacer().frame(height: 4)
-        case .heading(let level, let text):
-            inline(text).font(headingFont(level)).bold()
-        case .bullet(let text):
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text("•").foregroundStyle(.secondary)
-                inline(text)
-            }
-        case .text(let text):
-            inline(text)
-        }
-    }
-
-    /// Inline markdown (bold/italic/code/links) via AttributedString; falls back
-    /// to plain text if it can't parse.
-    private func inline(_ s: String) -> Text {
-        if let attr = try? AttributedString(markdown: s) { return Text(attr) }
-        return Text(s)
-    }
-
-    private func headingFont(_ level: Int) -> Font {
-        switch level {
-        case 1: return .title
-        case 2: return .title2
-        case 3: return .title3
-        default: return .headline
-        }
     }
 }

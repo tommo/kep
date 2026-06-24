@@ -58,7 +58,7 @@ let package = Package(
         ),
         .target(name: "MindoPlantUML", dependencies: ["MindoBase", "MindoCore"]),
         .target(name: "MindoCSV", dependencies: ["MindoBase", "MindoScript"]),
-        .target(name: "MindoGenAI", dependencies: ["MindoBase", "MindoCore"]),
+        .target(name: "MindoGenAI", dependencies: ["MindoBase", "MindoCore", "MindoMarkdown"]),
         // Lua-backed scripting: embeds LuaSwift (vendored Lua, no system dep) and
         // exposes a `mindo` API to scripts. NOT a custom language.
         .target(

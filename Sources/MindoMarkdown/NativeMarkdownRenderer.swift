@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 import Markdown
 import MindoBase
+import MindoCore
 
 /// Native (no-WebView) markdown rendering for kep's inline surfaces — notebook
 /// prose cells, agent results, AI dialog. Built on the swift-markdown AST (the
@@ -57,17 +58,22 @@ public indirect enum MarkdownBlock: Sendable {
 public enum NativeMarkdownRenderer {
 
     /// Full block model for native layout (notebook prose, agent results).
-    @MainActor public static func blocks(_ markdown: String, style: MarkdownRenderStyle) -> [MarkdownBlock] {
-        let doc = Document(parsing: markdown, options: [])
-        return Builder(style: style).blocks(of: doc)
+    /// `linkifyWiki` rewrites `[[wiki links]]` to `mindo-wiki:` links first (so
+    /// MarkdownBlocksView's openURL handler can route taps).
+    @MainActor public static func blocks(_ markdown: String, style: MarkdownRenderStyle,
+                                         linkifyWiki: Bool = false) -> [MarkdownBlock] {
+        let src = linkifyWiki ? WikiLinkMarkdown.linkify(markdown) : markdown
+        return Builder(style: style).blocks(of: Document(parsing: src, options: []))
     }
 
     /// Inline-only fast path (AI dialog while streaming): paragraphs joined by
     /// blank lines into one AttributedString, no block layout.
-    @MainActor public static func attributedString(_ markdown: String, style: MarkdownRenderStyle) -> AttributedString {
+    @MainActor public static func attributedString(_ markdown: String, style: MarkdownRenderStyle,
+                                                    linkifyWiki: Bool = false) -> AttributedString {
         let b = Builder(style: style)
+        let src = linkifyWiki ? WikiLinkMarkdown.linkify(markdown) : markdown
         var out = AttributedString()
-        for block in b.blocks(of: Document(parsing: markdown, options: [])) {
+        for block in b.blocks(of: Document(parsing: src, options: [])) {
             if !out.characters.isEmpty { out += AttributedString("\n\n") }
             switch block {
             case .heading(_, let t), .paragraph(let t): out += t

@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import MindoCore
 
 /// Renders `[MarkdownBlock]` with native, selectable SwiftUI views — nested
 /// lists with real indentation, recursive blockquotes, task-list checkboxes,
@@ -7,10 +8,15 @@ import AppKit
 public struct MarkdownBlocksView: View {
     private let blocks: [MarkdownBlock]
     private let style: MarkdownRenderStyle
+    /// Tapped a `[[wiki link]]` (target, optional heading). Other links open
+    /// through the system as usual.
+    private let onOpenWikiLink: ((String, String?) -> Void)?
 
-    public init(blocks: [MarkdownBlock], style: MarkdownRenderStyle) {
+    public init(blocks: [MarkdownBlock], style: MarkdownRenderStyle,
+                onOpenWikiLink: ((String, String?) -> Void)? = nil) {
         self.blocks = blocks
         self.style = style
+        self.onOpenWikiLink = onOpenWikiLink
     }
 
     public var body: some View {
@@ -20,6 +26,12 @@ public struct MarkdownBlocksView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .environment(\.openURL, OpenURLAction { url in
+            guard url.scheme == WikiLinkMarkdown.scheme, let onOpenWikiLink,
+                  let d = WikiLinkMarkdown.decode(url.absoluteString) else { return .systemAction }
+            onOpenWikiLink(d.target, d.heading)
+            return .handled
+        })
     }
 
     @ViewBuilder private func block(_ b: MarkdownBlock) -> some View {

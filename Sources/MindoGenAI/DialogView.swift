@@ -1,4 +1,7 @@
 import SwiftUI
+import Combine
+import MindoBase
+import MindoMarkdown
 
 public extension Notification.Name {
     /// Posted by the host (⌘4 / Focus Agent) to move keyboard focus into the
@@ -19,6 +22,9 @@ public struct DialogView: View {
 
     @FocusState private var inputFocused: Bool
     @Environment(\.openSettings) private var openSettings
+    @Environment(\.colorScheme) private var colorScheme
+    /// Bumped on a live editor-theme change so rendered markdown re-resolves.
+    @State private var themeTick = 0
     /// When true, plain Return sends and ⇧Return inserts a newline; otherwise
     /// Return inserts a newline and ⌘Return sends. Persisted.
     @AppStorage("ai.sendOnReturn") private var sendOnReturn = false
@@ -50,6 +56,7 @@ public struct DialogView: View {
         .onReceive(NotificationCenter.default.publisher(for: .focusAgentInput)) { _ in
             inputFocused = true
         }
+        .onReceive(NotificationCenter.default.publisher(for: .editorThemeChanged)) { _ in themeTick += 1 }
     }
 
     private var header: some View {
@@ -157,30 +164,29 @@ public struct DialogView: View {
 
     @ViewBuilder
     /// Render a chat message as Markdown — bold/italic/code/links/lists/etc.
-    /// Render inline markdown (bold/italic/code/links) while PRESERVING the
-    /// reply's newlines. `.full` collapses single newlines into spaces (markdown
-    /// soft-break rule), which is what dropped the line breaks in agent replies;
-    /// `.inlineOnlyPreservingWhitespace` keeps every newline + inline emphasis.
-    /// Falls back to plain text.
-    static func markdown(_ s: String) -> AttributedString {
-        let opts = AttributedString.MarkdownParsingOptions(
-            allowsExtendedAttributes: true,
-            interpretedSyntax: .inlineOnlyPreservingWhitespace,
-            failurePolicy: .returnPartiallyParsedIfPossible)
-        return (try? AttributedString(markdown: s, options: opts)) ?? AttributedString(s)
-    }
-
     private func bubble(_ turn: Conversation.Turn) -> some View {
         let isUser = turn.role == .user
-        let rendered = Self.markdown(turn.content)
+        // While the last assistant turn is still streaming, use the inline-only
+        // fast path (smooth per-token updates); on completion swap to the full
+        // block renderer so code fences / lists / tables / headings render right.
+        let streaming = vm.isRunning && !isUser && turn.id == vm.conversation.turns.last?.id
+        let _ = themeTick
+        let style = MarkdownRenderStyle.resolved(dark: colorScheme == .dark)
         return VStack(alignment: isUser ? .trailing : .leading, spacing: 3) {
             HStack(spacing: 0) {
                 if isUser { Spacer(minLength: 16) }
-                Text(rendered)
-                    .textSelection(.enabled)
-                    .padding(.horizontal, 9).padding(.vertical, 6)
-                    .background(RoundedRectangle(cornerRadius: 10)
-                        .fill(isUser ? Color.accentColor.opacity(0.18) : Color.gray.opacity(0.12)))
+                Group {
+                    if isUser || streaming {
+                        Text(NativeMarkdownRenderer.attributedString(turn.content, style: style))
+                            .textSelection(.enabled)
+                    } else {
+                        MarkdownBlocksView(blocks: NativeMarkdownRenderer.blocks(turn.content, style: style),
+                                           style: style)
+                    }
+                }
+                .padding(.horizontal, 9).padding(.vertical, 6)
+                .background(RoundedRectangle(cornerRadius: 10)
+                    .fill(isUser ? Color.accentColor.opacity(0.18) : Color.gray.opacity(0.12)))
                 if !isUser { Spacer(minLength: 16) }
             }
             if !isUser, let onInsert, !turn.content.isEmpty, !vm.isRunning {

@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import MindoBase
 
 /// The CSV "sheet blocks" panel (right pane of the CSV editor): user-composed
@@ -42,6 +43,16 @@ public struct CSVBlocksPanel: View {
         .frame(minWidth: 220)
     }
 
+    /// Copy a block's result to the clipboard — the printed output (if any)
+    /// followed by the returned value.
+    private func copy(_ result: CSVBlockResult) {
+        let out = result.output.trimmingCharacters(in: .newlines)
+        let text = out.isEmpty ? result.value : out + "\n" + result.value
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(text, forType: .string)
+    }
+
     @ViewBuilder private func blockRow(_ block: Binding<CSVEvalBlock>) -> some View {
         let id = block.wrappedValue.id
         let result = model.results[id]
@@ -72,9 +83,15 @@ public struct CSVBlocksPanel: View {
                             .font(.system(.caption, design: .monospaced)).foregroundStyle(.secondary)
                             .textSelection(.enabled)
                     }
-                    Text("= \(result.value)")
-                        .font(.system(.caption, design: .monospaced).weight(.semibold))
-                        .textSelection(.enabled)
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text("= \(result.value)")
+                            .font(.system(.caption, design: .monospaced).weight(.semibold))
+                            .textSelection(.enabled)
+                        Spacer(minLength: 0)
+                        Button { copy(result) } label: { Image(systemName: "doc.on.doc") }
+                            .buttonStyle(.borderless).help("Copy result")
+                            .font(.caption2)
+                    }
                 }
             }
         }

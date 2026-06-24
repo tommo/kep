@@ -109,6 +109,7 @@
 "menu.window.hide_outline" = "Hide Outline";
 
 /* MARK: - Inspector */
+"inspector.assistant" = "Assistant";
 "inspector.linked_mentions" = "Linked Mentions";
 "inspector.properties" = "Properties";
 "inspector.tags" = "Tags";

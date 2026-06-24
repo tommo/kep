@@ -34,6 +34,8 @@ struct ContentView: View {
     @AppStorage(PrefKeys.inspectorLinksExpanded) private var linksExpanded = false
     @AppStorage(PrefKeys.inspectorPropertiesExpanded) private var propertiesExpanded = true
     @AppStorage(PrefKeys.inspectorTagsExpanded) private var tagsExpanded = false
+    /// The Assistant is now an inspector section (merged from the old tab).
+    @AppStorage("mindo.prefs.inspector.agentExpanded") private var agentExpanded = false
     /// Live text of the inspector property/tag query field.
     @State private var tagQuery = ""
 
@@ -221,44 +223,20 @@ struct ContentView: View {
         + "Target topics by their [outline-path] when you can (stable); fall back to a text query. "
         + "Read before you write. Be concise; when producing a diagram or table, output only valid source."
 
-    /// The right-hand inspector: a toggle between the document Outline (+ node
-    /// Note editor) and the cross-document AI Assistant.
+    /// The right-hand inspector: document panels (Outline / Sheet Blocks /
+    /// Properties / Tags / Linked Mentions) AND the AI Assistant, all as
+    /// sections of one accordion — the Assistant was merged in from the old tab.
     private var inspectorPane: some View {
         VStack(spacing: 0) {
-            // Inspector / Assistant switch — a small inline bar at the top of the
-            // inspector. (Was a window toolbar item, but hiding the title bar left
-            // that toolbar band as empty space above the doc tabs.)
-            HStack {
-                Picker("", selection: inspectorTabBinding) {
-                    Image(systemName: "sidebar.squares.right").tag(InspectorTab.inspector)
-                    Image(systemName: "bubble.left.and.bubble.right").tag(InspectorTab.agent)
-                }
-                .pickerStyle(.segmented)
-                .controlSize(.small)
-                .fixedSize()
-                .help("Switch the inspector between the document panels (outline + linked mentions) and the assistant")
-                Spacer()
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            // Bottom border of the switch bar = inspector focus hint (accent when
-            // the inspector/agent region holds focus).
+            // Top focus hint (accent when the inspector region holds focus).
             Rectangle()
                 .fill(inspectorRegionFocused ? Color.accentColor : Color(nsColor: .separatorColor))
-                .frame(height: 2)   // constant height — only the COLOR changes (no layout shift on focus)
-            Group {
-                switch session.inspectorTab {
-                case .inspector: accordionInspector
-                case .agent:
-                    DialogView(
-                        systemPrompt: Self.agentSystemPrompt,
-                        contextProvider: { session.aiWorkspaceContextBlock() },
-                        onInsert: { session.insertDialogReply($0) },
-                        agentReply: { try await session.agentReply($0) }
-                    )
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(height: 2)   // constant height — only the COLOR changes
+            accordionInspector
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .focusAgentInput)) { _ in
+            withAnimation(.easeInOut(duration: 0.15)) { agentExpanded = true }
         }
         .sheet(isPresented: $noteExpanded) {
             NoteEditorSheet(
@@ -451,56 +429,60 @@ struct ContentView: View {
     /// document Outline and the Linked Mentions — each independently
     /// collapsible so both can be visible at once (Obsidian-style), unlike the
     /// old one-at-a-time tabs. The chat lives in its own full pane (`.agent`).
-    @ViewBuilder private var accordionInspector: some View {
-        // CSV has no structural outline; its whole inspector IS the Sheet Blocks
-        // pane (which carries its own header + add/run controls), filling the
-        // column rather than being a foldable accordion section.
-        if session.activeFileType == .csv, let blocks = session.activeCSVBlocks {
-            CSVBlocksPanel(model: blocks)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        } else {
-            documentAccordion
-        }
-    }
-
-    private var documentAccordion: some View {
+    private var accordionInspector: some View {
         VStack(spacing: 0) {
-            CollapsibleInspectorSection(title: L("detail.outline.title"),
-                                        systemImage: "list.bullet.indent",
-                                        isExpanded: $outlineExpanded) {
-                outlineInspector
-            }
-            // The typed-properties panel only applies to a selected mind-map
-            // node; hide it entirely for other doc types / no selection.
-            if session.selectedTopic != nil {
+            // CSV has no structural outline; its slot IS the Sheet Blocks pane
+            // (own header + add/run), filling rather than a foldable section.
+            if session.activeFileType == .csv, let blocks = session.activeCSVBlocks {
+                CSVBlocksPanel(model: blocks)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            } else {
+                CollapsibleInspectorSection(title: L("detail.outline.title"),
+                                            systemImage: "list.bullet.indent",
+                                            isExpanded: $outlineExpanded) {
+                    outlineInspector
+                }
+                // Typed properties: only for a selected mind-map node.
+                if session.selectedTopic != nil {
+                    Divider()
+                    CollapsibleInspectorSection(title: L("inspector.properties"),
+                                                systemImage: "tablecells",
+                                                isExpanded: $propertiesExpanded) {
+                        NodePropertiesView(session: $session,
+                                           properties: session.selectedNodeUserProperties)
+                    }
+                }
+                // Document-wide tag list (mind maps).
+                if session.activeFileType == .mindMap {
+                    Divider()
+                    CollapsibleInspectorSection(title: L("inspector.tags"),
+                                                systemImage: "tag",
+                                                isExpanded: $tagsExpanded) {
+                        tagsInspector
+                    }
+                }
                 Divider()
-                CollapsibleInspectorSection(title: L("inspector.properties"),
-                                            systemImage: "tablecells",
-                                            isExpanded: $propertiesExpanded) {
-                    NodePropertiesView(session: $session,
-                                       properties: session.selectedNodeUserProperties)
+                CollapsibleInspectorSection(title: L("inspector.linked_mentions"),
+                                            systemImage: "link",
+                                            isExpanded: $linksExpanded) {
+                    linksInspector
                 }
             }
-            // Document-wide tag list (mind maps): click a tag to select every
-            // node carrying it.
-            if session.activeFileType == .mindMap {
-                Divider()
-                CollapsibleInspectorSection(title: L("inspector.tags"),
-                                            systemImage: "tag",
-                                            isExpanded: $tagsExpanded) {
-                    tagsInspector
-                }
-            }
+            // The Assistant — merged from the old inspector/agent tab into a
+            // shared section, available on every document.
             Divider()
-            CollapsibleInspectorSection(title: L("inspector.linked_mentions"),
-                                        systemImage: "link",
-                                        isExpanded: $linksExpanded) {
-                linksInspector
+            CollapsibleInspectorSection(title: L("inspector.assistant"),
+                                        systemImage: "bubble.left.and.bubble.right",
+                                        isExpanded: $agentExpanded) {
+                DialogView(
+                    systemPrompt: Self.agentSystemPrompt,
+                    contextProvider: { session.aiWorkspaceContextBlock() },
+                    onInsert: { session.insertDialogReply($0) },
+                    agentReply: { try await session.agentReply($0) }
+                )
             }
         }
-        // Pin the sections to the top. When everything is collapsed the stack is
-        // short; without this the parent's centering floats the collapsed headers
-        // to the middle. An expanded section's flexible content still fills.
+        // Pin sections to the top; an expanded section's flexible content fills.
         .frame(maxHeight: .infinity, alignment: .top)
     }
 

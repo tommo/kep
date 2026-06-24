@@ -106,6 +106,7 @@
 "menu.window.hide_outline" = "隐藏大纲";
 
 /* MARK: - Inspector */
+"inspector.assistant" = "助手";
 "inspector.linked_mentions" = "链接提及";
 "inspector.properties" = "属性";
 "inspector.tags" = "标签";

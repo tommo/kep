@@ -36,6 +36,17 @@ public final class MindoNotebookKernel {
         try engine.run("nb = { note = __nb_note, code = __nb_code }")
     }
 
+    /// Load a user library into the session — runs `source` after the built-in
+    /// `mindo`/`nb` API is set up, so it can define new globals or extend `mindo`
+    /// (e.g. `function mindo.wordcount(s) … end`). Returns an error string if the
+    /// library failed to load; the kernel stays usable (a broken library just
+    /// doesn't add its functions). Call once per kernel, before running cells.
+    @discardableResult
+    public func loadLibrary(_ source: String, name: String = "notebook.lua") -> String? {
+        do { _ = try engine.run(source); return nil }
+        catch { return "\(name): \(error)" }
+    }
+
     /// Run one cell against the shared VM. Output = captured prints, then the
     /// return value (omitted when there's nothing to show). Errors are returned,
     /// not thrown, and the kernel stays usable for the next cell.

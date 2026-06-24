@@ -161,6 +161,22 @@ final class MindoNotebookKernelTests: XCTestCase {
         XCTAssertEqual(k.run("return extraction ~= nil and grind ~= nil").output, "true")
     }
 
+    func testLoadLibraryExtendsTheArsenal() throws {
+        let k = try kernel()
+        // A user library can define new globals/tables AND extend `mindo`.
+        XCTAssertNil(k.loadLibrary("""
+        function double(x) return x * 2 end
+        mylib = { tri = function(x) return x * 3 end }
+        function mindo.shout(s) return s:upper() end
+        """))
+        XCTAssertEqual(k.run("return double(21)").output, "42")
+        XCTAssertEqual(k.run("return mylib.tri(14)").output, "42")
+        XCTAssertEqual(k.run("return mindo.shout('hi')").output, "HI")
+        // A broken library returns an error but leaves the kernel usable.
+        XCTAssertNotNil(k.loadLibrary("this is not lua", name: "bad.lua"))
+        XCTAssertEqual(k.run("return 1 + 1").output, "2")
+    }
+
     func testSandboxDeniesDangerousCapabilities() throws {
         let k = try kernel()
         // The capabilities that actually let a script touch the system must be

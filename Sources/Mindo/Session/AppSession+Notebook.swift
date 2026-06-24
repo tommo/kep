@@ -1,4 +1,5 @@
 import Foundation
+import MindoCore
 import MindoModel
 import MindoMarkdown
 import MindoScript
@@ -39,7 +40,26 @@ extension AppSession {
     @MainActor
     private func buildNotebookKernel() -> MindoNotebookKernel? {
         let (files, corpus) = workspaceCorpus()
-        return try? MindoNotebookKernel(map: MindMap(), corpus: corpus, allFiles: files)
+        guard let kernel = try? MindoNotebookKernel(map: MindMap(), corpus: corpus, allFiles: files) else { return nil }
+        loadNotebookLibraries(into: kernel)
+        return kernel
+    }
+
+    /// User-extensible Lua arsenal: load `notebook.lua` from the app-support dir
+    /// (global) and each open workspace root (vault-local) into the kernel, so a
+    /// user's own helpers are available in every notebook cell and to the agent.
+    /// A broken library surfaces an error but doesn't break the kernel.
+    @MainActor
+    private func loadNotebookLibraries(into kernel: MindoNotebookKernel) {
+        var urls = [MindoCore.applicationSupportURL.appendingPathComponent("notebook.lua")]
+        urls += workspaceRoots.map { $0.url.appendingPathComponent("notebook.lua") }
+        var errors: [String] = []
+        for url in urls {
+            guard let src = try? String(contentsOf: url, encoding: .utf8),
+                  !src.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }
+            if let err = kernel.loadLibrary(src, name: url.lastPathComponent) { errors.append(err) }
+        }
+        if !errors.isEmpty { lastError = "Notebook library error — " + errors.joined(separator: "; ") }
     }
 
     /// Run All — RESTART the shared kernel and run every code cell top-to-bottom

@@ -497,8 +497,11 @@ struct ContentView: View {
                                         isExpanded: $linksExpanded) {
                 linksInspector
             }
-            if !outlineExpanded && !linksExpanded && !propertiesExpanded && !tagsExpanded { Spacer() }
         }
+        // Pin the sections to the top. When everything is collapsed the stack is
+        // short; without this the parent's centering floats the collapsed headers
+        // to the middle. An expanded section's flexible content still fills.
+        .frame(maxHeight: .infinity, alignment: .top)
     }
 
     /// The Outline tab content: outline list + (when a node is selected) a

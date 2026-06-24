@@ -653,13 +653,13 @@ private struct NotebookCellRow: View {
     // menu). Reordering is also ⌥↑/↓ and delete is ⌫ in command mode.
     private var header: some View {
         HStack(spacing: 2) {
+            runControl                 // run on the LEFT (sparkles for agent, play for code)
             Spacer(minLength: 0)
             if hovering {
                 iconButton("chevron.up", "Move up (⌥↑)") { model.move(cell.id, by: -1) }
                 iconButton("chevron.down", "Move down (⌥↓)") { model.move(cell.id, by: 1) }
                 iconButton("trash", "Delete cell (⌦)") { model.delete(cell.id) }
             }
-            runControl
         }
         .font(.caption2)
         .foregroundStyle(.secondary)
@@ -688,7 +688,7 @@ private struct NotebookCellRow: View {
             } else {
                 let generated = model.hasGenerated(cell.id)
                 Button { Task { await model.runAgentCell(cell.id) } } label: {
-                    Image(systemName: generated ? "arrow.clockwise" : "play.fill")
+                    Image(systemName: generated ? "arrow.clockwise" : "sparkles")
                 }
                 .buttonStyle(.borderless).help(generated ? "Re-run (replaces the cells it wrote)" : "Run research")
             }

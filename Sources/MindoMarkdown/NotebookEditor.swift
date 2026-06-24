@@ -657,7 +657,14 @@ private struct NotebookCellRow: View {
                 .opacity(isEditing ? 1 : 0)
         )
         .contentShape(Rectangle())
-        .simultaneousGesture(TapGesture().onEnded { model.selectedID = cell.id })
+        .simultaneousGesture(TapGesture().onEnded {
+            model.selectedID = cell.id
+            // A single click on now-selectable rendered prose otherwise hands
+            // first responder to the text view, stealing the arrow keys from
+            // NotebookCommandView. Re-assert command focus so ↑/↓ block-nav
+            // survives a click (drag-to-select-text doesn't fire a TapGesture).
+            if !isEditing { focusCtl.enterCommandMode() }
+        })
         .onReceive(NotificationCenter.default.publisher(for: .editorThemeChanged)) { _ in themeTick += 1 }
     }
 
@@ -672,22 +679,22 @@ private struct NotebookCellRow: View {
             } else {
                 let md = model.text(of: cell.id)
                 if md.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    // Selection + ⏎-to-edit is handled by the row's tap gesture —
+                    // no own tap handler (it would race the command-focus re-assert
+                    // and break arrow nav). Keyboard-first: select, then ⏎.
                     Text("Empty — ⏎ to write…").italic().foregroundStyle(.tertiary)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
-                        .onTapGesture { model.selectedID = cell.id; focusCtl.beginEditing(cell.id) }
                 } else {
                     // Native markdown (swift-markdown AST) — selectable, themed,
                     // wiki-links clickable; replaces the hand-rolled line renderer.
-                    // ⏎ (or double-click) to edit. `themeTick` forces a re-resolve
-                    // on a live editor-theme change.
+                    // ⏎ to edit (the row tap selects + keeps block-nav focus;
+                    // drag still selects text). `themeTick` re-resolves on theme change.
                     let _ = themeTick
                     let st = MarkdownRenderStyle.resolved(dark: isDark)
                     MarkdownBlocksView(blocks: NativeMarkdownRenderer.blocks(md, style: st, linkifyWiki: true),
                                        style: st,
                                        onOpenWikiLink: { target, _ in onOpenSource?(target) })
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .onTapGesture(count: 2) { model.selectedID = cell.id; focusCtl.beginEditing(cell.id) }
                 }
             }
         case .code:

@@ -160,6 +160,29 @@ final class NotebookModelTests: XCTestCase {
         XCTAssertTrue(model.isStale("c1"))
     }
 
+    func testEditingToMatchHistoryDoesNotResurrectOutput() async {
+        let model = makeModel(text: "```lua {exec id=c1}\nreturn 1\n```",
+                              runOne: { src, _ in ExecOutput(text: src.contains("return 1") ? "ONE" : "TWO") })
+        await model.run("c1")
+        XCTAssertEqual(model.output(for: "c1")?.text, "ONE")
+        model.updateText("c1", "return 2")              // edit away → stale, no output
+        XCTAssertTrue(model.isStale("c1"))
+        XCTAssertNil(model.output(for: "c1"))
+        model.updateText("c1", "return 1")              // edit back to ran code → shows again
+        XCTAssertEqual(model.output(for: "c1")?.text, "ONE")
+    }
+
+    func testEditingToAnotherCellsCachedCodeDoesNotBleed() async {
+        let model = makeModel(text: "```lua {exec id=a}\nreturn 10\n```\n\n```lua {exec id=b}\nreturn 20\n```",
+                              runOne: { src, _ in ExecOutput(text: src.contains("10") ? "TEN" : "TWENTY") })
+        await model.run("a")                            // caches "TEN" under hash(return 10)
+        XCTAssertEqual(model.output(for: "a")?.text, "TEN")
+        XCTAssertNil(model.output(for: "b"))
+        model.updateText("b", "return 10")              // b now matches a's cached hash…
+        XCTAssertNil(model.output(for: "b"))            // …but b never ran it → no bleed
+        XCTAssertTrue(model.isStale("b"))
+    }
+
     /// The shipped example notebook parses to the intended cell layout and
     /// round-trips (guards it against format drift).
     func testExampleNotebookParses() throws {

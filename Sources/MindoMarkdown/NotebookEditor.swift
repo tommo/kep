@@ -35,6 +35,7 @@ final class NotebookModel: ObservableObject, NotebookAgentSink {
         self.cells = NotebookFormat.parse(text).cells
         self.lastSerialized = text
         self.outputs = documentURL.map { ExecOutputsStore.load(for: $0) } ?? ExecOutputs()
+        seedRanHashFromOutputs()
     }
 
     // MARK: - Agent block (a cell-generating author)
@@ -141,8 +142,13 @@ final class NotebookModel: ObservableObject, NotebookAgentSink {
         insertGenerated(.prose(id: freshID("prose"), text: text))
     }
     func agentAddCode(_ code: String, output: ExecOutput?) {
-        insertGenerated(.code(id: freshID("code"), language: "lua", code: code))
-        if let output { outputs.set(output, forHash: MarkdownExecBlocks.hash(code)) }   // nil → stale until run
+        let id = freshID("code")
+        insertGenerated(.code(id: id, language: "lua", code: code))
+        if let output {
+            let h = MarkdownExecBlocks.hash(code)
+            outputs.set(output, forHash: h)
+            ranHash[id] = h            // bind so the authored cell shows its output
+        }                              // nil → stale until run
         flushNow()
     }
 
@@ -155,6 +161,7 @@ final class NotebookModel: ObservableObject, NotebookAgentSink {
         cells = NotebookFormat.parse(text).cells
         lastSerialized = text
         outputs = documentURL.map { ExecOutputsStore.load(for: $0) } ?? ExecOutputs()
+        seedRanHashFromOutputs()
     }
 
     private func freshID(_ prefix: String) -> String { uid += 1; return "u\(prefix)-\(uid)" }
@@ -234,20 +241,45 @@ final class NotebookModel: ObservableObject, NotebookAgentSink {
 
     // MARK: - Execution
 
+    /// The hash of the code each cell actually RAN this session. Outputs are
+    /// content-addressed (shared sidecar), so without this, editing a cell to
+    /// match any previously-run code — its own old text or another cell's —
+    /// would resurrect that cached output as if you'd re-run it. We instead bind
+    /// a cell's displayed output to what THIS cell last ran: editing to anything
+    /// other than the exact ran text shows "stale" (no output) until you re-run.
+    /// Empty on a freshly-opened notebook, where we fall back to the persisted
+    /// sidecar so saved outputs still show.
+    private var ranHash: [String: String] = [:]
+
+    /// Seed the run-binding from persisted outputs on load: a saved notebook's
+    /// cells match their saved outputs, so each code cell "ran" its current text.
+    /// After this, only an EDIT (which changes the hash) makes a cell stale —
+    /// matching some other cached hash never resurrects an output.
+    private func seedRanHashFromOutputs() {
+        ranHash.removeAll()
+        for case .code(let id, _, let code) in cells where outputs.output(forHash: MarkdownExecBlocks.hash(code)) != nil {
+            ranHash[id] = MarkdownExecBlocks.hash(code)
+        }
+    }
+
     func output(for id: String) -> ExecOutput? {
         guard case .code(_, _, let code)? = cells.first(where: { $0.id == id }) else { return nil }
-        return outputs.output(forHash: MarkdownExecBlocks.hash(code))
+        // Show output ONLY for the exact code this cell ran/loaded — never just
+        // because some other cell's run left a matching hash in the shared cache.
+        return ranHash[id] == MarkdownExecBlocks.hash(code) ? outputs.output(forHash: ranHash[id]!) : nil
     }
     func isStale(_ id: String) -> Bool {
         guard case .code(_, _, let code)? = cells.first(where: { $0.id == id }) else { return false }
-        return outputs.output(forHash: MarkdownExecBlocks.hash(code)) == nil
+        return ranHash[id] != MarkdownExecBlocks.hash(code)
     }
 
     func run(_ id: String) async {
         guard case .code(_, _, let code)? = cells.first(where: { $0.id == id }) else { return }
         running.insert(id)
         let out = await runOne(code, ctx)
-        outputs.set(out, forHash: MarkdownExecBlocks.hash(code))
+        let h = MarkdownExecBlocks.hash(code)
+        outputs.set(out, forHash: h)
+        ranHash[id] = h
         running.remove(id)
     }
 
@@ -256,11 +288,13 @@ final class NotebookModel: ObservableObject, NotebookAgentSink {
         let ids = nb.codeCells.map(\.id)
         running.formUnion(ids)
         outputs = await runAll(nb, ctx)
+        for case .code(let cid, _, let code) in nb.cells { ranHash[cid] = MarkdownExecBlocks.hash(code) }
         running.subtract(ids)
     }
 
     func clearOutputs() {
         outputs = ExecOutputs()
+        ranHash.removeAll()
         if let url = documentURL { try? ExecOutputsStore.save(outputs, for: url) }
     }
 
@@ -584,26 +618,22 @@ private struct NotebookCellRow: View {
         return CGFloat(Swift.min(lines, 30)) * line + 14
     }
 
-    // Uniform chrome label for the cell type (UI text — never confusable with
-    // content: tiny, uppercase, tracked, secondary).
-    private var typeTag: String {
-        switch cell {
-        case .prose: return "TEXT"
-        case .code:  return "LUA"
-        case .agent: return "AGENT"
-        }
-    }
+    @State private var hovering = false
+    private var isRunnable: Bool { if case .prose = cell { return false } else { return true } }
+    /// Only reserve the header row when there's something to show: the run button
+    /// (code/agent) always, or the hover controls. A prose cell at rest has no
+    /// header chrome at all — no type tag, no menu — so it reads as just content.
+    private var showHeader: Bool { hovering || isRunnable }
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             // The ONLY per-cell decoration: a slim left rule that signals
-            // selection (faint) vs editing (full accent). Replaces the old
-            // per-type borders, tints and colored backgrounds.
+            // selection (faint) vs editing (full accent).
             RoundedRectangle(cornerRadius: 1.5)
                 .fill(isSelected ? Color.accentColor.opacity(isEditing ? 1.0 : 0.45) : .clear)
                 .frame(width: 3)
-            VStack(alignment: .leading, spacing: 5) {
-                header
+            VStack(alignment: .leading, spacing: 4) {
+                if showHeader { header }
                 content
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -615,18 +645,30 @@ private struct NotebookCellRow: View {
         .background(isSelected && isEditing ? Color.primary.opacity(0.04) : .clear)
         .contentShape(Rectangle())
         .simultaneousGesture(TapGesture().onEnded { model.selectedID = cell.id })
+        .onHover { hovering = $0 }
     }
 
-    // Consistent header for every cell type: type tag · run · ⋯ menu.
+    // Minimal, mostly-hidden chrome: the run button (code/agent) is always
+    // visible; move/delete appear only on hover (no always-on type tag or ⋯
+    // menu). Reordering is also ⌥↑/↓ and delete is ⌫ in command mode.
     private var header: some View {
-        HStack(spacing: 8) {
-            Text(typeTag)
-                .font(.caption2.weight(.semibold)).tracking(0.6)
-                .foregroundStyle(.secondary)
+        HStack(spacing: 2) {
             Spacer(minLength: 0)
+            if hovering {
+                iconButton("chevron.up", "Move up (⌥↑)") { model.move(cell.id, by: -1) }
+                iconButton("chevron.down", "Move down (⌥↓)") { model.move(cell.id, by: 1) }
+                iconButton("trash", "Delete cell (⌦)") { model.delete(cell.id) }
+            }
             runControl
-            cellMenu
         }
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+        .frame(height: 15)
+    }
+
+    private func iconButton(_ name: String, _ help: String, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) { Image(systemName: name).frame(width: 18, height: 15) }
+            .buttonStyle(.borderless).help(help)
     }
 
     @ViewBuilder private var runControl: some View {
@@ -785,19 +827,6 @@ private struct NotebookCellRow: View {
         .padding(.horizontal, 8).padding(.vertical, 6)
         .background(RoundedRectangle(cornerRadius: 6).fill(Color.red.opacity(0.08)))
         .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.red.opacity(0.25)))
-    }
-
-    private var cellMenu: some View {
-        Menu {
-            Button("Move Up") { model.move(cell.id, by: -1) }
-            Button("Move Down") { model.move(cell.id, by: 1) }
-            Divider()
-            Button("Delete Cell", role: .destructive) { model.delete(cell.id) }
-        } label: {
-            Image(systemName: "ellipsis").foregroundStyle(.secondary)
-        }
-        .menuStyle(.borderlessButton)
-        .fixedSize()
     }
 }
 

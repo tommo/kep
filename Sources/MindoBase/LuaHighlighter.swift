@@ -39,8 +39,10 @@ public enum LuaHighlighter {
         color(longStr, p.string,  in: text, full, storage)
         color(dquote,  p.string,  in: text, full, storage)
         color(squote,  p.string,  in: text, full, storage)
-        color(block,   p.comment, in: text, full, storage)
-        color(line,    p.comment, in: text, full, storage)
+        // Comments recede — dim the palette color so code reads first.
+        let comment = p.comment.withAlphaComponent(0.5)
+        color(block,   comment, in: text, full, storage)
+        color(line,    comment, in: text, full, storage)
         storage.endEditing()
     }
 

@@ -18,7 +18,9 @@ final class LuaHighlighterTests: XCTestCase {
         }
         XCTAssertEqual(color(at: "local"), p.keyword)
         XCTAssertEqual(color(at: "\"hi\""), p.string)
-        XCTAssertEqual(color(at: "-- a note"), p.comment)
+        // Comments are dimmed (alpha 0.5) so code reads first — same hue as the
+        // palette comment color.
+        XCTAssertEqual(color(at: "-- a note"), p.comment.withAlphaComponent(0.5))
         // Every glyph keeps the monospaced font.
         XCTAssertEqual(storage.attribute(.font, at: 0, effectiveRange: nil) as? NSFont, font)
     }

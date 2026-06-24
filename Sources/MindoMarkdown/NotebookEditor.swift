@@ -618,25 +618,27 @@ private struct NotebookCellRow: View {
         return CGFloat(Swift.min(lines, 30)) * line + 14
     }
 
-    @State private var hovering = false
-    private var isRunnable: Bool { if case .prose = cell { return false } else { return true } }
-    /// Only reserve the header row when there's something to show: the run button
-    /// (code/agent) always, or the hover controls. A prose cell at rest has no
-    /// header chrome at all — no type tag, no menu — so it reads as just content.
-    private var showHeader: Bool { hovering || isRunnable }
+    /// The only per-cell decoration: a slim left rule. It does double duty —
+    /// when selected it's the accent (focus/selection cue); otherwise its color
+    /// distinguishes the block TYPE minimally (no bar for Text, a neutral bar for
+    /// Code, a purple bar for Agent). No buttons or menus — run with ⌘↩ / Run
+    /// All, move with ⌥↑↓, delete with ⌦.
+    private var ruleColor: Color {
+        if isSelected { return Color.accentColor.opacity(isEditing ? 1.0 : 0.5) }
+        switch cell {
+        case .prose: return .clear
+        case .code:  return Color.secondary.opacity(0.35)
+        case .agent: return Color.purple.opacity(0.55)
+        }
+    }
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
-            // The ONLY per-cell decoration: a slim left rule that signals
-            // selection (faint) vs editing (full accent).
             RoundedRectangle(cornerRadius: 1.5)
-                .fill(isSelected ? Color.accentColor.opacity(isEditing ? 1.0 : 0.45) : .clear)
+                .fill(ruleColor)
                 .frame(width: 3)
-            VStack(alignment: .leading, spacing: 4) {
-                if showHeader { header }
-                content
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            content
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.vertical, 5)
         .padding(.trailing, 6)
@@ -645,54 +647,6 @@ private struct NotebookCellRow: View {
         .background(isSelected && isEditing ? Color.primary.opacity(0.04) : .clear)
         .contentShape(Rectangle())
         .simultaneousGesture(TapGesture().onEnded { model.selectedID = cell.id })
-        .onHover { hovering = $0 }
-    }
-
-    // Minimal, mostly-hidden chrome: the run button (code/agent) is always
-    // visible; move/delete appear only on hover (no always-on type tag or ⋯
-    // menu). Reordering is also ⌥↑/↓ and delete is ⌫ in command mode.
-    private var header: some View {
-        HStack(spacing: 2) {
-            runControl                 // run on the LEFT (sparkles for agent, play for code)
-            Spacer(minLength: 0)
-            if hovering {
-                iconButton("chevron.up", "Move up (⌥↑)") { model.move(cell.id, by: -1) }
-                iconButton("chevron.down", "Move down (⌥↓)") { model.move(cell.id, by: 1) }
-                iconButton("trash", "Delete cell (⌦)") { model.delete(cell.id) }
-            }
-        }
-        .font(.caption2)
-        .foregroundStyle(.secondary)
-        .frame(height: 15)
-    }
-
-    private func iconButton(_ name: String, _ help: String, _ action: @escaping () -> Void) -> some View {
-        Button(action: action) { Image(systemName: name).frame(width: 18, height: 15) }
-            .buttonStyle(.borderless).help(help)
-    }
-
-    @ViewBuilder private var runControl: some View {
-        switch cell {
-        case .prose:
-            EmptyView()
-        case .code:
-            if model.running.contains(cell.id) {
-                ProgressView().controlSize(.small)
-            } else {
-                Button { Task { await model.run(cell.id) } } label: { Image(systemName: "play.fill") }
-                    .buttonStyle(.borderless).help("Run cell (⌘↩)")
-            }
-        case .agent:
-            if model.running.contains(cell.id) {
-                ProgressView().controlSize(.small)
-            } else {
-                let generated = model.hasGenerated(cell.id)
-                Button { Task { await model.runAgentCell(cell.id) } } label: {
-                    Image(systemName: generated ? "arrow.clockwise" : "sparkles")
-                }
-                .buttonStyle(.borderless).help(generated ? "Re-run (replaces the cells it wrote)" : "Run research")
-            }
-        }
     }
 
     @ViewBuilder private var content: some View {

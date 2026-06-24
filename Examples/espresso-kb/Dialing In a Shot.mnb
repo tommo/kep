@@ -1,39 +1,62 @@
 # Dialing In an Espresso Shot
 
-A worked notebook that pulls this vault's dial-in rules into runnable checks. It
-leans on three helpers from `notebook.lua` (the vault's Lua library, auto-loaded
-into every notebook here): `mindo.headings`, `mentions`, and `shotVerdict`.
+A working dial-in calculator built on this vault's notes. It computes brew
+ratios, maps roast level to a starting target, and applies that to the beans in
+`Bean Origins.csv`. Uses `shotVerdict` from the vault library (`notebook.lua`).
 
-> Run a cell with `⌘↩`, or the whole notebook with `⇧⌘↩`. Cells share one Lua
-> session, so a later cell reuses values an earlier one set.
+> Run a cell with `⌘↩` or the whole notebook with `⇧⌘↩`. Cells share one Lua
+> session — later cells reuse `dose` and `startTarget` defined earlier.
 
 ```lua {exec id=d1}
--- What does the Grind note cover? (mindo.headings is defined in notebook.lua)
-for _, h in ipairs(mindo.headings("Grind")) do print(h) end
+-- Your shot. The brew RATIO (yield ÷ dose) is the headline number;
+-- Extraction.md calls 1:2 (18 g in → 36 g out in ~28 s) the baseline.
+dose, yield, time = 18, 36, 28               -- grams in, grams out, seconds
+ratio = yield / dose
+print(string.format("%.0fg in -> %.0fg out = 1:%.2f in %ds", dose, yield, ratio, time))
+print("verdict: " .. shotVerdict(time))      -- shotVerdict comes from notebook.lua
 ```
 
 ```lua {exec id=d2}
--- Which levers does the Extraction note emphasize? `mentions` is a vault helper.
-extraction = mindo.readDoc("Extraction") or ""
-for _, lever in ipairs({"grind", "dose", "yield", "time", "temperature", "pressure"}) do
-  print(string.format("%-12s %d", lever, mentions(extraction, lever)))
+-- Rule of thumb from Grind.md/Extraction.md: lighter roasts are harder to
+-- extract → favor a longer ratio + time; darker roasts the opposite.
+function startTarget(roast)
+  local r = roast:lower()
+  if r:find("dark")  then return { ratio = 1.8, time = 25 } end
+  if r:find("light") then return { ratio = 2.5, time = 32 } end
+  return { ratio = 2.0, time = 28 }           -- medium
+end
+
+for _, roast in ipairs({ "Light", "Medium", "Dark" }) do
+  local t = startTarget(roast)                -- reuses `dose` from the cell above
+  print(string.format("%-7s -> 1:%.1f, ~%ds  (pull %.0fg from %.0fg)",
+                       roast, t.ratio, t.time, dose * t.ratio, dose))
 end
 ```
 
 ```lua {exec id=d3}
--- Turn shot time into a verdict (shotVerdict from notebook.lua; 1:2 ratio).
--- Reuses nothing but the library — works standalone or after the cells above.
-for _, seconds in ipairs({18, 28, 35, 42}) do
-  print(seconds .. "s -> " .. shotVerdict(seconds))
+-- Apply the rule to every bean in Bean Origins.csv (roast is the 3rd field).
+local csv = mindo.readDoc("Bean Origins") or ""
+local first = true
+for line in csv:gmatch("[^\n]+") do
+  if first then first = false                 -- skip the header row
+  else
+    local f = {}
+    for field in (line .. ","):gmatch("(.-),") do f[#f + 1] = field end
+    local origin, region, roast = f[1], f[2], f[3]
+    if origin and roast then
+      local t = startTarget(roast)            -- startTarget from the cell above
+      print(string.format("%-10s %-12s %-12s -> 1:%.1f, ~%ds, pull to %.0fg",
+                           origin, region, roast, t.ratio, t.time, dose * t.ratio))
+    end
+  end
 end
 ```
 
-## Putting it together
+## From numbers to a routine
 
-Grind is the master lever; dose and yield set the ratio; shot time is the
-read-out. The agent below drafts a step-by-step dial-in routine grounded in
-these notes — its findings and any code it runs land as new cells beneath it.
+The math gives a *starting point*; taste then guides grind. The agent below
+drafts a concrete dial-in routine grounded in the notes and these targets.
 
-<!--mindo:agent {"prompt":"Draft a concise step-by-step routine for dialing in a new espresso, grounded in the workspace notes (Grind, Extraction, Brewing Process). Cite the source notes inline, and add a Lua code cell that prints a sane starting dose, yield, ratio, and shot-time target."}-->
+<!--mindo:agent {"prompt":"Using the workspace notes (Grind, Extraction, Brewing Process) and the roast→ratio targets computed above, write a concise step-by-step routine for dialing in a NEW bag of coffee, from first shot to balanced. Cite the source notes inline. Then add a Lua code cell that, given dose and a target ratio, prints the yield to pull and the shot-time window to aim for."}-->
 
 <!--/mindo:agent-->

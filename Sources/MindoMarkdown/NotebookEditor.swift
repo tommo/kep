@@ -611,12 +611,9 @@ private struct NotebookCellRow: View {
         Binding(get: { model.text(of: cell.id) }, set: { model.updateText(cell.id, $0) })
     }
 
-    /// Grow a text editor with its content (no nested scroll); clamp so one huge
-    /// cell can't dominate the notebook.
-    private func editorHeight(_ s: String, line: CGFloat, min minLines: Int) -> CGFloat {
-        let lines = max(minLines, s.components(separatedBy: "\n").count)
-        return CGFloat(Swift.min(lines, 30)) * line + 14
-    }
+    /// The cell's one editor sizes itself to its laid-out content (reported via
+    /// onHeight) so there's no painful inner scroll — including soft-wrapped lines.
+    @State private var measuredEditorHeight: CGFloat = 44
 
     /// TWO independent cues, two channels — never conflated:
     ///   • the left RULE = block TYPE, always (no bar for Text, neutral for Code,
@@ -656,8 +653,9 @@ private struct NotebookCellRow: View {
         case .prose:
             if isEditing {
                 NotebookProseView(text: binding, cellID: cell.id, focusCtl: focusCtl,
+                                  onHeight: { measuredEditorHeight = $0 },
                                   onEscape: { focusCtl.enterCommandMode() })
-                    .frame(height: editorHeight(binding.wrappedValue, line: 19, min: 2))
+                    .frame(height: measuredEditorHeight)
             } else {
                 ProseRenderedView(markdown: model.text(of: cell.id))
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -670,9 +668,10 @@ private struct NotebookCellRow: View {
                 NotebookCodeView(text: binding, cellID: cell.id, isDark: isDark,
                                  errorLine: out?.error != nil ? out?.errorLine : nil,
                                  focusCtl: focusCtl,
+                                 onHeight: { measuredEditorHeight = $0 },
                                  onRun: { Task { await model.run(cell.id) } },
                                  onEscape: { focusCtl.enterCommandMode() })
-                    .frame(height: editorHeight(binding.wrappedValue, line: 18, min: 2))
+                    .frame(height: measuredEditorHeight)
                     .padding(6)
                     .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(0.045)))
                 outputView
@@ -696,9 +695,10 @@ private struct NotebookCellRow: View {
                         .allowsHitTesting(false)
                 }
                 NotebookProseView(text: binding, cellID: cell.id, focusCtl: focusCtl,
+                                  onHeight: { measuredEditorHeight = $0 },
                                   onRun: { Task { await model.runAgentCell(cell.id) } },
                                   onEscape: { focusCtl.enterCommandMode() })
-                    .frame(height: editorHeight(binding.wrappedValue, line: 19, min: 1))
+                    .frame(height: measuredEditorHeight)
             }
             // The agent AUTHORS its answer as real prose/code cells BELOW this
             // block (editable, re-runnable). What stays here is the task itself
@@ -789,6 +789,17 @@ private struct NotebookCellRow: View {
 /// Monospaced Lua source editor for a code cell that runs the cell from the
 /// keyboard — ⌘↩ or ⇧↩ (Jupyter-style), so notebooks aren't mouse-only.
 /// Backed by an NSTextView (SwiftUI TextEditor can't intercept those keys).
+/// Laid-out content height of a text view — accounts for SOFT-WRAPPED lines (a
+/// `\n` count doesn't), clamps to a generous cap, and toggles the inner scroller
+/// only past that cap. Callers on the main thread.
+private func notebookContentHeight(_ tv: NSTextView, cap: CGFloat = 700) -> CGFloat {
+    guard let lm = tv.layoutManager, let tc = tv.textContainer else { return 30 }
+    lm.ensureLayout(for: tc)
+    let used = lm.usedRect(for: tc).height + tv.textContainerInset.height * 2 + 3
+    tv.enclosingScrollView?.hasVerticalScroller = used > cap
+    return Swift.min(Swift.max(used, 30), cap)
+}
+
 struct NotebookCodeView: NSViewRepresentable {
     @Binding var text: String
     var cellID: String = "?"
@@ -797,6 +808,9 @@ struct NotebookCodeView: NSViewRepresentable {
     /// tinted in the editor so the "line N" badge points at something.
     var errorLine: Int?
     var focusCtl: NotebookFocusController
+    /// Report the editor's laid-out height so the cell can size to fit (no inner
+    /// scroll for normal cells).
+    var onHeight: (CGFloat) -> Void = { _ in }
     var onRun: () -> Void
     var onEscape: () -> Void = {}
 
@@ -813,7 +827,9 @@ struct NotebookCodeView: NSViewRepresentable {
         context.coordinator.textView = tv
         context.coordinator.dark = isDark
         context.coordinator.errorLine = errorLine
+        context.coordinator.onHeight = onHeight
         context.coordinator.highlight(tv)
+        context.coordinator.measure(tv)
         return scroll
     }
 
@@ -825,11 +841,13 @@ struct NotebookCodeView: NSViewRepresentable {
         tv.onEscape = onEscape
         tv.cellID = cellID
         tv.controller = focusCtl
+        context.coordinator.onHeight = onHeight
         if changed || context.coordinator.dark != isDark || context.coordinator.errorLine != errorLine {
             context.coordinator.dark = isDark
             context.coordinator.errorLine = errorLine
             context.coordinator.highlight(tv)
         }
+        context.coordinator.measure(tv)
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
@@ -839,7 +857,12 @@ struct NotebookCodeView: NSViewRepresentable {
         weak var textView: NSTextView?
         var dark = false
         var errorLine: Int?
+        var onHeight: ((CGFloat) -> Void)?
         init(text: Binding<String>) { self.text = text }
+        func measure(_ tv: NSTextView) {
+            let h = notebookContentHeight(tv)
+            DispatchQueue.main.async { [weak self] in self?.onHeight?(h) }
+        }
         func textDidChange(_ notification: Notification) {
             guard let tv = notification.object as? NSTextView, tv.string != text.wrappedValue else { return }
             text.wrappedValue = tv.string
@@ -847,6 +870,7 @@ struct NotebookCodeView: NSViewRepresentable {
             // re-highlight (the cell is now stale until re-run).
             errorLine = nil
             highlight(tv)
+            measure(tv)
         }
         func highlight(_ tv: NSTextView) {
             guard let storage = tv.textStorage else { return }
@@ -881,6 +905,7 @@ struct NotebookProseView: NSViewRepresentable {
     @Binding var text: String
     var cellID: String = "?"
     var focusCtl: NotebookFocusController
+    var onHeight: (CGFloat) -> Void = { _ in }
     /// Optional run action (⌘↩) — used by the agent prompt; nil for plain prose.
     var onRun: (() -> Void)? = nil
     var onEscape: () -> Void = {}
@@ -899,6 +924,8 @@ struct NotebookProseView: NSViewRepresentable {
         pv?.cellID = cellID
         pv?.controller = focusCtl
         context.coordinator.textView = tv
+        context.coordinator.onHeight = onHeight
+        context.coordinator.measure(tv)
         return scroll
     }
 
@@ -909,6 +936,8 @@ struct NotebookProseView: NSViewRepresentable {
         tv.onEscape = onEscape
         tv.cellID = cellID
         tv.controller = focusCtl
+        context.coordinator.onHeight = onHeight
+        context.coordinator.measure(tv)
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
@@ -916,10 +945,16 @@ struct NotebookProseView: NSViewRepresentable {
     final class Coordinator: NSObject, NSTextViewDelegate {
         let text: Binding<String>
         weak var textView: NSTextView?
+        var onHeight: ((CGFloat) -> Void)?
         init(text: Binding<String>) { self.text = text }
+        func measure(_ tv: NSTextView) {
+            let h = notebookContentHeight(tv)
+            DispatchQueue.main.async { [weak self] in self?.onHeight?(h) }
+        }
         func textDidChange(_ notification: Notification) {
             guard let tv = notification.object as? NSTextView, tv.string != text.wrappedValue else { return }
             text.wrappedValue = tv.string
+            measure(tv)
         }
     }
 }

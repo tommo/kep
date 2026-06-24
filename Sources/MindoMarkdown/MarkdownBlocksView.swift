@@ -115,9 +115,10 @@ private struct ListView: View {
     }
 }
 
-/// GFM table — equal-width columns via nested HStack/VStack (robust where a
-/// SwiftUI Grid with mixed Divider/greedy cells collapses), honoring per-column
-/// alignment.
+/// GFM table — a real grid: columns sized to content (GitHub-style, not equal
+/// width), grid lines between every cell, shaded header, per-column alignment,
+/// selectable cells. Built on SwiftUI `Grid` (no bare Divider / greedy cells,
+/// which is what collapsed the earlier attempt).
 private struct TableView: View {
     let header: [AttributedString]
     let rows: [[AttributedString]]
@@ -125,34 +126,38 @@ private struct TableView: View {
     let style: MarkdownRenderStyle
 
     private var columns: Int { max(header.count, rows.map(\.count).max() ?? 0) }
+    private let grid = Color.primary.opacity(0.18)
 
-    private func alignment(_ col: Int) -> Alignment {
+    private func frameAlign(_ col: Int) -> Alignment {
         switch align.indices.contains(col) ? align[col] : .leading {
         case .center: return .center; case .trailing: return .trailing; default: return .leading
         }
     }
 
-    @ViewBuilder private func rowView(_ cells: [AttributedString], bold: Bool) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            ForEach(0..<columns, id: \.self) { c in
-                Text(c < cells.count ? cells[c] : AttributedString(""))
-                    .font(.system(size: style.bodyFont.pointSize, weight: bold ? .semibold : .regular))
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: alignment(c))
-            }
-        }
+    @ViewBuilder private func cell(_ cells: [AttributedString], col: Int, header isHeader: Bool) -> some View {
+        Text(col < cells.count ? cells[col] : AttributedString(""))
+            .font(.system(size: style.bodyFont.pointSize, weight: isHeader ? .semibold : .regular))
+            .multilineTextAlignment(isHeader ? .center : .leading)
+            .textSelection(.enabled)
+            .padding(.horizontal, 10).padding(.vertical, 6)
+            // Fill the column so adjacent cell borders meet into clean grid lines.
+            .frame(maxWidth: .infinity, alignment: frameAlign(col))
+            .background(isHeader ? Color.primary.opacity(0.06) : Color.clear)
+            .overlay(Rectangle().stroke(grid, lineWidth: 0.5))
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            rowView(header, bold: true)
-            Divider()
+        Grid(alignment: .topLeading, horizontalSpacing: 0, verticalSpacing: 0) {
+            GridRow {
+                ForEach(0..<columns, id: \.self) { c in cell(header, col: c, header: true) }
+            }
             ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-                rowView(row, bold: false)
+                GridRow {
+                    ForEach(0..<columns, id: \.self) { c in cell(row, col: c, header: false) }
+                }
             }
         }
-        .padding(8)
-        .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(0.03)))
-        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.primary.opacity(0.12)))
+        .overlay(Rectangle().stroke(grid, lineWidth: 1))         // outer frame
+        .fixedSize(horizontal: false, vertical: true)
     }
 }

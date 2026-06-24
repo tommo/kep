@@ -139,9 +139,12 @@ public enum NativeMarkdownRenderer {
             case let s as Strong:           return withIntent(inline(s), .stronglyEmphasized)
             case let st as Strikethrough:   return withIntent(inline(st), .strikethrough)
             case let c as InlineCode:
+                // Monospaced + a subtle background chip (GitHub-style). The old
+                // string-literal syntax color was low-contrast on bubble/dark
+                // backgrounds; keep the default readable foreground instead.
                 var a = AttributedString(c.code)
                 a.inlinePresentationIntent = .code
-                a.foregroundColor = Color(style.palette.string)
+                a.backgroundColor = Color.primary.opacity(0.08)
                 return a
             case let l as Markdown.Link:
                 var a = inline(l)

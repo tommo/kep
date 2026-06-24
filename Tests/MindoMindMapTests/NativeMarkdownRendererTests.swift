@@ -52,6 +52,9 @@ final class NativeMarkdownRendererTests: XCTestCase {
         XCTAssertTrue(intents.contains { $0.contains(.stronglyEmphasized) })
         XCTAssertTrue(intents.contains { $0.contains(.code) })
         XCTAssertTrue(intents.contains { $0.contains(.strikethrough) })
+        // Inline code gets a readable background chip (not a low-contrast color).
+        let codeRun = a.runs.first { $0.inlinePresentationIntent?.contains(.code) == true }
+        XCTAssertNotNil(codeRun?.backgroundColor)
     }
 
     func testParagraphReflow() {

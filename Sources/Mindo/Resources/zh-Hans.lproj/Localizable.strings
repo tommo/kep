@@ -203,6 +203,7 @@
 "sidebar.menu.new_file.plantuml" = "PlantUML (.puml)";
 "sidebar.menu.new_file.csv" = "CSV (.csv)";
 "sidebar.menu.new_file.notebook" = "研究笔记本 (.mnb)";
+"sidebar.menu.new_file.lua" = "笔记本库 (.lua)";
 "sidebar.menu.new_file.text" = "纯文本 (.txt)";
 "sidebar.filter.clear" = "清除筛选";
 "sidebar.recently_opened" = "最近打开";

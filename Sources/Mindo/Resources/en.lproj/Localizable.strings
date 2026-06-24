@@ -206,6 +206,7 @@
 "sidebar.menu.new_file.plantuml" = "PlantUML (.puml)";
 "sidebar.menu.new_file.csv" = "CSV (.csv)";
 "sidebar.menu.new_file.notebook" = "Research Notebook (.mnb)";
+"sidebar.menu.new_file.lua" = "Notebook Library (.lua)";
 "sidebar.menu.new_file.text" = "Plain Text (.txt)";
 "sidebar.filter.clear" = "Clear filter";
 "sidebar.recently_opened" = "Recently opened";

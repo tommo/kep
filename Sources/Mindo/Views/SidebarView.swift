@@ -219,6 +219,7 @@ struct SidebarView: View {
                 Button(L("sidebar.menu.new_file.plantuml")) { session.createFile(in: root, extension: "puml") }
                 Button(L("sidebar.menu.new_file.csv"))      { session.createFile(in: root, extension: "csv") }
                 Button(L("sidebar.menu.new_file.notebook")) { session.createFile(in: root, extension: "mnb") }
+                Button(L("sidebar.menu.new_file.lua"))      { session.createFile(in: root, extension: "lua") }
                 Button(L("sidebar.menu.new_file.text"))     { session.createFile(in: root, extension: "txt") }
             }
             Button(L("sidebar.menu.new_folder")) { session.createFolder(in: root) }
@@ -397,6 +398,7 @@ struct NodeRow: View {
                 Button(L("sidebar.menu.new_file.plantuml")) { session.createFile(in: node, extension: "puml") }
                 Button(L("sidebar.menu.new_file.csv"))      { session.createFile(in: node, extension: "csv") }
                 Button(L("sidebar.menu.new_file.notebook")) { session.createFile(in: node, extension: "mnb") }
+                Button(L("sidebar.menu.new_file.lua"))      { session.createFile(in: node, extension: "lua") }
                 Button(L("sidebar.menu.new_file.text"))     { session.createFile(in: node, extension: "txt") }
             }
             Button(L("sidebar.menu.new_folder")) { session.createFolder(in: node) }

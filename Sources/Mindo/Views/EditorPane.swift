@@ -124,6 +124,10 @@ struct EditorPane: View {
                 runAgent: { question, context, ctx, sink in await session.runNotebookAgent(question, context: context, in: ctx, into: sink) },
                 onOpenSource: { name in session.openWikiLink(target: name, heading: nil) },
                 shouldFocusOnAppear: { session.pendingEditorFocus })
+        case .text(_, .lua):
+            // Notebook-library Lua (notebook.lua / lib/*.lua): editable, with the
+            // same Lua syntax highlighting as notebook code cells.
+            LuaSourceEditor(text: textBinding(for: documentID), isDark: colorScheme == .dark)
         case .text(let body, _):
             ScrollView {
                 Text(body)

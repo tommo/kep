@@ -58,7 +58,7 @@ struct OpenDocument: Identifiable, Hashable {
                 map = m
             }
             return OpenDocument(kind: .mindMap(map), fileURL: url, title: title)
-        case .markdown, .plantUML, .csv, .plainText, .mindNotebook:
+        case .markdown, .plantUML, .csv, .plainText, .mindNotebook, .lua:
             let text = try String(contentsOf: url, encoding: .utf8)
             return OpenDocument(kind: .text(text, fileType: type), fileURL: url, title: title)
         case .jpeg, .png, .none:

@@ -45,14 +45,24 @@ extension AppSession {
         return kernel
     }
 
-    /// User-extensible Lua arsenal: load `notebook.lua` from the app-support dir
-    /// (global) and each open workspace root (vault-local) into the kernel, so a
-    /// user's own helpers are available in every notebook cell and to the agent.
-    /// A broken library surfaces an error but doesn't break the kernel.
+    /// User-extensible Lua arsenal, loaded into the kernel in order so a user's
+    /// own helpers are available in every notebook cell and to the agent:
+    ///   1. global  `~/Library/Application Support/Mindo/notebook.lua`
+    ///   2. per vault: `<root>/notebook.lua`, then `<root>/lib/*.lua` (alphabetical)
+    /// Later files run last and can extend/override earlier ones (one shared VM).
+    /// A broken library surfaces an error but doesn't break the kernel. Edits
+    /// take effect on the next kernel rebuild (Run All).
     @MainActor
     private func loadNotebookLibraries(into kernel: MindoNotebookKernel) {
         var urls = [MindoCore.applicationSupportURL.appendingPathComponent("notebook.lua")]
-        urls += workspaceRoots.map { $0.url.appendingPathComponent("notebook.lua") }
+        for root in workspaceRoots {
+            urls.append(root.url.appendingPathComponent("notebook.lua"))
+            let libDir = root.url.appendingPathComponent("lib")
+            if let files = try? FileManager.default.contentsOfDirectory(at: libDir, includingPropertiesForKeys: nil) {
+                urls += files.filter { $0.pathExtension.lowercased() == "lua" }
+                             .sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
+            }
+        }
         var errors: [String] = []
         for url in urls {
             guard let src = try? String(contentsOf: url, encoding: .utf8),

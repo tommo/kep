@@ -3,6 +3,14 @@ import KepBridge
 import MindoCore
 import MindoModel
 import MindoScript
+import MindoCSV
+
+/// Weak holder so a closed CSV tab's coordinator deallocs and the registry
+/// entry resolves to nil (falling back to the disk path).
+final class WeakCSVBridge {
+    weak var bridge: CSVLiveBridge?
+    init(_ bridge: CSVLiveBridge) { self.bridge = bridge }
+}
 
 // External-agent bridge: a Unix-socket server (KepBridge) that exposes kep's own
 // agent tools to the `kep` CLI and `kep-mcp` MCP server, driving the LIVE app so
@@ -19,6 +27,33 @@ extension AppSession {
             .map { BridgeToolDescriptor(name: $0.name, description: $0.description, parametersJSON: $0.parametersJSON) }
     }
 
+    /// Register an open CSV editor's live-sheet bridge (keyed by URL).
+    func registerLiveCSV(_ url: URL, _ bridge: CSVLiveBridge) {
+        liveCSVBridges[url.standardizedFileURL] = WeakCSVBridge(bridge)
+    }
+
+    /// The live sheet for an OPEN CSV at `url`, or nil if it isn't open.
+    func liveCSV(_ url: URL) -> CSVLiveBridge? {
+        liveCSVBridges[url.standardizedFileURL]?.bridge
+    }
+
+    /// Wire the CSV tool effects to prefer the OPEN editor's live sheet (unsaved
+    /// state + instant UI), falling back to the on-disk path when not open.
+    /// Shared by the chat agent and the external bridge.
+    func wireCSVEffects(_ effects: AgentToolEffects) {
+        effects.csvCellValue = { [weak self] url, a1 in
+            self?.liveCSV(url)?.liveReadCell(a1) ?? Self.csvReadCell(url, a1)
+        }
+        effects.csvSetCell = { [weak self] url, a1, v in
+            if let live = self?.liveCSV(url) { return live.liveSetCell(a1, value: v) }
+            return Self.csvWriteCell(url, a1, v)
+        }
+        effects.csvAddBlock = { [weak self] url, n, s in
+            if let live = self?.liveCSV(url) { return live.liveAddBlock(name: n, source: s) }
+            return Self.csvAddBlock(url, n, s)
+        }
+    }
+
     /// Run one external tool call against the live session, then reflect any
     /// changes in the UI (same path as the chat agent).
     @MainActor
@@ -28,9 +63,7 @@ extension AppSession {
         let map = activeMindMap ?? MindMap(root: Topic(text: "Scratch"))
         let mapBefore = hadMindMap ? map.write() : ""
         let effects = AgentToolEffects()
-        effects.csvCellValue = { url, a1 in Self.csvReadCell(url, a1) }
-        effects.csvSetCell = { url, a1, v in Self.csvWriteCell(url, a1, v) }
-        effects.csvAddBlock = { url, n, s in Self.csvAddBlock(url, n, s) }
+        wireCSVEffects(effects)
         let tools = MindoAgentTools(map: map, corpus: corpus, allFiles: files,
                                     workspaceRoot: workspaceRoots.first?.url, effects: effects)
         let result = tools.handle(name: name, argumentsJSON: argumentsJSON)

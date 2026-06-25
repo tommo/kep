@@ -16,14 +16,19 @@ public struct CSVEditor: NSViewRepresentable {
     /// Publishes the coordinator's sheet-blocks model to the host so the right
     /// inspector can render the Sheet Blocks pane.
     public var onBlocksModel: ((CSVBlocksModel) -> Void)?
+    /// Publishes the coordinator as a live-sheet bridge (keyed by documentURL) so
+    /// agent/bridge CSV tools edit the OPEN sheet instead of disk.
+    public var onLiveBridge: ((URL, CSVLiveBridge) -> Void)?
 
     public init(text: Binding<String>, findBarVisible: Binding<Bool> = .constant(false),
                 documentURL: URL? = nil,
-                onBlocksModel: ((CSVBlocksModel) -> Void)? = nil) {
+                onBlocksModel: ((CSVBlocksModel) -> Void)? = nil,
+                onLiveBridge: ((URL, CSVLiveBridge) -> Void)? = nil) {
         self._text = text
         self._findBarVisible = findBarVisible
         self.documentURL = documentURL
         self.onBlocksModel = onBlocksModel
+        self.onLiveBridge = onLiveBridge
     }
 
     public func makeNSView(context: Context) -> NSView {
@@ -156,6 +161,9 @@ public struct CSVEditor: NSViewRepresentable {
     private func publishBlocks(_ coordinator: Coordinator) {
         let model = coordinator.blocksModel
         DispatchQueue.main.async { [onBlocksModel] in onBlocksModel?(model) }
+        if let url = documentURL {
+            DispatchQueue.main.async { [onLiveBridge] in onLiveBridge?(url, coordinator) }
+        }
     }
 
     public func updateNSView(_ nsView: NSView, context: Context) {
@@ -274,7 +282,7 @@ public struct CSVEditor: NSViewRepresentable {
         return stack
     }
 
-    public final class Coordinator: NSObject {
+    public final class Coordinator: NSObject, CSVLiveBridge {
         var parent: CSVEditor?
         var grid: CSVGridView?
         /// Mirror of the grid's selection, used by the toolbar/clipboard ops.
@@ -301,6 +309,30 @@ public struct CSVEditor: NSViewRepresentable {
         /// Sheet-blocks model, rendered by the right inspector (published via
         /// the editor's onBlocksModel). Owned here for synchronous sheet access.
         let blocksModel = CSVBlocksModel()
+
+        // MARK: - CSVLiveBridge (agent/bridge tools on the live, open sheet)
+
+        public func liveReadCell(_ a1: String) -> String? {
+            guard let ref = CSVCellRef(a1: a1) else { return nil }
+            return sheet.formula(at: ref) ?? sheet.value(at: ref)
+        }
+
+        public func liveSetCell(_ a1: String, value: String) -> Bool {
+            guard let ref = CSVCellRef(a1: a1) else { return false }
+            while doc.rows.count <= ref.row { doc.appendRow() }
+            commitGridEdit(ref, value)   // undoable + reloads the grid + marks dirty
+            return true
+        }
+
+        public func liveAddBlock(name: String, source: String) -> String {
+            let block = CSVEvalBlock(name: name, source: source)
+            blocksModel.blocks.append(block)
+            blocksModel.runAll()         // recompute + persist sidecar + reload grid
+            if let r = blocksModel.results[block.id] {
+                return r.error.map { "errored: \($0)" } ?? "= \(r.value)"
+            }
+            return "added"
+        }
 
         /// Wire the panel's persist/apply closures to the live sheet. Called
         /// before the first load so `runAll` works.

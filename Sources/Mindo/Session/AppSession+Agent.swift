@@ -32,10 +32,8 @@ extension AppSession {
         let map = activeMindMap ?? MindMap(root: Topic(text: "Scratch"))
         let mapBefore = hadMindMap ? map.write() : ""
         let effects = AgentToolEffects()
-        // Inject CSV cell read/write (the spreadsheet model lives in MindoCSV).
-        effects.csvCellValue = { url, a1 in Self.csvReadCell(url, a1) }
-        effects.csvSetCell = { url, a1, value in Self.csvWriteCell(url, a1, value) }
-        effects.csvAddBlock = { url, name, source in Self.csvAddBlock(url, name, source) }
+        // CSV tools prefer the OPEN editor's live sheet, else disk (see +Bridge).
+        wireCSVEffects(effects)
         let tools = MindoAgentTools(map: map, corpus: corpus, allFiles: files,
                                     workspaceRoot: workspaceRoots.first?.url, effects: effects)
         // Without an open mind map, omit the map-editing tools — their changes

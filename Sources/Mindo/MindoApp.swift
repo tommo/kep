@@ -475,6 +475,9 @@ final class AppSession {
     var activeCSVBlocks: CSVBlocksModel?
     /// External-agent bridge server (Unix socket), when enabled in prefs.
     @ObservationIgnored var bridgeServer: KepBridgeServer?
+    /// Open CSV editors' live-sheet bridges, keyed by document URL (weak), so
+    /// agent/bridge CSV tools edit the OPEN sheet instead of disk.
+    @ObservationIgnored var liveCSVBridges: [URL: WeakCSVBridge] = [:]
     var activeDocumentID: OpenDocument.ID? {
         didSet {
             // Autosave the doc we just left — silent, only if it has a URL

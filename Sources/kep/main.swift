@@ -59,7 +59,7 @@ case "search":
     guard !rest.isEmpty else { fail("usage: kep search <query>") }
     let query = rest.joined(separator: " ")
     let argsJSON = #"{"query":"\#(query.replacingOccurrences(of: "\"", with: "\\\""))"}"#
-    let r = send(BridgeRequest(method: "tools/call", name: "search", arguments: argsJSON), socket: socketPath)
+    let r = send(BridgeRequest(method: "tools/call", name: "search_workspace", arguments: argsJSON), socket: socketPath)
     if r.ok { print(r.result ?? "") } else { fail(r.error ?? "error") }
 
 default:

@@ -23,6 +23,9 @@ public enum PrefKeys {
     /// CSV grid cell font (family empty = system; size clamped 9…16).
     public static let csvFontFamily = "mindo.prefs.csvFontFamily"
     public static let csvFontSize = "mindo.prefs.csvFontSize"
+    /// Enable the external-agent bridge (Unix-socket server for the kep CLI /
+    /// kep-mcp MCP server to drive the running app). Off by default.
+    public static let bridgeEnabled = "mindo.prefs.bridge.enabled"
     /// Highlight the connector route from the root to the selected mind-map node.
     public static let mindmapHighlightPath = "mindo.prefs.mindmapHighlightPath"
     public static let outlineOpenByDefault = "mindo.prefs.outlineOpenByDefault"

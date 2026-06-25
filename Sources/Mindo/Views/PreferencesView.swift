@@ -34,6 +34,7 @@ private struct GeneralPrefs: View {
     @AppStorage(PrefKeys.confirmBeforeQuit) private var confirmBeforeQuit: Bool = false
     @AppStorage(PrefKeys.openLastFiles) private var openLastFiles: Bool = true
     @AppStorage(PrefKeys.privacyBlockRemoteContent) private var blockRemoteContent: Bool = true
+    @AppStorage(PrefKeys.bridgeEnabled) private var bridgeEnabled: Bool = false
     @Environment(AppSession.self) private var session
 
     var body: some View {
@@ -68,6 +69,12 @@ private struct GeneralPrefs: View {
             Section(L("prefs.general.section.privacy")) {
                 Toggle(L("prefs.general.block_remote_content"), isOn: $blockRemoteContent)
                 Text(L("prefs.general.block_remote_content.help"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Section("External Agent Bridge") {
+                Toggle("Let external agents control kep (CLI / MCP)", isOn: $bridgeEnabled)
+                Text("Runs a local Unix socket the `kep` CLI and `kep-mcp` server connect to, exposing kep's own tools. Local-only (no network). Restart kep to apply.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

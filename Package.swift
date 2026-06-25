@@ -15,7 +15,10 @@ let package = Package(
         .library(name: "MindoCSV", targets: ["MindoCSV"]),
         .library(name: "MindoGenAI", targets: ["MindoGenAI"]),
         .library(name: "MindoScript", targets: ["MindoScript"]),
+        .library(name: "KepBridge", targets: ["KepBridge"]),
         .executable(name: "Mindo", targets: ["Mindo"]),
+        .executable(name: "kep", targets: ["kep"]),
+        .executable(name: "kep-mcp", targets: ["kep-mcp"]),
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.1.0"),
@@ -76,11 +79,19 @@ let package = Package(
             dependencies: [
                 "MindoModel", "MindoCore", "MindoBase",
                 "MindoMindMap", "MindoMarkdown", "MindoPlantUML",
-                "MindoCSV", "MindoGenAI", "MindoScript",
+                "MindoCSV", "MindoGenAI", "MindoScript", "KepBridge",
             ],
             resources: [.process("Resources")]
         ),
 
+        // Local IPC bridge: a tiny JSON line-protocol + Unix-socket client/server
+        // so external agents (CLI, MCP) drive the RUNNING kep app. No Mindo deps
+        // — the clients stay decoupled; the app links it to run the server.
+        .target(name: "KepBridge"),
+        .executableTarget(name: "kep", dependencies: ["KepBridge"]),
+        .executableTarget(name: "kep-mcp", dependencies: ["KepBridge"]),
+
+        .testTarget(name: "KepBridgeTests", dependencies: ["KepBridge"]),
         .testTarget(
             name: "MindoModelTests",
             dependencies: ["MindoModel"],

@@ -55,8 +55,19 @@ extension AppSession {
             return tools.handle(name: call.name, argumentsJSON: call.argumentsJSON)
         }
 
-        // Reflect any map mutations the tools made on the active canvas, as one
-        // undoable step.
+        reflectAgentChanges(effects: effects, map: map, hadMindMap: hadMindMap, mapBefore: mapBefore)
+        // Show which tools ran, so the user sees what the agent did.
+        guard !usedTools.isEmpty else { return reply }
+        let trail = "🔧 " + usedTools.joined(separator: ", ")
+        return reply.isEmpty ? trail : "\(trail)\n\n\(reply)"
+    }
+
+    /// Apply the side effects a tool run produced to the live session: reflect
+    /// map edits (undoable + canvas reload), reload other tabs whose files were
+    /// written, refresh the corpus + sidebar, and honor a select-topic request.
+    /// Shared by the chat agent and the external bridge so both update the UI.
+    @MainActor
+    func reflectAgentChanges(effects: AgentToolEffects, map: MindMap, hadMindMap: Bool, mapBefore: String) {
         if effects.mapMutated, hadMindMap, let id = activeDocumentID,
            let idx = openDocuments.firstIndex(where: { $0.id == id }) {
             registerMapSnapshotUndo(map, before: mapBefore, after: map.write(), name: "AI Edit")
@@ -64,37 +75,17 @@ extension AppSession {
             mindmapCommand = .reload
             mindmapCommandTick &+= 1
         }
-        // Reload any *other* open tab whose file the agent wrote to disk. Skip
-        // the active doc — if it's the mutated mind map, the in-memory reload
-        // above already reflects it, and reloading from disk would clobber it.
         for url in effects.changedFiles {
             if let doc = openDocuments.first(where: {
                 $0.fileURL?.standardizedFileURL == url.standardizedFileURL
             }) {
-                // Skip only the active mind map (reloaded in-memory above);
-                // an active CSV the agent edited still needs a disk reload.
                 let isActiveMutatedMap = doc.id == activeDocumentID && effects.mapMutated
                 if !isActiveMutatedMap { reloadTab(doc.id) }
             }
         }
-        // Files the agent wrote this run changed on disk — invalidate the cached
-        // corpus now so the NEXT message re-reads them (don't wait for the watcher).
-        if !effects.changedFiles.isEmpty {
-            workspaceContentVersion &+= 1
-        }
-        // Surface newly-created files in the sidebar.
-        if !effects.createdFiles.isEmpty {
-            reloadAllWorkspaces()
-        }
-        // The agent asked to point the user at a node (select_topic) — reveal +
-        // select it on the canvas.
-        if let path = effects.selectTopicPath {
-            requestOutlineNavigation(target: path)
-        }
-        // Show which tools ran, so the user sees what the agent did.
-        guard !usedTools.isEmpty else { return reply }
-        let trail = "🔧 " + usedTools.joined(separator: ", ")
-        return reply.isEmpty ? trail : "\(trail)\n\n\(reply)"
+        if !effects.changedFiles.isEmpty { workspaceContentVersion &+= 1 }
+        if !effects.createdFiles.isEmpty { reloadAllWorkspaces() }
+        if let path = effects.selectTopicPath { requestOutlineNavigation(target: path) }
     }
 }
 

@@ -9,6 +9,7 @@ import MindoGenAI
 import MindoMarkdown
 import MindoPlantUML
 import MindoModel
+import KepBridge
 
 extension Color {
     /// kep brand accent — a calm teal ("keep your ideas"). Applied app-wide via
@@ -97,6 +98,7 @@ struct MindoApp: App {
             ContentView(session: $session)
                 .frame(minWidth: 1000, minHeight: 700)
                 .tint(Color.kepAccent)   // brand accent (selection/focus ring/buttons/links)
+                .task { session.startBridge() }   // external-agent bridge (opt-in via prefs)
                 // Persist tab state on app quit as a safety net for
                 // anything the inline persistOpenTabs() calls miss.
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
@@ -471,6 +473,8 @@ final class AppSession {
     /// inspector can render the Sheet Blocks pane. Owned by the CSV editor's
     /// coordinator (which keeps synchronous access to the live sheet).
     var activeCSVBlocks: CSVBlocksModel?
+    /// External-agent bridge server (Unix socket), when enabled in prefs.
+    @ObservationIgnored var bridgeServer: KepBridgeServer?
     var activeDocumentID: OpenDocument.ID? {
         didSet {
             // Autosave the doc we just left — silent, only if it has a URL

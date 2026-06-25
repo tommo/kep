@@ -186,6 +186,9 @@ struct ContentView: View {
                     session.focusRegion(session.activeDocument != nil ? .document : .sidebar)
                 }
             }
+            // Hand ⌘W to our "Close Tab" command by stripping it from the system
+            // File ▸ Close item, which otherwise closes the whole window.
+            NativeMenuFix.releaseWindowCloseShortcut()
         }
         // Marks the document window as focused so ⌘W (Close Tab) is scoped here
         // and doesn't fire when the Settings window is key.
@@ -677,6 +680,32 @@ private struct CollapsibleInspectorSection<Content: View>: View {
 /// stop the resize at its source, so we counter it: track the user's chosen
 /// width continuously, and during a short window after a toggle clamp any
 /// resize back to it — the detail pane absorbs the change instead.
+/// SwiftUI's WindowGroup adds a File ▸ "Close" item bound to ⌘W (action
+/// performClose:) that closes the whole window, shadowing our "Close Tab"
+/// command. Strip ⌘W from that native item (and "Close All" ⌥⌘W) so our
+/// command owns the shortcut. Retried a few times because the menu is built
+/// asynchronously after launch.
+enum NativeMenuFix {
+    static func releaseWindowCloseShortcut(attempt: Int = 0) {
+        var stripped = false
+        if let main = NSApp.mainMenu {
+            for sub in main.items.compactMap(\.submenu) {
+                for item in sub.items where item.keyEquivalent == "w"
+                    && item.keyEquivalentModifierMask == .command
+                    && item.action == #selector(NSWindow.performClose(_:)) {
+                    item.keyEquivalent = ""
+                    stripped = true
+                }
+            }
+        }
+        if !stripped, attempt < 5 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                releaseWindowCloseShortcut(attempt: attempt + 1)
+            }
+        }
+    }
+}
+
 final class WindowWidthKeeper {
     static let shared = WindowWidthKeeper()
 

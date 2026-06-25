@@ -1,0 +1,46 @@
+name: Release
+
+# Build the .dmg and publish a GitHub Release whenever a v* tag is pushed.
+#   git tag v0.1.0 && git push origin v0.1.0
+on:
+  push:
+    tags:
+      - 'v*'
+
+# gh release create needs write access to the repo's releases.
+permissions:
+  contents: write
+
+jobs:
+  release:
+    # macOS runner — Kep is a native AppKit/SwiftUI app (compiles headlessly).
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: swift --version
+
+      - name: Cache SwiftPM build
+        uses: actions/cache@v4
+        with:
+          path: .build
+          key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved') }}
+          restore-keys: ${{ runner.os }}-spm-
+
+      - name: Run tests
+        run: swift test
+
+      - name: Build DMG
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"          # v0.1.0 -> 0.1.0
+          ./Scripts/make-dmg.sh "$VERSION"        # builds the .app, then the .dmg
+          echo "DMG_PATH=build/kep-$VERSION.dmg" >> "$GITHUB_ENV"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "$DMG_PATH" \
+            --title "Kep ${GITHUB_REF_NAME#v}" \
+            --generate-notes

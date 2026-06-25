@@ -4,8 +4,6 @@ A native macOS port of [Mindolph](https://github.com/mindolph/Mindolph) — pers
 
 ![Kep — native macOS personal-knowledge-management](screen.png)
 
-Source-of-truth for behavior parity is the Java original at `../javamind`. See `docs/architecture.md` for the module map.
-
 ## Status
 
 Early scaffolding. Track progress via the `kep-swift-port` kanban project.
@@ -30,7 +28,7 @@ swift run Kep
 The window opens immediately and is brought to the foreground (the
 `KepAppDelegate` calls `NSApp.activate(ignoringOtherApps: true)`).
 First-time UX: the sidebar is empty — use **File → Open Workspace…**
-to pick a folder (e.g. `../javamind/DemoWorkspace`).
+to pick a folder (e.g. the bundled `Examples/espresso-kb`).
 
 ### 2. Recommended — Xcode
 
@@ -65,13 +63,15 @@ disk image. For App Store / notarized distribution add `codesign` +
 
 ### Sample data
 
-- `../javamind/DemoWorkspace/MindMap.mmd` — Mindolph's full demo file,
-  great for testing the canvas (round-trips through our parser).
-- `../javamind/DemoWorkspace/Markdown.md` — exercises the markdown
-  editor + WKWebView preview.
-- `../javamind/DemoWorkspace/PlantUML/*.puml` — PlantUML samples; run
-  `brew install plantuml graphviz` first or you'll see the install hint.
-- `../javamind/DemoWorkspace/CSV.csv` — drives the CSV table editor.
+`Examples/espresso-kb` is a bundled demo workspace exercising every file type:
+
+- `Espresso Map.mmd` — mind map for testing the canvas.
+- `Extraction.md` / `Grind.md` / `Home.md` — markdown editor + WKWebView preview.
+- `Brewing Process.puml` — PlantUML; run `brew install plantuml graphviz`
+  first or you'll see the install hint.
+- `Bean Origins.csv` — drives the CSV table editor.
+- `Extraction Research.mnb` / `Dialing In a Shot.mnb` — research notebooks
+  (Lua + AI agent cells).
 
 ### Test scenarios worth a sweep
 

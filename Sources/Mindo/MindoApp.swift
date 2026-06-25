@@ -183,6 +183,8 @@ struct MindoApp: App {
             // value, so it's INACTIVE when the Settings window is key (⌘W then
             // closes Settings natively instead of tearing down the document).
             DocumentCloseCommands(close: { session.closeActive() })
+            // (documentSceneActive focus value retired — ⌘W now self-scopes via
+            //  the key window in closeActive.)
             CommandGroup(replacing: .appInfo) {
                 Button(L("menu.help.about")) { session.aboutOpen = true }
             }
@@ -447,13 +449,15 @@ extension FocusedValues {
 /// focused. When the Settings window is key the focused value is nil, so this
 /// command is disabled and ⌘W falls through to AppKit's native window close.
 private struct DocumentCloseCommands: Commands {
-    @FocusedValue(\.documentSceneActive) private var documentActive
     let close: () -> Void
     var body: some Commands {
+        // Always enabled: ⌘W routes to closeActive, which closes the active tab
+        // on the document window (no-op when empty, so the window stays open) and
+        // closes other windows (Settings, …) natively. ⌘W never tears down the
+        // document window.
         CommandGroup(after: .saveItem) {
             Button(L("menu.file.close_tab"), action: close)
                 .keyboardShortcut("w", modifiers: .command)
-                .disabled(documentActive != true)
         }
     }
 }

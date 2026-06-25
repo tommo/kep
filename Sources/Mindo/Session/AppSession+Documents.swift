@@ -145,6 +145,16 @@ extension AppSession {
     }
 
     func closeActive() {
+        // ⌘W on a non-document window (Settings, About, …) closes that window
+        // natively — only redirect when we KNOW the key window is the document
+        // window (host known and matching).
+        if let host = WindowWidthKeeper.shared.hostWindow,
+           let key = NSApp.keyWindow, key !== host {
+            key.performClose(nil)
+            return
+        }
+        // Document window: close the active tab if there is one; otherwise no-op
+        // so the window stays open even with no active document.
         guard let id = activeDocumentID else { return }
         closeTab(id)
     }

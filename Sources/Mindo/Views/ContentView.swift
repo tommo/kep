@@ -681,6 +681,8 @@ final class WindowWidthKeeper {
     static let shared = WindowWidthKeeper()
 
     private weak var window: NSWindow?
+    /// The attached document window — used to scope ⌘W (Close Tab) to it.
+    var hostWindow: NSWindow? { window }
     private var stableWidth: CGFloat = 0
     private var lockUntil = Date.distantPast
     private var token: NSObjectProtocol?

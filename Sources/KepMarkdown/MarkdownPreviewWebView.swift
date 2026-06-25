@@ -1,0 +1,34 @@
+import WebKit
+import KepCore
+
+/// WKWebView that prepends our markdown-preview actions (Refresh / Focus
+/// Editor) to the standard right-click menu. Mirrors the PlantUML preview's
+/// menu so the two read the same. Items + handler come from the coordinator.
+final class MarkdownPreviewWebView: WKWebView {
+    var menuItemsProvider: (() -> [PreviewMenuItem])?
+    var onMenuAction: ((PreviewMenuAction) -> Void)?
+
+    override func willOpenMenu(_ menu: NSMenu, with event: NSEvent) {
+        super.willOpenMenu(menu, with: event)
+        guard let items = menuItemsProvider?(), !items.isEmpty else { return }
+        var index = 0
+        for item in items {
+            let mi = NSMenuItem(
+                title: item.title,
+                action: item.isEnabled ? #selector(handleMenuAction(_:)) : nil,
+                keyEquivalent: ""
+            )
+            mi.target = self
+            mi.representedObject = item.action.rawValue
+            menu.insertItem(mi, at: index)
+            index += 1
+        }
+        menu.insertItem(.separator(), at: index)
+    }
+
+    @objc private func handleMenuAction(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String,
+              let action = PreviewMenuAction(rawValue: raw) else { return }
+        onMenuAction?(action)
+    }
+}

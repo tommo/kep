@@ -1,0 +1,122 @@
+import Foundation
+
+/// Persisted reference to a workspace root on disk. Mirrors `WorkspaceMeta`.
+public struct WorkspaceMeta: Codable, Hashable, Sendable {
+    public var baseDirPath: String
+    /// User-chosen display name for this workspace. When set it replaces the raw
+    /// directory name in the sidebar; `nil`/empty falls back to the folder name.
+    public var alias: String?
+
+    public init(baseDirPath: String, alias: String? = nil) {
+        self.baseDirPath = baseDirPath
+        self.alias = alias
+    }
+
+    public init(url: URL, alias: String? = nil) {
+        self.baseDirPath = url.path
+        self.alias = alias
+    }
+
+    public var url: URL { URL(fileURLWithPath: baseDirPath) }
+
+    public var name: String {
+        if let alias, !alias.trimmingCharacters(in: .whitespaces).isEmpty { return alias }
+        return URL(fileURLWithPath: baseDirPath).lastPathComponent
+    }
+
+    // Identity is the path only — alias is mutable display metadata, so two
+    // metas for the same folder are "the same workspace" for add/remove/dedup.
+    public static func == (lhs: WorkspaceMeta, rhs: WorkspaceMeta) -> Bool {
+        lhs.baseDirPath == rhs.baseDirPath
+    }
+    public func hash(into hasher: inout Hasher) { hasher.combine(baseDirPath) }
+
+    public var exists: Bool {
+        FileManager.default.fileExists(atPath: baseDirPath)
+    }
+
+    public func contains(_ url: URL) -> Bool {
+        let p = url.path
+        return p == baseDirPath || p.hasPrefix(baseDirPath + "/")
+    }
+}
+
+/// Codable container for the user's known workspaces. Mirrors `WorkspaceList`.
+/// JSON is persisted in `~/Library/Application Support/Kep/workspaces.json`.
+public struct WorkspaceList: Codable, Sendable {
+    /// Field name `projects` matches the Java original for forward-compat with imported configs.
+    public var projects: [WorkspaceMeta]
+
+    public init(projects: [WorkspaceMeta] = []) {
+        // Preserve order, drop dupes.
+        var seen = Set<String>()
+        self.projects = projects.filter { seen.insert($0.baseDirPath).inserted }
+    }
+
+    public mutating func add(_ workspace: WorkspaceMeta) {
+        if !projects.contains(workspace) { projects.append(workspace) }
+    }
+
+    public mutating func remove(_ workspace: WorkspaceMeta) {
+        projects.removeAll { $0 == workspace }
+    }
+
+    public mutating func removeNonExistent() {
+        projects.removeAll { !$0.exists }
+    }
+
+    /// Return the deepest matching workspace (since a sub-dir can be itself a workspace).
+    public func match(filePath: String) -> WorkspaceMeta? {
+        projects
+            .filter { filePath.hasPrefix($0.baseDirPath) }
+            .max(by: { $0.baseDirPath.count < $1.baseDirPath.count })
+    }
+}
+
+/// Configuration for filtering files shown in the workspace tree. Mirrors `WorkspaceConfig`.
+public struct WorkspaceConfig: Sendable {
+    public var includeSuffixes: [String]?
+    public var excludeSuffixes: [String]
+    public var showHiddenFiles: Bool
+    public var showHiddenDirectories: Bool
+
+    public init(
+        includeSuffixes: [String]? = nil,
+        excludeSuffixes: [String] = [".DS_Store"],
+        showHiddenFiles: Bool = false,
+        showHiddenDirectories: Bool = false
+    ) {
+        self.includeSuffixes = includeSuffixes
+        self.excludeSuffixes = excludeSuffixes
+        self.showHiddenFiles = showHiddenFiles
+        self.showHiddenDirectories = showHiddenDirectories
+    }
+
+    public static let `default` = WorkspaceConfig()
+
+    /// Build a config that mirrors the user's current preference for
+    /// hidden-file visibility. Sidebar / NodeData callers use this so a
+    /// pref toggle picks up on the next reload without callers having
+    /// to read PrefKeys themselves.
+    public static func fromPreferences() -> WorkspaceConfig {
+        let show = PrefKeys.bool(PrefKeys.showHiddenFiles, fallback: false)
+        return WorkspaceConfig(showHiddenFiles: show, showHiddenDirectories: show)
+    }
+
+    public func acceptsFile(_ url: URL) -> Bool {
+        let name = url.lastPathComponent
+        if !showHiddenFiles && name.hasPrefix(".") { return false }
+        let lower = name.lowercased()
+        for ex in excludeSuffixes where lower.hasSuffix(ex.lowercased()) { return false }
+        if let inc = includeSuffixes, !inc.isEmpty {
+            return inc.contains { lower.hasSuffix($0.lowercased()) }
+        }
+        return true
+    }
+
+    public func acceptsDirectory(_ url: URL) -> Bool {
+        let name = url.lastPathComponent
+        if !showHiddenDirectories && name.hasPrefix(".") { return false }
+        return true
+    }
+}

@@ -2,21 +2,21 @@
 import PackageDescription
 
 let package = Package(
-    name: "Mindo",
+    name: "Kep",
     defaultLocalization: "en",
     platforms: [.macOS(.v14)],
     products: [
-        .library(name: "MindoModel", targets: ["MindoModel"]),
-        .library(name: "MindoCore", targets: ["MindoCore"]),
-        .library(name: "MindoBase", targets: ["MindoBase"]),
-        .library(name: "MindoMindMap", targets: ["MindoMindMap"]),
-        .library(name: "MindoMarkdown", targets: ["MindoMarkdown"]),
-        .library(name: "MindoPlantUML", targets: ["MindoPlantUML"]),
-        .library(name: "MindoCSV", targets: ["MindoCSV"]),
-        .library(name: "MindoGenAI", targets: ["MindoGenAI"]),
-        .library(name: "MindoScript", targets: ["MindoScript"]),
+        .library(name: "KepModel", targets: ["KepModel"]),
+        .library(name: "KepCore", targets: ["KepCore"]),
+        .library(name: "KepBase", targets: ["KepBase"]),
+        .library(name: "KepMindMap", targets: ["KepMindMap"]),
+        .library(name: "KepMarkdown", targets: ["KepMarkdown"]),
+        .library(name: "KepPlantUML", targets: ["KepPlantUML"]),
+        .library(name: "KepCSV", targets: ["KepCSV"]),
+        .library(name: "KepGenAI", targets: ["KepGenAI"]),
+        .library(name: "KepScript", targets: ["KepScript"]),
         .library(name: "KepBridge", targets: ["KepBridge"]),
-        .executable(name: "Mindo", targets: ["Mindo"]),
+        .executable(name: "KepApp", targets: ["KepApp"]),
         .executable(name: "kep", targets: ["kep"]),
         .executable(name: "kep-mcp", targets: ["kep-mcp"]),
     ],
@@ -29,63 +29,63 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "MindoModel",
+            name: "KepModel",
             dependencies: [
                 .product(name: "Collections", package: "swift-collections"),
                 .product(name: "Logging", package: "swift-log"),
             ]
         ),
         .target(
-            name: "MindoCore",
+            name: "KepCore",
             dependencies: [
-                "MindoModel",
+                "KepModel",
                 .product(name: "Logging", package: "swift-log"),
             ]
         ),
         .target(
-            name: "MindoBase",
+            name: "KepBase",
             dependencies: [
-                "MindoCore", "MindoModel",
+                "KepCore", "KepModel",
                 .product(name: "Logging", package: "swift-log"),
             ]
         ),
-        .target(name: "MindoMindMap", dependencies: ["MindoBase", "MindoCore", "MindoModel", "MindoMarkdown"]),
+        .target(name: "KepMindMap", dependencies: ["KepBase", "KepCore", "KepModel", "KepMarkdown"]),
         .target(
-            name: "MindoMarkdown",
+            name: "KepMarkdown",
             dependencies: [
-                "MindoBase",
-                "MindoCore",
+                "KepBase",
+                "KepCore",
                 .product(name: "Markdown", package: "swift-markdown"),
                 "SwiftSoup",
             ]
         ),
-        .target(name: "MindoPlantUML", dependencies: ["MindoBase", "MindoCore"]),
-        .target(name: "MindoCSV", dependencies: [
-            "MindoBase", "MindoScript",
+        .target(name: "KepPlantUML", dependencies: ["KepBase", "KepCore"]),
+        .target(name: "KepCSV", dependencies: [
+            "KepBase", "KepScript",
             .product(name: "LuaSwift", package: "LuaSwift"),
         ]),
-        .target(name: "MindoGenAI", dependencies: ["MindoBase", "MindoCore", "MindoMarkdown"]),
+        .target(name: "KepGenAI", dependencies: ["KepBase", "KepCore", "KepMarkdown"]),
         // Lua-backed scripting: embeds LuaSwift (vendored Lua, no system dep) and
-        // exposes a `mindo` API to scripts. NOT a custom language.
+        // exposes a `kep` API to scripts. NOT a custom language.
         .target(
-            name: "MindoScript",
+            name: "KepScript",
             dependencies: [
-                "MindoCore", "MindoModel",
+                "KepCore", "KepModel",
                 .product(name: "LuaSwift", package: "LuaSwift"),
             ]
         ),
         .executableTarget(
-            name: "Mindo",
+            name: "KepApp",
             dependencies: [
-                "MindoModel", "MindoCore", "MindoBase",
-                "MindoMindMap", "MindoMarkdown", "MindoPlantUML",
-                "MindoCSV", "MindoGenAI", "MindoScript", "KepBridge",
+                "KepModel", "KepCore", "KepBase",
+                "KepMindMap", "KepMarkdown", "KepPlantUML",
+                "KepCSV", "KepGenAI", "KepScript", "KepBridge",
             ],
             resources: [.process("Resources")]
         ),
 
         // Local IPC bridge: a tiny JSON line-protocol + Unix-socket client/server
-        // so external agents (CLI, MCP) drive the RUNNING kep app. No Mindo deps
+        // so external agents (CLI, MCP) drive the RUNNING kep app. No Kep deps
         // — the clients stay decoupled; the app links it to run the server.
         .target(name: "KepBridge"),
         .executableTarget(name: "kep", dependencies: ["KepBridge"]),
@@ -93,12 +93,12 @@ let package = Package(
 
         .testTarget(name: "KepBridgeTests", dependencies: ["KepBridge"]),
         .testTarget(
-            name: "MindoModelTests",
-            dependencies: ["MindoModel"],
+            name: "KepModelTests",
+            dependencies: ["KepModel"],
             resources: [.copy("Fixtures")]
         ),
-        .testTarget(name: "MindoCoreTests", dependencies: ["MindoCore", "MindoBase"]),
-        .testTarget(name: "MindoMindMapTests", dependencies: ["MindoMindMap", "MindoMarkdown", "MindoBase", "MindoPlantUML", "MindoCSV", "MindoGenAI"]),
-        .testTarget(name: "MindoScriptTests", dependencies: ["MindoScript", "MindoModel"]),
+        .testTarget(name: "KepCoreTests", dependencies: ["KepCore", "KepBase"]),
+        .testTarget(name: "KepMindMapTests", dependencies: ["KepMindMap", "KepMarkdown", "KepBase", "KepPlantUML", "KepCSV", "KepGenAI"]),
+        .testTarget(name: "KepScriptTests", dependencies: ["KepScript", "KepModel"]),
     ]
 )

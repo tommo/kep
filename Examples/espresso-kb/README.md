@@ -1,18 +1,18 @@
 # Espresso Knowledge Base — agentic test-drive artifact
 
-This folder is **not hand-written**. Every document here was authored by Mindo's
+This folder is **not hand-written**. Every document here was authored by Kep's
 own in-app GenAI engine (DeepSeek `deepseek-chat`, via the same `LLMProvider` +
 `LLMInput` path that the `AIGenerate` panel drives), then saved unmodified. It
 doubles as an example vault *and* as evidence for how the agentic tool behaves on
 a realistic, multi-format authoring goal.
 
-It demonstrates Mindo as a small knowledge base:
+It demonstrates Kep as a small knowledge base:
 
 - **Home.md** — index page, cross-linking every note with `[[wiki links]]`.
 - **Extraction.md**, **Grind.md** — Markdown notes with tables and `[[links]]`.
 - **Brewing Process.puml** — a PlantUML activity diagram.
 - **Bean Origins.csv** — a CSV table.
-- **Espresso Map.mmd** — a Mindo mind map.
+- **Espresso Map.mmd** — a Kep mind map.
 
 All `[[wiki links]]` resolve across the folder (they match by base name, so
 `[[Brewing Process]]` → `Brewing Process.puml`, `[[Espresso Map]]` →
@@ -21,10 +21,10 @@ All `[[wiki links]]` resolve across the folder (they match by base name, so
 ## Reproduce it
 
 ```sh
-MINDO_AI_TESTDRIVE=1 DEEPSEEK_API_KEY=… swift test --filter AgenticTestdrive
+KEP_AI_TESTDRIVE=1 DEEPSEEK_API_KEY=… swift test --filter AgenticTestdrive
 ```
 
-(The harness lives at `Tests/MindoMindMapTests/AgenticTestdrive.swift`; it is
+(The harness lives at `Tests/KepMindMapTests/AgenticTestdrive.swift`; it is
 skipped in normal test runs.)
 
 ## Known defects — left in on purpose

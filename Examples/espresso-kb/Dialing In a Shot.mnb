@@ -57,9 +57,9 @@ end
 The math gives a *starting point*; taste then guides grind. The agent below
 drafts a concrete dial-in routine grounded in the notes and these targets.
 
-<!--mindo:agent {"prompt":"Using the workspace notes (Grind, Extraction, Brewing Process) and the roast→ratio targets computed above, write a concise step-by-step routine for dialing in a NEW bag of coffee, from first shot to balanced. Cite the source notes inline. Then add a Lua code cell that, given dose and a target ratio, prints the yield to pull and the shot-time window to aim for."}-->
+<!--kep:agent {"prompt":"Using the workspace notes (Grind, Extraction, Brewing Process) and the roast→ratio targets computed above, write a concise step-by-step routine for dialing in a NEW bag of coffee, from first shot to balanced. Cite the source notes inline. Then add a Lua code cell that, given dose and a target ratio, prints the yield to pull and the shot-time window to aim for."}-->
 
-<!--/mindo:agent-->
+<!--/kep:agent-->
 
 ## Step-by-Step Dial-In Routine
 

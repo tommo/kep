@@ -1,7 +1,7 @@
 -- notebook.lua — vault-local Lua helpers, auto-loaded into EVERY notebook in
--- this workspace (after the built-in mindo/nb API). Available in code cells and
+-- this workspace (after the built-in kep/nb API). Available in code cells and
 -- to the research agent. A second copy at
---   ~/Library/Application Support/Mindo/notebook.lua
+--   ~/Library/Application Support/Kep/notebook.lua
 -- loads globally for all workspaces. Edits take effect on the next Run All
 -- (which restarts the kernel).
 

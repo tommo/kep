@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Wrap build/Mindo.app into a distributable DMG (build/Mindo.dmg).
+# Wrap build/Kep.app into a distributable DMG (build/Kep.dmg).
 # Usage: ./Scripts/make-dmg.sh [version]
 #
 # Composition: a single read-write staging dir with the .app + a symlink to

@@ -97,11 +97,11 @@ public struct BridgeDispatcher {
 }
 
 public enum KepBridge {
-    /// The default socket path. Under the existing "Mindo" app-support dir (the
-    /// internal id stays "Mindo"; only user-facing names are "kep").
+    /// The default socket path. Under the existing "Kep" app-support dir (the
+    /// internal id stays "Kep"; only user-facing names are "kep").
     public static var defaultSocketPath: String {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-        return (base?.appendingPathComponent("Mindo/kep-bridge.sock").path)
+        return (base?.appendingPathComponent("Kep/kep-bridge.sock").path)
             ?? NSTemporaryDirectory() + "kep-bridge.sock"
     }
 }

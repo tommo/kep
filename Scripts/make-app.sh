@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build Mindo as a proper macOS .app bundle. Output: build/Mindo.app
+# Build Kep as a proper macOS .app bundle. Output: build/Kep.app
 # Run from anywhere; resolves paths off this script's location.
 set -euo pipefail
 
@@ -9,13 +9,12 @@ cd "$PROJECT_ROOT"
 
 CONFIG="${CONFIG:-release}"
 # Brand "kep" is user-visible (bundle name, Dock, menu bar, About, AND the
-# installed executable / process name). The SPM build PRODUCT, the bundle id
-# (com.mindo.Mindo = the prefs domain) and the resource bundle (Mindo_Mindo
-# .bundle) stay "Mindo" so prefs and ~/Library/Application Support/Mindo (LLM
-# config, collections) are preserved — none of those depend on the executable's
-# file name, so we install it as "kep" to match the brand.
+# installed executable / process name). The SPM build PRODUCT is the app's
+# executable target (KepApp); the resource bundle (Kep_KepApp.bundle) is derived
+# from the package + target name. None of these depend on the installed
+# executable's file name, so we install it as "kep" to match the brand.
 APP_NAME="kep"
-PRODUCT="Mindo"      # SPM build product + resource-bundle target name (do NOT change)
+PRODUCT="KepApp"     # SPM executable target + resource-bundle target name
 EXEC_NAME="kep"      # installed executable / CFBundleExecutable (cosmetic)
 APP_DIR="build/$APP_NAME.app"
 
@@ -30,15 +29,15 @@ rm -rf "$APP_DIR"
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
 cp "$BIN_PATH" "$APP_DIR/Contents/MacOS/$EXEC_NAME"
 
-# Drag in localized resources + the Mindo SPM resource bundle.
+# Drag in localized resources + the Kep SPM resource bundle.
 RES_BUNDLE_DIR="$(dirname "$BIN_PATH")"
-if [ -d "$RES_BUNDLE_DIR/Mindo_Mindo.bundle" ]; then
+if [ -d "$RES_BUNDLE_DIR/Kep_KepApp.bundle" ]; then
     # Resources/ for open-launched apps; MacOS/ (next to the binary) so a
-    # direct `Contents/MacOS/Mindo` run also resolves the bundle.
-    cp -R "$RES_BUNDLE_DIR/Mindo_Mindo.bundle" "$APP_DIR/Contents/Resources/"
-    cp -R "$RES_BUNDLE_DIR/Mindo_Mindo.bundle" "$APP_DIR/Contents/MacOS/"
+    # direct `Contents/MacOS/Kep` run also resolves the bundle.
+    cp -R "$RES_BUNDLE_DIR/Kep_KepApp.bundle" "$APP_DIR/Contents/Resources/"
+    cp -R "$RES_BUNDLE_DIR/Kep_KepApp.bundle" "$APP_DIR/Contents/MacOS/"
 else
-    echo "ERROR: Mindo_Mindo.bundle not found in $RES_BUNDLE_DIR — aborting" >&2
+    echo "ERROR: Kep_KepApp.bundle not found in $RES_BUNDLE_DIR — aborting" >&2
     exit 1
 fi
 
@@ -58,7 +57,7 @@ cat > "$APP_DIR/Contents/Info.plist" <<EOF
 <dict>
     <key>CFBundleExecutable</key>          <string>$EXEC_NAME</string>
 $ICON_KEY_INSERT
-    <key>CFBundleIdentifier</key>          <string>com.mindo.Mindo</string>
+    <key>CFBundleIdentifier</key>          <string>com.kep.Kep</string>
     <key>CFBundleName</key>                <string>$APP_NAME</string>
     <key>CFBundleDisplayName</key>         <string>$APP_NAME</string>
     <key>CFBundleVersion</key>             <string>0.1</string>

@@ -3,7 +3,7 @@
 A demo of how kep Research Notebooks work. It mixes three kinds of cell:
 
 - **Text** cells (like this one) — Markdown narrative.
-- **Code** cells — Lua over the `mindo` knowledge-base API. All code cells share **one** Lua session, so a value set in an earlier cell is visible to a later one. Run a single cell with `⌘↩`, or the whole notebook top‑to‑bottom with `⇧⌘↩`.
+- **Code** cells — Lua over the `kep` knowledge-base API. All code cells share **one** Lua session, so a value set in an earlier cell is visible to a later one. Run a single cell with `⌘↩`, or the whole notebook top‑to‑bottom with `⇧⌘↩`.
 - An **Agent** cell — give it a question; it researches this workspace and writes its findings as new cells *below* itself.
 
 ```lua {exec id=c1}
@@ -40,6 +40,6 @@ The most-mentioned terms above are the levers worth understanding first. The
 **Agent** cell below turns those raw counts into a cited explanation drawn from
 the workspace notes — and its answer will appear as new cells right beneath it.
 
-<!--mindo:agent {"prompt":"Using the workspace notes (Extraction, Grind, Bean Origins), explain how grind size, dose, and shot time interact to control espresso extraction, and how over- vs under-extraction taste and present. Cite the source notes inline, and add a short Lua cell that prints the workspace docs you drew from."}-->
+<!--kep:agent {"prompt":"Using the workspace notes (Extraction, Grind, Bean Origins), explain how grind size, dose, and shot time interact to control espresso extraction, and how over- vs under-extraction taste and present. Cite the source notes inline, and add a short Lua cell that prints the workspace docs you drew from."}-->
 
-<!--/mindo:agent-->
+<!--/kep:agent-->

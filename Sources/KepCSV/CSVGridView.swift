@@ -1,0 +1,577 @@
+import AppKit
+import KepBase
+import KepCore
+
+/// The custom spreadsheet grid (chosen over NSTableView by the design workflow:
+/// NSTableView selection is row/column-exclusive and can't hold an active cell
+/// inside a rectangular range). A flipped document view inside the editor's
+/// scroll view: it draws the cells, a frozen A/B/C column header, a 1/2/3 row
+/// gutter and corner, the active-cell + range selection, and hosts an in-cell
+/// field editor. Pure layout/selection math lives in CSVGridGeometry /
+/// CSVSelectionModel; this class is the AppKit shell + drawing + input.
+public final class CSVGridView: NSView, NSTextFieldDelegate {
+
+    // MARK: - State (driven by the editor coordinator)
+
+    public var sheet: CSVSheet = CSVSheet(document: CSVDocument())
+    public private(set) var selection = CSVSelectionModel()
+
+    /// Commit an edit: the coordinator routes this through sheet.setCell + undo
+    /// + reload + the text binding.
+    public var onCommitEdit: ((CSVCellRef, String) -> Void)?
+    /// Selection changed (coordinator mirrors it + refreshes the status footer).
+    public var onSelectionChange: ((CSVSelectionModel) -> Void)?
+    /// Delete pressed over the selection (coordinator clears via undo).
+    public var onClearRange: (([CSVCellRef]) -> Void)?
+    /// Clipboard, routed through the responder chain so ⌘C/⌘X/⌘V work.
+    public var onCopy: (() -> Void)?
+    public var onCut: (() -> Void)?
+    public var onPaste: (() -> Void)?
+
+    @objc func copy(_ sender: Any?)  { onCopy?() }
+    @objc func cut(_ sender: Any?)   { onCut?() }
+    @objc func paste(_ sender: Any?) { onPaste?() }
+
+    /// The "+" affordances at the tail of the header / gutter append a column / row.
+    public var onAddColumn: (() -> Void)?
+    public var onAddRow: (() -> Void)?
+    /// Keyboard expansion: insert a row (below/above) or column (right/left)
+    /// relative to the selection, moving the selection onto the new cell.
+    public var onInsertRow: ((_ below: Bool) -> Void)?
+    public var onInsertColumn: ((_ right: Bool) -> Void)?
+    /// A workspace file was dropped onto a cell — host turns it into a link.
+    public var onDropFile: ((CSVCellRef, URL) -> Void)?
+
+    private var columnWidths: [CGFloat] = []
+    private let defaultColumnWidth: CGFloat = 100
+    private let minColumnWidth: CGFloat = 36
+    private let rowHeight: CGFloat = 22
+    private let headerHeight: CGFloat = 24
+    private let gutterWidth: CGFloat = 48
+    /// Size of the trailing "+" add-column / add-row cells.
+    private let plusSlot: CGFloat = 28
+
+    private var geometry = CSVGridGeometry()
+    private var fieldEditor: NSTextField?
+    private var editingRef: CSVCellRef?
+
+    public override var isFlipped: Bool { true }
+    public override var acceptsFirstResponder: Bool { true }
+    public override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    public override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        registerForDraggedTypes([.fileURL])
+        guard let clip = enclosingScrollView?.contentView else { return }
+        // The frozen header + gutter are drawn at the viewport edges every
+        // frame. With the default copy-on-scroll, AppKit only invalidates the
+        // newly-exposed strip on scroll, so those pinned bands get clipped out
+        // and render stale (e.g. header highlight not tracking). Forcing a full
+        // redraw on scroll keeps them correct.
+        clip.copiesOnScroll = false
+        clip.postsBoundsChangedNotifications = true
+        NotificationCenter.default.addObserver(self, selector: #selector(clipBoundsChanged),
+                                                name: NSView.boundsDidChangeNotification, object: clip)
+        NotificationCenter.default.addObserver(self, selector: #selector(csvFontChanged),
+                                                name: .csvFontChanged, object: nil)
+        // Degrade the selection when the grid loses focus (general focus-styling
+        // rule — see FocusStyle); redraw on key-window transitions.
+        if let window {
+            NotificationCenter.default.addObserver(self, selector: #selector(focusStateChanged),
+                                                    name: NSWindow.didBecomeKeyNotification, object: window)
+            NotificationCenter.default.addObserver(self, selector: #selector(focusStateChanged),
+                                                    name: NSWindow.didResignKeyNotification, object: window)
+        }
+    }
+
+    @objc private func clipBoundsChanged() { needsDisplay = true }
+    @objc private func csvFontChanged() { needsDisplay = true }
+    @objc private func focusStateChanged() { needsDisplay = true }
+
+    // Redraw when first-responder status flips so the selection dims/undims
+    // immediately (e.g. clicking into the sidebar).
+    public override func becomeFirstResponder() -> Bool {
+        defer { needsDisplay = true }; return super.becomeFirstResponder()
+    }
+    public override func resignFirstResponder() -> Bool {
+        defer { needsDisplay = true }; return super.resignFirstResponder()
+    }
+
+    /// Accent colour for selection fills/strokes, faded when the grid isn't
+    /// focused. `alpha` is the focused fill strength; it's scaled down off-focus.
+    private func selectionAccent(_ alpha: CGFloat = 1) -> NSColor {
+        let focused = FocusStyle.isFocused(self)
+        return NSColor.controlAccentColor.withAlphaComponent(alpha * (focused ? 1 : FocusStyle.unfocusedAlpha))
+    }
+
+    // MARK: - Reload
+
+    /// Rebuild geometry from the sheet and resize the document view. Call after
+    /// loading or any structural change.
+    public func reload() {
+        let cols = max(sheet.document.columnCount, 1)
+        let rows = max(sheet.document.rows.count, 1)
+        if columnWidths.count != cols {
+            columnWidths = Array(repeating: defaultColumnWidth, count: cols)
+        }
+        geometry = CSVGridGeometry(rowHeight: rowHeight, headerHeight: headerHeight,
+                                   gutterWidth: gutterWidth, columnWidths: columnWidths, rowCount: rows)
+        selection.clamp(rows: rows, cols: cols)
+        // Extend the document view past the content for the trailing "+" cells.
+        let size = geometry.contentSize
+        setFrameSize(CGSize(width: size.width + plusSlot, height: size.height + rowHeight))
+        needsDisplay = true
+    }
+
+    private var plusColumnRect: CGRect {
+        CGRect(x: geometry.columnX(colCount), y: 0, width: plusSlot, height: headerHeight)
+    }
+    private var plusRowRect: CGRect {
+        CGRect(x: 0, y: geometry.rowY(rowCount), width: gutterWidth, height: rowHeight)
+    }
+
+    public func setSelection(_ sel: CSVSelectionModel, notify: Bool = true) {
+        selection = sel
+        if notify { onSelectionChange?(selection) }
+        scrollToActive()
+        needsDisplay = true
+    }
+
+    private func value(_ r: CSVCellRef) -> String { sheet.value(at: r) }
+
+    private var rowCount: Int { max(sheet.document.rows.count, 1) }
+    private var colCount: Int { max(sheet.document.columnCount, 1) }
+
+    // MARK: - Drawing
+
+    public override func draw(_ dirtyRect: NSRect) {
+        let vis = enclosingScrollView?.documentVisibleRect ?? bounds
+        NSColor.textBackgroundColor.setFill()
+        dirtyRect.fill()
+
+        drawCells(in: dirtyRect)
+        drawSelection()
+        // Frozen header + gutter painted last so body content scrolls under them.
+        drawGutter(visible: vis)
+        drawHeader(visible: vis)
+        drawCorner(visible: vis)
+        drawAddAffordances(visible: vis)
+    }
+
+    /// The "+" add-column (header tail) and add-row (gutter tail) buttons.
+    private func drawAddAffordances(visible vis: NSRect) {
+        // Add-column: in the header strip, just past the last column (scrolls
+        // horizontally, pinned to the header's y).
+        let colR = CGRect(x: geometry.columnX(colCount), y: vis.minY, width: plusSlot, height: headerHeight)
+        drawPlusCell(colR)
+        // Add-row: in the gutter, just below the last row.
+        let rowR = CGRect(x: vis.minX, y: geometry.rowY(rowCount), width: gutterWidth, height: rowHeight)
+        drawPlusCell(rowR)
+    }
+
+    private func drawPlusCell(_ r: CGRect) {
+        headerFillColor().setFill(); r.fill()
+        NSColor.gridColor.setStroke(); NSBezierPath(rect: r).stroke()
+        let para = NSMutableParagraphStyle(); para.alignment = .center
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 13, weight: .medium),
+            .foregroundColor: NSColor.secondaryLabelColor,
+            .paragraphStyle: para,
+        ]
+        let h = ("+" as NSString).size(withAttributes: attrs).height
+        ("+" as NSString).draw(in: CGRect(x: r.minX, y: r.midY - h / 2, width: r.width, height: h), withAttributes: attrs)
+    }
+
+    private func drawCells(in dirtyRect: NSRect) {
+        let gridColor = NSColor.gridColor
+        let firstRow = geometry.rowIndex(atY: max(dirtyRect.minY, headerHeight)) ?? 0
+        let lastRow = geometry.rowIndex(atY: dirtyRect.maxY) ?? (rowCount - 1)
+        let firstCol = geometry.columnIndex(atX: max(dirtyRect.minX, gutterWidth)) ?? 0
+        let lastCol = geometry.columnIndex(atX: dirtyRect.maxX) ?? (colCount - 1)
+        guard firstRow <= lastRow, firstCol <= lastCol else { return }
+
+        for row in firstRow...min(lastRow, rowCount - 1) {
+            for col in firstCol...min(lastCol, colCount - 1) {
+                let ref = CSVCellRef(row: row, col: col)
+                let rect = geometry.cellRect(row: row, col: col)
+                let style = sheet.style(at: ref)
+                if let bg = style?.background.flatMap(Self.color(hex:)) {
+                    bg.setFill(); rect.fill()
+                }
+                gridColor.setStroke()
+                let path = NSBezierPath(rect: rect); path.lineWidth = 0.5; path.stroke()
+                let text = value(ref)
+                if !text.isEmpty { drawText(text, in: rect, style: style) }
+            }
+        }
+    }
+
+    private func drawText(_ text: String, in rect: CGRect, style: CSVCellStyle?) {
+        var font = CSVFont.cell()
+        if let s = style, s.bold || s.italic {
+            var traits: NSFontTraitMask = []
+            if s.bold { traits.insert(.boldFontMask) }
+            if s.italic { traits.insert(.italicFontMask) }
+            font = NSFontManager.shared.convert(font, toHaveTrait: traits)
+        }
+        let para = NSMutableParagraphStyle()
+        para.lineBreakMode = .byTruncatingTail
+        switch style?.align {
+        case "center": para.alignment = .center
+        case "right":  para.alignment = .right
+        default:       para.alignment = .left
+        }
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: style?.textColor.flatMap(Self.color(hex:)) ?? NSColor.labelColor,
+            .paragraphStyle: para,
+        ]
+        let inset = rect.insetBy(dx: 4, dy: 2)
+        (text as NSString).draw(in: inset, withAttributes: attrs)
+    }
+
+    private func drawSelection() {
+        let r = geometry.rangeRect(top: selection.top, left: selection.left,
+                                   bottom: selection.bottom, right: selection.right)
+        selectionAccent(0.12).setFill(); r.fill()
+        // Active-cell border (the grid's "cursor").
+        let active = geometry.cellRect(row: selection.active.row, col: selection.active.col)
+        selectionAccent().setStroke()
+        let border = NSBezierPath(rect: active.insetBy(dx: 0.5, dy: 0.5)); border.lineWidth = 2; border.stroke()
+    }
+
+    private func headerFillColor() -> NSColor { NSColor.windowBackgroundColor }
+
+    private func drawHeader(visible vis: NSRect) {
+        let y = vis.minY
+        let strip = CGRect(x: vis.minX, y: y, width: vis.width, height: headerHeight)
+        headerFillColor().setFill(); strip.fill()
+        NSColor.gridColor.setStroke()
+        let firstCol = geometry.columnIndex(atX: max(vis.minX, gutterWidth)) ?? 0
+        let lastCol = geometry.columnIndex(atX: vis.maxX) ?? (colCount - 1)
+        guard firstCol <= lastCol else { return }
+        for col in firstCol...min(lastCol, colCount - 1) {
+            let r = CGRect(x: geometry.columnX(col), y: y, width: columnWidths[col], height: headerHeight)
+            let inSel = col >= selection.left && col <= selection.right
+            if inSel {
+                selectionAccent(col == selection.active.col ? 0.35 : 0.18).setFill()
+                r.fill()
+            }
+            NSColor.gridColor.setStroke()
+            NSBezierPath(rect: r).stroke()
+            drawHeaderLabel(CSVCellRef.columnLabel(col), in: r, highlighted: inSel)
+        }
+    }
+
+    private func drawGutter(visible vis: NSRect) {
+        let x = vis.minX
+        let strip = CGRect(x: x, y: vis.minY, width: gutterWidth, height: vis.height)
+        headerFillColor().setFill(); strip.fill()
+        NSColor.gridColor.setStroke()
+        let firstRow = geometry.rowIndex(atY: max(vis.minY, headerHeight)) ?? 0
+        let lastRow = geometry.rowIndex(atY: vis.maxY) ?? (rowCount - 1)
+        guard firstRow <= lastRow else { return }
+        for row in firstRow...min(lastRow, rowCount - 1) {
+            let r = CGRect(x: x, y: geometry.rowY(row), width: gutterWidth, height: rowHeight)
+            let inSel = row >= selection.top && row <= selection.bottom
+            if inSel {
+                selectionAccent(row == selection.active.row ? 0.35 : 0.18).setFill()
+                r.fill()
+            }
+            NSColor.gridColor.setStroke()
+            NSBezierPath(rect: r).stroke()
+            drawHeaderLabel("\(row + 1)", in: r, highlighted: inSel)
+        }
+    }
+
+    private func drawCorner(visible vis: NSRect) {
+        let r = CGRect(x: vis.minX, y: vis.minY, width: gutterWidth, height: headerHeight)
+        headerFillColor().setFill(); r.fill()
+        NSColor.gridColor.setStroke(); NSBezierPath(rect: r).stroke()
+    }
+
+    private func drawHeaderLabel(_ s: String, in rect: CGRect, highlighted: Bool) {
+        let para = NSMutableParagraphStyle(); para.alignment = .center
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 10, weight: highlighted ? .bold : .regular),
+            .foregroundColor: highlighted ? selectionAccent() : NSColor.secondaryLabelColor,
+            .paragraphStyle: para,
+        ]
+        let h = (s as NSString).size(withAttributes: attrs).height
+        let r = CGRect(x: rect.minX, y: rect.midY - h / 2, width: rect.width, height: h)
+        (s as NSString).draw(in: r, withAttributes: attrs)
+    }
+
+    static func color(hex: String) -> NSColor? {
+        var s = hex; if s.hasPrefix("#") { s.removeFirst() }
+        guard s.count == 6, let v = Int(s, radix: 16) else { return nil }
+        return NSColor(srgbRed: CGFloat((v >> 16) & 0xFF) / 255, green: CGFloat((v >> 8) & 0xFF) / 255,
+                       blue: CGFloat(v & 0xFF) / 255, alpha: 1)
+    }
+
+    // MARK: - Mouse
+
+    public override func mouseDown(with event: NSEvent) {
+        commitEditing(moveTo: nil)
+        window?.makeFirstResponder(self)
+        let p = convert(event.locationInWindow, from: nil)
+        let vis = enclosingScrollView?.documentVisibleRect ?? bounds
+
+        // Pinned-header hit test (header/gutter float at the visible edges).
+        let inHeader = p.y < vis.minY + headerHeight
+        let inGutter = p.x < vis.minX + gutterWidth
+        if inHeader && inGutter { return }                       // corner → no-op
+        // Column resize: dragging a header separator widens that column. Checked
+        // before the "+" tail so the last column's right edge resizes (the "+"
+        // cell still adds when clicked past the edge).
+        if inHeader, !inGutter, let sepCol = geometry.columnSeparatorIndex(atX: p.x) {
+            beginColumnResize(sepCol, startX: p.x); return
+        }
+        // "+" tail affordances (past the last column / row).
+        if inHeader, !inGutter, p.x >= geometry.columnX(colCount) { onAddColumn?(); return }
+        if inGutter, !inHeader, p.y >= geometry.rowY(rowCount) { onAddRow?(); return }
+        if inHeader, let col = geometry.columnIndex(atX: p.x) {   // whole column
+            selection.moveActive(to: CSVCellRef(row: 0, col: col))
+            selection.extend(to: CSVCellRef(row: rowCount - 1, col: col))
+            finishSelectionChange(); return
+        }
+        if inGutter, let row = geometry.rowIndex(atY: p.y) {      // whole row
+            selection.moveActive(to: CSVCellRef(row: row, col: 0))
+            selection.extend(to: CSVCellRef(row: row, col: colCount - 1))
+            finishSelectionChange(); return
+        }
+        guard let cell = clampedCell(at: p) else { return }
+        if event.clickCount >= 2 { beginEditing(cell, seed: nil); return }
+        if event.modifierFlags.contains(.shift) { selection.extend(to: cell) }
+        else { selection.moveActive(to: cell) }
+        finishSelectionChange()
+    }
+
+    /// Right-click selects the cell / column / row under the cursor (unless it's
+    /// already inside the selection) so the context-menu insert/delete acts on
+    /// the clicked target, then lets AppKit show `menu`.
+    public override func rightMouseDown(with event: NSEvent) {
+        let p = convert(event.locationInWindow, from: nil)
+        let vis = enclosingScrollView?.documentVisibleRect ?? bounds
+        let inHeader = p.y < vis.minY + headerHeight
+        let inGutter = p.x < vis.minX + gutterWidth
+        if inHeader, !inGutter, let col = geometry.columnIndex(atX: p.x) {
+            selection.moveActive(to: CSVCellRef(row: 0, col: col))
+            selection.extend(to: CSVCellRef(row: rowCount - 1, col: col))
+            finishSelectionChange()
+        } else if inGutter, !inHeader, let row = geometry.rowIndex(atY: p.y) {
+            selection.moveActive(to: CSVCellRef(row: row, col: 0))
+            selection.extend(to: CSVCellRef(row: row, col: colCount - 1))
+            finishSelectionChange()
+        } else if let cell = clampedCell(at: p), !selection.contains(cell) {
+            selection.moveActive(to: cell)
+            finishSelectionChange()
+        }
+        super.rightMouseDown(with: event)
+    }
+
+    public override func mouseDragged(with event: NSEvent) {
+        guard editingRef == nil else { return }
+        let p = convert(event.locationInWindow, from: nil)
+        if let cell = clampedCell(at: p) {
+            selection.extend(to: cell)
+            autoscroll(with: event)
+            finishSelectionChange()
+        }
+    }
+
+    /// Map a point to a cell, clamping to the grid so a drag past the edge
+    /// still extends to the last row/column.
+    private func clampedCell(at p: CGPoint) -> CSVCellRef? {
+        let col = geometry.columnIndex(atX: p.x) ?? (p.x < gutterWidth ? 0 : colCount - 1)
+        let row = geometry.rowIndex(atY: p.y) ?? (p.y < headerHeight ? 0 : rowCount - 1)
+        return CSVCellRef(row: min(max(row, 0), rowCount - 1), col: min(max(col, 0), colCount - 1))
+    }
+
+    private func finishSelectionChange() {
+        onSelectionChange?(selection)
+        scrollToActive()
+        needsDisplay = true
+    }
+
+    // MARK: - Column resize
+
+    /// Track a header-separator drag, live-resizing `col` (min width clamped).
+    /// Uses a nested event loop — the standard AppKit pattern for a drag that
+    /// owns the mouse until release.
+    private func beginColumnResize(_ col: Int, startX: CGFloat) {
+        guard col < columnWidths.count else { return }
+        let startWidth = columnWidths[col]
+        NSCursor.resizeLeftRight.push()
+        defer { NSCursor.pop() }
+        while let ev = window?.nextEvent(matching: [.leftMouseDragged, .leftMouseUp]) {
+            if ev.type == .leftMouseUp { break }
+            let p = convert(ev.locationInWindow, from: nil)
+            columnWidths[col] = max(minColumnWidth, startWidth + (p.x - startX))
+            reload()   // rebuilds geometry from columnWidths + resizes the doc view
+        }
+    }
+
+    public override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(rect: bounds,
+                                       options: [.activeInKeyWindow, .mouseMoved, .inVisibleRect],
+                                       owner: self))
+    }
+
+    /// Show the resize cursor when hovering a header column separator.
+    public override func mouseMoved(with event: NSEvent) {
+        let p = convert(event.locationInWindow, from: nil)
+        let vis = enclosingScrollView?.documentVisibleRect ?? bounds
+        let onHeaderSeparator = p.y < vis.minY + headerHeight
+            && p.x >= vis.minX + gutterWidth
+            && geometry.columnSeparatorIndex(atX: p.x) != nil
+        if onHeaderSeparator { NSCursor.resizeLeftRight.set() } else { NSCursor.arrow.set() }
+    }
+
+    // MARK: - Drag & drop (file → cell link)
+
+    public override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        droppedFileURL(from: sender) != nil ? .copy : []
+    }
+
+    public override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        droppedFileURL(from: sender) != nil ? .copy : []
+    }
+
+    public override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        guard let url = droppedFileURL(from: sender),
+              let cell = clampedCell(at: convert(sender.draggingLocation, from: nil)) else { return false }
+        onDropFile?(cell, url)
+        return true
+    }
+
+    /// The first file URL on the drag pasteboard, or nil for non-file drags.
+    private func droppedFileURL(from sender: NSDraggingInfo) -> URL? {
+        let opts: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
+        let urls = sender.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: opts) as? [URL]
+        return urls?.first
+    }
+
+    // MARK: - Keyboard
+
+    public override func keyDown(with event: NSEvent) {
+        guard editingRef == nil else { super.keyDown(with: event); return }
+        let shift = event.modifierFlags.contains(.shift)
+        // ⌥⌘ + arrow → insert a row/column in that direction (keyboard expansion).
+        if event.modifierFlags.contains(.command), event.modifierFlags.contains(.option) {
+            switch event.keyCode {
+            case 123: onInsertColumn?(false); return   // ⌥⌘← column left
+            case 124: onInsertColumn?(true);  return   // ⌥⌘→ column right
+            case 125: onInsertRow?(true);     return   // ⌥⌘↓ row below
+            case 126: onInsertRow?(false);    return   // ⌥⌘↑ row above
+            default: break
+            }
+        }
+        switch event.keyCode {
+        case 123: move(dRow: 0, dCol: -1, extend: shift)   // ←
+        case 124: move(dRow: 0, dCol: 1, extend: shift)    // →
+        case 125: move(dRow: 1, dCol: 0, extend: shift)    // ↓
+        case 126: move(dRow: -1, dCol: 0, extend: shift)   // ↑
+        case 36:  beginEditing(selection.active, seed: nil)            // Return → edit
+        case 48:                                                       // Tab
+            if shift { move(dRow: 0, dCol: -1, extend: false) } else { tabForward() }
+        case 51, 117:                                                  // Delete / fwd-Delete
+            onClearRange?(selection.cells)
+        case 53: break                                                 // Esc (no edit) → no-op
+        default:
+            // Type-to-edit: a printable character starts an edit seeded with it.
+            if let chars = event.characters, chars.count == 1,
+               let scalar = chars.unicodeScalars.first, scalar.value >= 32 {
+                beginEditing(selection.active, seed: chars)
+            } else {
+                super.keyDown(with: event)
+            }
+        }
+    }
+
+    /// Tab forward: move right, or at the last column wrap to the next row's
+    /// first cell — appending a row when we're on the last row (fluid entry).
+    private func tabForward() {
+        let cur = selection.active
+        if cur.col + 1 < colCount {
+            move(dRow: 0, dCol: 1, extend: false)
+            return
+        }
+        if cur.row + 1 >= rowCount { onAddRow?() }        // grow at the bottom
+        let next = CSVCellRef(row: min(cur.row + 1, rowCount - 1), col: 0)
+        selection.moveActive(to: next)
+        finishSelectionChange()
+    }
+
+    private func move(dRow: Int, dCol: Int, extend: Bool) {
+        let cur = selection.active
+        let next = CSVCellRef(row: min(max(cur.row + dRow, 0), rowCount - 1),
+                              col: min(max(cur.col + dCol, 0), colCount - 1))
+        if extend { selection.extend(to: next) } else { selection.moveActive(to: next) }
+        finishSelectionChange()
+    }
+
+    private func scrollToActive() {
+        var r = geometry.cellRect(row: selection.active.row, col: selection.active.col)
+        // Pad by the frozen header/gutter so the active cell isn't hidden under them.
+        r = r.insetBy(dx: -gutterWidth, dy: -headerHeight)
+        scrollToVisible(r)
+    }
+
+    // MARK: - In-cell editing
+
+    private func beginEditing(_ ref: CSVCellRef, seed: String?) {
+        commitEditing(moveTo: nil)
+        editingRef = ref
+        let tf = NSTextField(frame: geometry.cellRect(row: ref.row, col: ref.col))
+        tf.isBordered = true
+        tf.focusRingType = .none
+        tf.font = CSVFont.cell()
+        // Edit the formula SOURCE if present, else the baked value; a seed
+        // (type-to-edit) replaces the content entirely.
+        tf.stringValue = seed ?? sheet.formula(at: ref) ?? value(ref)
+        tf.delegate = self
+        addSubview(tf)
+        fieldEditor = tf
+        window?.makeFirstResponder(tf)
+        if seed == nil { tf.currentEditor()?.selectAll(nil) }
+        else { tf.currentEditor()?.selectedRange = NSRange(location: seed!.count, length: 0) }
+    }
+
+    /// Commit the active edit (if any) and optionally move the selection after.
+    private func commitEditing(moveTo direction: (dRow: Int, dCol: Int)?) {
+        guard let ref = editingRef, let tf = fieldEditor else { return }
+        let text = tf.stringValue
+        editingRef = nil
+        fieldEditor = nil
+        tf.removeFromSuperview()
+        onCommitEdit?(ref, text)
+        if let d = direction { move(dRow: d.dRow, dCol: d.dCol, extend: false) }
+        window?.makeFirstResponder(self)
+    }
+
+    private func cancelEditing() {
+        editingRef = nil
+        fieldEditor?.removeFromSuperview()
+        fieldEditor = nil
+        window?.makeFirstResponder(self)
+        needsDisplay = true
+    }
+
+    public func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
+        switch selector {
+        case #selector(NSResponder.insertNewline(_:)):
+            // Commit; at the last row, append a row and drop into it (fluid entry).
+            let wasLast = (editingRef?.row ?? 0) + 1 >= rowCount
+            commitEditing(moveTo: wasLast ? nil : (1, 0))
+            if wasLast { onAddRow?(); move(dRow: 1, dCol: 0, extend: false) }
+            return true
+        case #selector(NSResponder.insertTab(_:)):        commitEditing(moveTo: nil); tabForward(); return true
+        case #selector(NSResponder.insertBacktab(_:)):    commitEditing(moveTo: (0, -1)); return true
+        case #selector(NSResponder.cancelOperation(_:)):  cancelEditing(); return true
+        default: return false
+        }
+    }
+}

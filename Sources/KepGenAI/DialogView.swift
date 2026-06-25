@@ -1,0 +1,257 @@
+import SwiftUI
+import Combine
+import KepBase
+import KepMarkdown
+
+public extension Notification.Name {
+    /// Posted by the host (⌘4 / Focus Agent) to move keyboard focus into the
+    /// assistant's message input even when the panel is already on screen.
+    static let focusAgentInput = Notification.Name("kep.focusAgentInput")
+}
+
+/// Persistent conversational panel — multi-turn chat with the AI about the
+/// active document. The host supplies an optional context block (active doc /
+/// selection / resolved links) and an `onInsert` closure to drop a reply into
+/// the document. Beyond the one-shot `AIGeneratePane`.
+public struct DialogView: View {
+    @StateObject private var vm: ConversationViewModel
+    /// Insert an assistant reply into the active document. Nil hides the action.
+    private let onInsert: ((String) -> Void)?
+    /// Re-read just before each send so the model sees current doc state.
+    private let contextProvider: (() -> String?)?
+    /// Open a [[wiki link]] tapped in a rendered assistant reply.
+    private let onOpenWikiLink: ((String, String?) -> Void)?
+
+    @FocusState private var inputFocused: Bool
+    @Environment(\.openSettings) private var openSettings
+    @Environment(\.colorScheme) private var colorScheme
+    /// Bumped on a live editor-theme change so rendered markdown re-resolves.
+    @State private var themeTick = 0
+    /// When true, plain Return sends and ⇧Return inserts a newline; otherwise
+    /// Return inserts a newline and ⌘Return sends. Persisted.
+    @AppStorage("ai.sendOnReturn") private var sendOnReturn = false
+
+    public init(systemPrompt: String = Conversation.defaultSystemPrompt,
+                contextProvider: (() -> String?)? = nil,
+                onInsert: ((String) -> Void)? = nil,
+                onOpenWikiLink: ((String, String?) -> Void)? = nil,
+                agentReply: (([ChatMessage]) async throws -> String)? = nil) {
+        _vm = StateObject(wrappedValue: ConversationViewModel(
+            systemPrompt: systemPrompt, contextBlock: contextProvider?(), agentReply: agentReply))
+        self.contextProvider = contextProvider
+        self.onInsert = onInsert
+        self.onOpenWikiLink = onOpenWikiLink
+    }
+
+    public var body: some View {
+        VStack(spacing: 0) {
+            header
+            Divider()
+            transcript
+            Divider()
+            composer
+        }
+        .frame(minWidth: 220, minHeight: 280)
+        .onAppear {
+            vm.refreshProviderLabel()   // pick up provider/model configured since init
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { inputFocused = true }
+        }
+        // ⌘4 / Focus Agent → focus the input even when the panel is already shown.
+        .onReceive(NotificationCenter.default.publisher(for: .focusAgentInput)) { _ in
+            inputFocused = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .editorThemeChanged)) { _ in themeTick += 1 }
+    }
+
+    private var header: some View {
+        HStack(spacing: 6) {
+            // Model — the one thing users must see. Picker (full name) when there
+            // are choices, else plain text. Provider is implied by the model name.
+            if vm.availableModels.count > 1 {
+                Picker("", selection: $vm.selectedModel) {
+                    ForEach(vm.availableModels, id: \.self) { Text($0).tag($0) }
+                }
+                .labelsHidden()
+                .controlSize(.small)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .disabled(vm.isRunning)
+            } else {
+                Text(vm.selectedModel.isEmpty ? vm.providerLabel : vm.selectedModel)
+                    .font(.callout).foregroundStyle(.secondary).lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            if vm.hasAgent {
+                Toggle(isOn: $vm.agentMode) { Image(systemName: "wrench.and.screwdriver") }
+                    .toggleStyle(.button)
+                    .controlSize(.small)
+                    .help("Agent mode — let the assistant use tools to edit the map / query the knowledge base")
+                    .disabled(vm.isRunning)
+            }
+            // Secondary actions collapse into one menu so the narrow panel keeps
+            // its width for the model name.
+            Menu {
+                Toggle("Send on Return (⇧↩ for newline)", isOn: $sendOnReturn)
+                Divider()
+                Button("Clear conversation") { vm.clear() }
+                    .disabled(vm.conversation.turns.isEmpty)
+                Button("AI Settings…") { openSettings() }
+            } label: { Image(systemName: "ellipsis.circle") }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .controlSize(.small)
+                .fixedSize()
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+    }
+
+    private var transcript: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 10) {
+                    if vm.conversation.turns.isEmpty {
+                        VStack(spacing: 10) {
+                            if vm.selectedModel.isEmpty {
+                                Text("No AI provider configured.")
+                                    .font(.callout).foregroundStyle(.secondary)
+                                Button("Configure AI provider…") { openSettings() }
+                                    .buttonStyle(.borderedProminent)
+                            } else {
+                                Text("Ask about the document you're editing — mind maps, notes, PlantUML, CSV.")
+                                    .font(.callout).foregroundStyle(.secondary)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.top, 24)
+                    }
+                    ForEach(vm.conversation.turns) { turn in
+                        bubble(turn)
+                            .id(turn.id)
+                    }
+                    if vm.isRunning {
+                        HStack(spacing: 7) {
+                            ProgressView().controlSize(.small)
+                            Text(vm.agentMode ? "Working…" : "Thinking…")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .id("busy")
+                    }
+                    if let err = vm.errorText {
+                        Text(err).font(.caption).foregroundStyle(.red)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .padding(10)
+            }
+            .onChange(of: vm.conversation.turns.last?.content) { _, _ in
+                scrollToBottom(proxy)
+            }
+            // Reveal the new message + the "Working…/Thinking…" indicator as soon
+            // as you send (a new turn appears or running flips on) — no manual
+            // scroll needed.
+            .onChange(of: vm.conversation.turns.count) { _, _ in scrollToBottom(proxy) }
+            .onChange(of: vm.isRunning) { _, running in
+                if running { withAnimation { proxy.scrollTo("busy", anchor: .bottom) } }
+                else { scrollToBottom(proxy) }
+            }
+        }
+    }
+
+    private func scrollToBottom(_ proxy: ScrollViewProxy) {
+        if vm.isRunning {
+            withAnimation { proxy.scrollTo("busy", anchor: .bottom) }
+        } else if let id = vm.conversation.turns.last?.id {
+            withAnimation { proxy.scrollTo(id, anchor: .bottom) }
+        }
+    }
+
+    @ViewBuilder
+    /// Render a chat message as Markdown — bold/italic/code/links/lists/etc.
+    private func bubble(_ turn: Conversation.Turn) -> some View {
+        let isUser = turn.role == .user
+        // While the last assistant turn is still streaming, use the inline-only
+        // fast path (smooth per-token updates); on completion swap to the full
+        // block renderer so code fences / lists / tables / headings render right.
+        let streaming = vm.isRunning && !isUser && turn.id == vm.conversation.turns.last?.id
+        let _ = themeTick
+        let style = MarkdownRenderStyle.resolved(dark: colorScheme == .dark)
+        return VStack(alignment: isUser ? .trailing : .leading, spacing: 3) {
+            HStack(spacing: 0) {
+                if isUser { Spacer(minLength: 16) }
+                Group {
+                    if isUser || streaming {
+                        Text(NativeMarkdownRenderer.attributedString(turn.content, style: style, linkifyWiki: true))
+                            .textSelection(.enabled)
+                    } else {
+                        MarkdownBlocksView(blocks: NativeMarkdownRenderer.blocks(turn.content, style: style, linkifyWiki: true),
+                                           style: style, onOpenWikiLink: onOpenWikiLink)
+                    }
+                }
+                .padding(.horizontal, 9).padding(.vertical, 6)
+                .background(RoundedRectangle(cornerRadius: 10)
+                    .fill(isUser ? Color.accentColor.opacity(0.18) : Color.gray.opacity(0.12)))
+                if !isUser { Spacer(minLength: 16) }
+            }
+            if !isUser, let onInsert, !turn.content.isEmpty, !vm.isRunning {
+                Button {
+                    onInsert(turn.content)
+                } label: { Label("Insert into document", systemImage: "text.insert").font(.caption) }
+                    .buttonStyle(.borderless)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: isUser ? .trailing : .leading)
+    }
+
+    private var composer: some View {
+        // No send button — ⌘↩ sends (Return inserts a newline). The shortcut
+        // lives on a hidden button so removing the visible control keeps it.
+        ZStack(alignment: .topLeading) {
+            if vm.draft.isEmpty {
+                Text((vm.agentMode ? "Ask the assistant to do something… "
+                                   : "Message the assistant… ") + sendHint)
+                    .foregroundStyle(.tertiary)
+                    .padding(.vertical, 2)
+                    .allowsHitTesting(false)
+            }
+            TextEditor(text: $vm.draft)
+                .font(.body)
+                .scrollContentBackground(.hidden)
+                .frame(minHeight: 20, maxHeight: 110)
+                .fixedSize(horizontal: false, vertical: true)
+                .focused($inputFocused)
+                .onKeyPress(phases: .down) { press in
+                    // In send-on-Return mode, a plain Return sends (⇧Return makes
+                    // a newline); otherwise let the editor handle it (⌘Return
+                    // sends via the hidden shortcut button).
+                    guard sendOnReturn, press.key == .return,
+                          press.modifiers.isEmpty, vm.canSend else { return .ignored }
+                    vm.setContext(contextProvider?())
+                    vm.send()
+                    return .handled
+                }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(RoundedRectangle(cornerRadius: 13).fill(Color(nsColor: .textBackgroundColor)))
+        .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(Color.secondary.opacity(0.28)))
+        .padding(8)
+        .background(sendShortcut)
+    }
+
+    private var sendHint: String { sendOnReturn ? "(↩ to send)" : "(⌘↩ to send)" }
+
+    /// Invisible carrier for the ⌘↩ send shortcut.
+    private var sendShortcut: some View {
+        Button("") {
+            guard vm.canSend else { return }
+            vm.setContext(contextProvider?())
+            vm.send()
+        }
+        .keyboardShortcut(.return, modifiers: [.command])
+        .disabled(!vm.canSend)
+        .opacity(0)
+        .frame(width: 0, height: 0)
+        .accessibilityHidden(true)
+    }
+}

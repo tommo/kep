@@ -16,3 +16,6 @@ llm_config.json
 *.outputs.json
 .*.outputs.json
 .*.sheet.json
+
+# irr (MCP semantic index) — local cache, not tracked
+.irr/

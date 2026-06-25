@@ -1,0 +1,144 @@
+import Foundation
+
+/// Centralised UserDefaults key namespace shared between the Preferences UI
+/// (in the Kep executable) and downstream consumers in KepBase /
+/// KepMindMap / KepGenAI. Lives in KepCore so every module can read
+/// the same keys without dragging the app target into their dependency
+/// graph.
+public enum PrefKeys {
+    public static let theme = "kep.prefs.theme"
+    /// App-wide chrome appearance override: "system" | "light" | "dark".
+    public static let appAppearance = "kep.prefs.appAppearance"
+    /// Right-inspector accordion section expansion state.
+    public static let inspectorOutlineExpanded = "kep.prefs.inspectorOutlineExpanded"
+    public static let inspectorLinksExpanded = "kep.prefs.inspectorLinksExpanded"
+    public static let inspectorPropertiesExpanded = "kep.prefs.inspectorPropertiesExpanded"
+    public static let inspectorTagsExpanded = "kep.prefs.inspectorTagsExpanded"
+    /// Saved property/text queries (JSON of [SavedQuery]). Roadmap T4 / #203.
+    public static let savedQueries = "kep.prefs.savedQueries"
+    /// User-customized editor syntax colors (JSON of EditorTheme).
+    public static let editorTheme = "kep.prefs.editorTheme"
+    /// User-customized mind-map canvas colors (JSON of CanvasThemeColors).
+    public static let canvasTheme = "kep.prefs.canvasTheme"
+    /// CSV grid cell font (family empty = system; size clamped 9…16).
+    public static let csvFontFamily = "kep.prefs.csvFontFamily"
+    public static let csvFontSize = "kep.prefs.csvFontSize"
+    /// Enable the external-agent bridge (Unix-socket server for the kep CLI /
+    /// kep-mcp MCP server to drive the running app). Off by default.
+    public static let bridgeEnabled = "kep.prefs.bridge.enabled"
+    /// Highlight the connector route from the root to the selected mind-map node.
+    public static let mindmapHighlightPath = "kep.prefs.mindmapHighlightPath"
+    public static let outlineOpenByDefault = "kep.prefs.outlineOpenByDefault"
+    public static let editorFontSize = "kep.prefs.editorFontSize"
+    /// Show dotfiles + hidden directories in the workspace sidebar.
+    /// Default false — matches Finder. Mirrors mindolph's
+    /// `GENERAL_SHOW_HIDDEN_FILES`.
+    public static let showHiddenFiles = "kep.prefs.showHiddenFiles"
+    /// Strip the trailing extension from file rows in the workspace
+    /// sidebar (e.g. `notes.mmd` → `notes`). Folders + workspaces are
+    /// untouched. Mirrors mindolph's `GENERAL_HIDE_EXTENSION`.
+    public static let hideFileExtensions = "kep.prefs.hideFileExtensions"
+    /// Show a confirmation alert before quitting the app. Default off
+    /// (matches the macOS expectation). Mirrors mindolph's
+    /// `GENERAL_CONFIRM_BEFORE_QUITTING`.
+    public static let confirmBeforeQuit = "kep.prefs.confirmBeforeQuit"
+    /// Reopen the tabs from the previous session on launch (default true).
+    public static let openLastFiles = "kep.prefs.openLastFiles"
+    /// Optional preferred monospaced font family for the markdown /
+    /// plantuml editors. Empty = use the system default monospaced font.
+    public static let editorFontFamily = "kep.prefs.editorFontFamily"
+    /// Markdown preview body (sans) + code (mono) font families. Empty =
+    /// system default. Applied to the preview and HTML/PDF export.
+    public static let markdownPreviewFont = "kep.prefs.markdownPreviewFont"
+    public static let markdownPreviewMonoFont = "kep.prefs.markdownPreviewMonoFont"
+    /// Markdown editor split orientation. true (default) = source on
+    /// the left, preview on the right; false = source on top, preview
+    /// below. Mirrors mindolph's per-editor Orientation pref.
+    /// Whether the sidebar (workspace tree) column is shown. Toggled from
+    /// the View menu (⌃⌘S); persisted so it survives relaunch.
+    public static let sidebarVisible = "kep.prefs.sidebarVisible"
+    /// File-tree sort order (raw value of `SidebarSortMode`).
+    public static let sidebarSortMode = "kep.prefs.sidebarSortMode"
+    /// JSON map of folder path → expanded, for folders the user has toggled,
+    /// so the tree reopens the way it was left. See SidebarExpansionState.
+    public static let sidebarExpansion = "kep.prefs.sidebarExpansion"
+    public static let markdownSplitVertical = "kep.prefs.markdownSplitVertical"
+    /// Markdown view mode — editor / split / preview. Raw value of
+    /// `MarkdownViewMode`. Remembered across launches and documents.
+    public static let markdownViewMode = "kep.prefs.markdownViewMode"
+    /// PlantUML editor split orientation — same semantics as
+    /// `markdownSplitVertical` but for the puml editor's source/preview
+    /// pane.
+    public static let plantumlSplitVertical = "kep.prefs.plantumlSplitVertical"
+    public static let markdownPreviewSyncScroll = "kep.prefs.markdownPreviewSyncScroll"
+    public static let mindmapVerticalGap = "kep.prefs.mindmapVerticalGap"
+    public static let mindmapHorizontalGap = "kep.prefs.mindmapHorizontalGap"
+    public static let aiStreamingEnabled = "kep.prefs.aiStreamingEnabled"
+    public static let autosaveOnBlur = "kep.prefs.autosaveOnBlur"
+    public static let showJumpArrows = "kep.prefs.showJumpArrows"
+    public static let mindmapConnectorStyle = "kep.prefs.mindmapConnectorStyle"
+    public static let mindmapConnectorWidth = "kep.prefs.mindmapConnectorWidth"
+    public static let mindmapInheritFillColor = "kep.prefs.mindmapInheritFillColor"
+    public static let mindmapTrimTopicText = "kep.prefs.mindmapTrimTopicText"
+    /// Show a faint dotted grid behind the mindmap canvas. Default off.
+    /// Mirrors mindolph's MmdPreferencesPane `ckbShowGrid`.
+    public static let mindmapShowGrid = "kep.prefs.mindmapShowGrid"
+    /// Spacing in points between grid lines. Mirrors `spnGridStep`.
+    /// Default 16pt — visible without crowding most reasonable zoom
+    /// levels.
+    public static let mindmapGridStep = "kep.prefs.mindmapGridStep"
+    /// Render a drop shadow under non-root topic boxes. Default on
+    /// (matches mindolph's default + Kep's existing behavior).
+    /// Mirrors `ckbDropShadow` in MmdPreferencesPane.
+    public static let mindmapDropShadow = "kep.prefs.mindmapDropShadow"
+    /// When the user drops a topic onto a collapsed parent, auto-clear
+    /// the parent's `collapsed` attribute so the dropped subtree is
+    /// visible. Default on. Mirrors `ckbUnfoldCollapsedDropTarget`.
+    public static let mindmapUnfoldCollapsedDropTarget = "kep.prefs.mindmapUnfoldCollapsedDropTarget"
+    /// On canvas paste, parse the pasteboard's plain text as an
+    /// indented outline and graft the resulting subtree under the
+    /// selection. Default on. Mirrors `ckbSmartTextPaste`.
+    public static let mindmapSmartTextPaste = "kep.prefs.mindmapSmartTextPaste"
+    /// Override for the topic rectangle corner radius (points). 0 or
+    /// unset = use the theme's value. Mirrors `spnRoundRadius`.
+    public static let mindmapCornerRadius = "kep.prefs.mindmapCornerRadius"
+    /// Topic border stroke width in points. Default 1.0pt (matches
+    /// previous behavior). Mirrors `spnBorderWidth`.
+    public static let mindmapBorderWidth = "kep.prefs.mindmapBorderWidth"
+    /// Optional path to a `dot` binary (Graphviz). When set, kep
+    /// passes it to PlantUML via the GRAPHVIZ_DOT env var so non-
+    /// standard Homebrew prefixes / Nix profiles / portable installs
+    /// still resolve. Mirrors mindolph's `plantuml.dotpath`.
+    public static let plantumlGraphvizPath = "kep.prefs.plantumlGraphvizPath"
+    /// Block remote (http/https) subresource loads — remote images, CSS,
+    /// scripts, tracking pixels — inside the document preview web views
+    /// (markdown / PlantUML / note hover / PDF export). Default ON: a
+    /// local-first app should never silently phone home when you preview a
+    /// note. Turn off only if you deliberately want remote images. Local
+    /// `file:`/`data:` resources always load; the data store is always
+    /// non-persistent regardless of this flag.
+    public static let privacyBlockRemoteContent = "kep.prefs.privacyBlockRemoteContent"
+
+    /// Convenience: pulls a Double from UserDefaults, returning `fallback`
+    /// when the key is unset or stored as a non-positive value.
+    public static func double(_ key: String, fallback: Double) -> Double {
+        let value = UserDefaults.standard.double(forKey: key)
+        return value > 0 ? value : fallback
+    }
+
+    /// Pulls a Bool but treats "key not set yet" as `fallback` rather than
+    /// always returning false.
+    public static func bool(_ key: String, fallback: Bool) -> Bool {
+        if UserDefaults.standard.object(forKey: key) == nil { return fallback }
+        return UserDefaults.standard.bool(forKey: key)
+    }
+
+    /// Pulls a String, returning nil when the key is unset or stored as
+    /// an empty string. Useful for "system default" semantics where
+    /// any value at all means override.
+    public static func string(_ key: String) -> String? {
+        guard let raw = UserDefaults.standard.string(forKey: key) else { return nil }
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+}

@@ -2,6 +2,8 @@
 
 A native macOS port of [Mindolph](https://github.com/mindolph/Mindolph) — personal-knowledge-management with mind maps, markdown, PlantUML, CSV, and multi-provider LLM integration.
 
+![Kep — native macOS personal-knowledge-management](screen.png)
+
 Source-of-truth for behavior parity is the Java original at `../javamind`. See `docs/architecture.md` for the module map.
 
 ## Status

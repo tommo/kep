@@ -250,16 +250,23 @@ struct ContentView: View {
     /// The Links tab: "Linked mentions" — every workspace document that
     /// references the active document via a [[wiki link]], with the context line
     /// of each mention. Click a source to open it.
+    /// Quiet, compact empty-state for an inspector section (ContentUnavailableView
+    /// is full-window-sized and dwarfs the narrow inspector column).
+    private func inspectorEmpty(_ message: String) -> some View {
+        Text(message)
+            .font(.caption).foregroundStyle(.tertiary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(8)
+    }
+
     private var linksInspector: some View {
         let mentions = session.linkedMentions()
         let total = mentions.reduce(0) { $0 + $1.snippets.count }
         return Group {
             if session.activeDocument?.fileURL == nil {
-                ContentUnavailableView("No document", systemImage: "link",
-                                       description: Text("Open a saved document to see what links to it."))
+                inspectorEmpty("Open a saved document to see what links to it.")
             } else if mentions.isEmpty {
-                ContentUnavailableView("No linked mentions", systemImage: "link",
-                                       description: Text("No other document links to this one with [[wiki links]] yet."))
+                inspectorEmpty("Nothing links here with [[wiki links]] yet.")
             } else {
                 List {
                     Section {

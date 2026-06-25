@@ -641,7 +641,10 @@ final class AppSession {
             lastError = "No workspace document matches “\(target)”."
             return
         }
-        open(url: url)
+        // Open in a NEW tab (or focus it if already open) rather than swapping the
+        // current doc out in place — without back/forward history, in-place
+        // navigation would strand you; the tab strip is the navigation history.
+        open(url: url, inNewTab: true)
         // Scroll to the heading, if the link named one and the doc is markdown.
         if let heading, !heading.isEmpty,
            case .text(let text, .markdown)? = activeDocument?.kind,

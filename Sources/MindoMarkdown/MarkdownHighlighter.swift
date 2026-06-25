@@ -126,6 +126,7 @@ public final class MarkdownHighlighter {
     private static let italic    = regex(#"(?<![*_])(\*|_)(?=\S)([^*_]+?)(?<=\S)\1(?![*_])"#)
     private static let code      = regex(#"(`)([^`\n]+)(`)"#)
     private static let url       = regex(#"!?\[[^\]\n]*\](\([^)\n]*\))?"#)
+    private static let wikiLink  = regex(#"\[\[[^\]\n]+\]\]"#)   // [[Target]] — both brackets
 
     /// Apply live styling to the whole `storage`. `activeRange` is the editor's
     /// current selection — markup on the paragraph(s) it touches is shown in
@@ -168,6 +169,11 @@ public final class MarkdownHighlighter {
             markup(m.range(at: 1), m.range(at: 3), in: storage, activePara: activePara)
         }
         enumerate(Self.url, text) { m in
+            storage.addAttributes([.foregroundColor: theme.url.color], range: m.range)
+        }
+        // After the generic link rule, which matches only the inner [..] of a
+        // [[wiki link]] and leaves the trailing ] uncolored — color the whole thing.
+        enumerate(Self.wikiLink, text) { m in
             storage.addAttributes([.foregroundColor: theme.url.color], range: m.range)
         }
         storage.endEditing()

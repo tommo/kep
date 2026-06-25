@@ -131,7 +131,7 @@ public struct OutlinePanel: View {
                         if editingID == item.id {
                             TextField("", text: $editDraft)
                                 .textFieldStyle(.plain)
-                                .font(.system(size: 13))
+                                .font(.system(size: 11))
                                 .focused($editFieldFocused)
                                 .onSubmit { commitEdit(item) }
                                 .onExitCommand { editingID = nil }   // Esc cancels
@@ -140,7 +140,7 @@ public struct OutlinePanel: View {
                                 }
                         } else {
                             Text(item.title)
-                                .font(.system(size: 13))   // match mindmap node text size
+                                .font(.system(size: 11))   // compact outline rows
                                 .lineLimit(1)
                                 .truncationMode(.tail)
                                 // Double-click renames in place (mind maps only —

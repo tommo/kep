@@ -478,6 +478,7 @@ struct ContentView: View {
                     systemPrompt: Self.agentSystemPrompt,
                     contextProvider: { session.aiWorkspaceContextBlock() },
                     onInsert: { session.insertDialogReply($0) },
+                    onOpenWikiLink: { target, heading in session.openWikiLink(target: target, heading: heading) },
                     agentReply: { try await session.agentReply($0) }
                 )
             }

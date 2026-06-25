@@ -19,6 +19,8 @@ public struct DialogView: View {
     private let onInsert: ((String) -> Void)?
     /// Re-read just before each send so the model sees current doc state.
     private let contextProvider: (() -> String?)?
+    /// Open a [[wiki link]] tapped in a rendered assistant reply.
+    private let onOpenWikiLink: ((String, String?) -> Void)?
 
     @FocusState private var inputFocused: Bool
     @Environment(\.openSettings) private var openSettings
@@ -32,11 +34,13 @@ public struct DialogView: View {
     public init(systemPrompt: String = Conversation.defaultSystemPrompt,
                 contextProvider: (() -> String?)? = nil,
                 onInsert: ((String) -> Void)? = nil,
+                onOpenWikiLink: ((String, String?) -> Void)? = nil,
                 agentReply: (([ChatMessage]) async throws -> String)? = nil) {
         _vm = StateObject(wrappedValue: ConversationViewModel(
             systemPrompt: systemPrompt, contextBlock: contextProvider?(), agentReply: agentReply))
         self.contextProvider = contextProvider
         self.onInsert = onInsert
+        self.onOpenWikiLink = onOpenWikiLink
     }
 
     public var body: some View {
@@ -177,11 +181,11 @@ public struct DialogView: View {
                 if isUser { Spacer(minLength: 16) }
                 Group {
                     if isUser || streaming {
-                        Text(NativeMarkdownRenderer.attributedString(turn.content, style: style))
+                        Text(NativeMarkdownRenderer.attributedString(turn.content, style: style, linkifyWiki: true))
                             .textSelection(.enabled)
                     } else {
-                        MarkdownBlocksView(blocks: NativeMarkdownRenderer.blocks(turn.content, style: style),
-                                           style: style)
+                        MarkdownBlocksView(blocks: NativeMarkdownRenderer.blocks(turn.content, style: style, linkifyWiki: true),
+                                           style: style, onOpenWikiLink: onOpenWikiLink)
                     }
                 }
                 .padding(.horizontal, 9).padding(.vertical, 6)

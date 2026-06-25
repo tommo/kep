@@ -99,6 +99,9 @@ public struct MarkdownEditor: NSViewRepresentable {
         )
         if let dropView = textView as? MarkdownDropTextView {
             dropView.wikiLinkCandidates = wikiLinkCandidates
+            dropView.onOpenWikiLink = { [weak coord = context.coordinator] target, heading in
+                coord?.parent.onOpenWikiLink?(target, heading)
+            }
         }
         textView.usesFontPanel = false
         textView.autoresizingMask = [.width]

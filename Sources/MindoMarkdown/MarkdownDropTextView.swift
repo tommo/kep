@@ -13,6 +13,41 @@ public final class MarkdownDropTextView: NSTextView {
     /// when no knowledge-base context is wired up.
     public var wikiLinkCandidates: () -> [String] = { [] }
 
+    /// ⌘-click on a `[[wiki link]]` opens its target. Set by `MarkdownEditor`.
+    public var onOpenWikiLink: ((String, String?) -> Void)?
+
+    /// ⌘-click follows a `[[wiki link]]` under the pointer; a plain click edits.
+    public override func mouseDown(with event: NSEvent) {
+        if event.modifierFlags.contains(.command), let open = onOpenWikiLink {
+            let point = convert(event.locationInWindow, from: nil)
+            let idx = characterIndexForInsertion(at: point)
+            if let link = wikiLink(atCharIndex: idx) {
+                open(link.target, link.heading)
+                return
+            }
+        }
+        super.mouseDown(with: event)
+    }
+
+    /// The `[[target#heading]]` enclosing character index `i` on its line, if any.
+    private func wikiLink(atCharIndex i: Int) -> (target: String, heading: String?)? {
+        let ns = string as NSString
+        guard i >= 0, i <= ns.length else { return nil }
+        let line = ns.lineRange(for: NSRange(location: min(i, max(0, ns.length - 1)), length: 0))
+        let lineText = ns.substring(with: line) as NSString
+        let re = try! NSRegularExpression(pattern: #"\[\[([^\]\n]+)\]\]"#)
+        for m in re.matches(in: lineText as String, range: NSRange(location: 0, length: lineText.length)) {
+            let abs = NSRange(location: line.location + m.range.location, length: m.range.length)
+            guard i >= abs.location, i <= abs.location + abs.length else { continue }
+            let inner = lineText.substring(with: m.range(at: 1))
+            let parts = inner.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false)
+            let target = String(parts[0])
+            let heading = parts.count > 1 && !parts[1].isEmpty ? String(parts[1]) : nil
+            return (target, heading)
+        }
+        return nil
+    }
+
     public override init(frame frameRect: NSRect, textContainer container: NSTextContainer?) {
         super.init(frame: frameRect, textContainer: container)
         commonInit()
